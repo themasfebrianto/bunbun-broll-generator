@@ -1,0 +1,472 @@
+﻿@page "/"
+@rendermode InteractiveServer
+@inject IPipelineOrchestrator Orchestrator
+@inject ILogger<Home> Logger
+@implements IDisposable
+
+<PageTitle>BunBun B-Roll Generator</PageTitle>
+
+<div class="home-container">
+    <!-- Hero Section -->
+    <section class="hero-section animate-fadeIn">
+        <h1 class="hero-title">
+            <span class="gradient-text">AI-Powered</span> B-Roll Generator
+        </h1>
+        <p class="hero-subtitle">
+            Transform your video scripts into perfectly matched stock footage.
+            Powered by Local Gemini AI & Pexels.
+        </p>
+    </section>
+
+    @if (_currentJob == null)
+    {
+        <!-- Input Form -->
+        <section class="input-section card animate-fadeIn">
+            <h2 class="section-title">📝 Enter Your Script</h2>
+            
+            <div class="form-group">
+                <label class="form-label" for="projectName">Project Name</label>
+                <input type="text" 
+                       id="projectName" 
+                       class="form-input" 
+                       @bind="_projectName" 
+                       placeholder="e.g., Yaumi_Feature_Intro" />
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label" for="script">Video Script</label>
+                <textarea id="script" 
+                          class="form-textarea" 
+                          @bind="_scriptText" 
+                          placeholder="Paste your video script here...
+
+Each line or sentence will become a segment.
+The AI will extract keywords and find matching B-Roll footage.
+
+Example:
+Wanita sedang sholat malam di kamar yang tenang.
+Matahari terbit di atas kota yang sibuk.
+Seorang programmer coding di depan laptop."></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label" for="mood">Visual Mood (Optional)</label>
+                <select id="mood" class="form-input" @bind="_selectedMood">
+                    <option value="">Auto-detect</option>
+                    <option value="Cinematic">Cinematic</option>
+                    <option value="Moody">Moody / Dark</option>
+                    <option value="Bright">Bright / Uplifting</option>
+                    <option value="Professional">Professional / Corporate</option>
+                    <option value="Natural">Natural / Documentary</option>
+                </select>
+            </div>
+            
+            <button class="btn btn-primary btn-generate" 
+                    @onclick="StartGeneration" 
+                    disabled="@(!CanGenerate)">
+                @if (_isGenerating)
+                {
+                    <span class="spinner"></span>
+                    <span>Processing...</span>
+                }
+                else
+                {
+                    <span>🚀 Generate B-Roll</span>
+                }
+            </button>
+            
+            @if (!string.IsNullOrEmpty(_errorMessage))
+            {
+                <div class="error-message animate-fadeIn">
+                    ⚠️ @_errorMessage
+                </div>
+            }
+        </section>
+    }
+    else
+    {
+        <!-- Processing View -->
+        <section class="processing-section animate-fadeIn">
+            <!-- Job Header -->
+            <div class="job-header card">
+                <div class="job-info">
+                    <h2>@_currentJob.ProjectName</h2>
+                    <div class="job-meta">
+                        <span class="badge @GetJobStatusClass(_currentJob.Status)">@_currentJob.Status</span>
+                        <span class="job-stat">@_currentJob.CompletedSegments / @_currentJob.TotalSegments segments</span>
+                    </div>
+                </div>
+                
+                <div class="progress-section">
+                    <div class="progress-container">
+                        <div class="progress-bar" style="width: @_currentJob.ProgressPercentage%"></div>
+                    </div>
+                    <span class="progress-text">@_currentJob.ProgressPercentage.ToString("F0")%</span>
+                </div>
+                
+                @if (_currentJob.Status != JobStatus.Processing && _currentJob.Status != JobStatus.Segmenting)
+                {
+                    <button class="btn btn-secondary" @onclick="ResetJob">
+                        ↻ New Job
+                    </button>
+                }
+            </div>
+            
+            <!-- Status Log -->
+            @if (!string.IsNullOrEmpty(_statusMessage))
+            {
+                <div class="status-log card-glass">
+                    <span class="status-icon">💬</span>
+                    <span>@_statusMessage</span>
+                </div>
+            }
+            
+            <!-- Segments List -->
+            <div class="segments-section">
+                <h3 class="section-subtitle">Segments</h3>
+                <div class="segment-list">
+                    @foreach (var segment in _currentJob.Segments)
+                    {
+                        <div class="segment-item animate-slideIn" style="animation-delay: @(segment.Id * 50)ms">
+                            <div class="segment-number">@segment.Id</div>
+                            
+                            <div class="segment-content">
+                                <p class="segment-text" title="@segment.OriginalText">
+                                    @TruncateText(segment.OriginalText, 100)
+                                </p>
+                                
+                                @if (segment.Keywords.Count > 0)
+                                {
+                                    <div class="segment-keywords">
+                                        @foreach (var keyword in segment.Keywords.Take(4))
+                                        {
+                                            <span class="keyword-tag">@keyword</span>
+                                        }
+                                    </div>
+                                }
+                                
+                                @if (segment.SelectedAsset != null && segment.SelectedAsset.IsDownloaded)
+                                {
+                                    <div class="segment-file">
+                                        📁 @Path.GetFileName(segment.SelectedAsset.LocalPath)
+                                    </div>
+                                }
+                                
+                                @if (!string.IsNullOrEmpty(segment.ErrorMessage))
+                                {
+                                    <div class="segment-error">
+                                        ⚠️ @segment.ErrorMessage
+                                    </div>
+                                }
+                            </div>
+                            
+                            <div class="segment-status">
+                                <span class="badge @GetSegmentStatusClass(segment.Status)">
+                                    @GetSegmentStatusIcon(segment.Status) @segment.Status
+                                </span>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+            
+            <!-- Video Previews -->
+            @if (_currentJob.Segments.Any(s => s.SelectedAsset?.ThumbnailUrl != null))
+            {
+                <div class="previews-section">
+                    <h3 class="section-subtitle">Video Previews</h3>
+                    <div class="previews-grid">
+                        @foreach (var segment in _currentJob.Segments.Where(s => s.SelectedAsset?.ThumbnailUrl != null))
+                        {
+                            <div class="video-preview card">
+                                <img src="@segment.SelectedAsset!.ThumbnailUrl" alt="Preview for segment @segment.Id" />
+                                <div class="video-preview-overlay">
+                                    <span class="preview-label">Segment @segment.Id • @segment.SelectedAsset.DurationSeconds s</span>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        </section>
+    }
+</div>
+
+<style>
+    .home-container {
+        max-width: 900px;
+        margin: 0 auto;
+    }
+    
+    .hero-section {
+        text-align: center;
+        padding: 2rem 0 3rem;
+    }
+    
+    .hero-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+        line-height: 1.2;
+    }
+    
+    .gradient-text {
+        background: var(--accent-gradient);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    
+    .hero-subtitle {
+        color: var(--text-secondary);
+        font-size: 1.1rem;
+        max-width: 600px;
+        margin: 0 auto;
+    }
+    
+    .input-section {
+        padding: 2rem;
+    }
+    
+    .section-title {
+        font-size: 1.25rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .btn-generate {
+        width: 100%;
+        padding: 1rem;
+        font-size: 1.1rem;
+        margin-top: 0.5rem;
+    }
+    
+    .error-message {
+        margin-top: 1rem;
+        padding: 1rem;
+        background: rgba(239, 68, 68, 0.1);
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        border-radius: var(--radius-md);
+        color: var(--error);
+    }
+    
+    .processing-section {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+    
+    .job-header {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1.5rem;
+        align-items: center;
+        justify-content: space-between;
+    }
+    
+    .job-info h2 {
+        font-size: 1.25rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .job-meta {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
+    }
+    
+    .job-stat {
+        color: var(--text-muted);
+        font-size: 0.875rem;
+    }
+    
+    .progress-section {
+        flex: 1;
+        min-width: 200px;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    
+    .progress-section .progress-container {
+        flex: 1;
+    }
+    
+    .progress-text {
+        font-weight: 600;
+        color: var(--accent-secondary);
+    }
+    
+    .status-log {
+        padding: 1rem 1.25rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        color: var(--text-secondary);
+    }
+    
+    .status-icon {
+        font-size: 1.25rem;
+    }
+    
+    .section-subtitle {
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        margin-bottom: 1rem;
+    }
+    
+    .segment-file {
+        margin-top: 0.5rem;
+        font-size: 0.8rem;
+        color: var(--success);
+    }
+    
+    .segment-error {
+        margin-top: 0.5rem;
+        font-size: 0.8rem;
+        color: var(--error);
+    }
+    
+    .previews-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 1rem;
+    }
+    
+    .preview-label {
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+    
+    @@media (max-width: 768px) {
+        .hero-title {
+            font-size: 1.75rem;
+        }
+        
+        .job-header {
+            flex-direction: column;
+            align-items: stretch;
+        }
+    }
+</style>
+
+@code {
+    private string _projectName = "";
+    private string _scriptText = "";
+    private string _selectedMood = "";
+    private string _errorMessage = "";
+    private string _statusMessage = "";
+    private bool _isGenerating = false;
+    private ProcessingJob? _currentJob;
+    private CancellationTokenSource? _cts;
+
+    private bool CanGenerate => !_isGenerating 
+        && !string.IsNullOrWhiteSpace(_projectName) 
+        && !string.IsNullOrWhiteSpace(_scriptText);
+
+    protected override void OnInitialized()
+    {
+        Orchestrator.OnSegmentProgress += HandleSegmentProgress;
+        Orchestrator.OnJobProgress += HandleJobProgress;
+    }
+
+    private async Task StartGeneration()
+    {
+        if (!CanGenerate) return;
+
+        _isGenerating = true;
+        _errorMessage = "";
+        _statusMessage = "Initializing...";
+        _cts = new CancellationTokenSource();
+
+        try
+        {
+            _currentJob = new ProcessingJob
+            {
+                ProjectName = _projectName.Trim(),
+                RawScript = _scriptText.Trim(),
+                Mood = string.IsNullOrEmpty(_selectedMood) ? null : _selectedMood
+            };
+
+            StateHasChanged();
+
+            await Orchestrator.ProcessJobAsync(_currentJob, _cts.Token);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Generation failed");
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _isGenerating = false;
+            StateHasChanged();
+        }
+    }
+
+    private void HandleSegmentProgress(object? sender, SegmentProgressEventArgs e)
+    {
+        _statusMessage = $"Segment {e.Segment.Id}: {e.Message}";
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void HandleJobProgress(object? sender, JobProgressEventArgs e)
+    {
+        _statusMessage = e.Message;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void ResetJob()
+    {
+        _currentJob = null;
+        _statusMessage = "";
+        _projectName = "";
+        _scriptText = "";
+        _selectedMood = "";
+    }
+
+    private static string TruncateText(string text, int maxLength)
+    {
+        return text.Length <= maxLength ? text : text[..maxLength] + "...";
+    }
+
+    private static string GetJobStatusClass(JobStatus status) => status switch
+    {
+        JobStatus.Created => "badge-pending",
+        JobStatus.Segmenting or JobStatus.Processing => "badge-processing",
+        JobStatus.Completed => "badge-completed",
+        JobStatus.PartiallyCompleted => "badge-warning",
+        JobStatus.Failed => "badge-failed",
+        _ => "badge-pending"
+    };
+
+    private static string GetSegmentStatusClass(SegmentStatus status) => status switch
+    {
+        SegmentStatus.Pending => "badge-pending",
+        SegmentStatus.ExtractingKeywords or SegmentStatus.SearchingAssets or SegmentStatus.Downloading => "badge-processing",
+        SegmentStatus.Completed => "badge-completed",
+        SegmentStatus.NoResults => "badge-warning",
+        SegmentStatus.Failed => "badge-failed",
+        _ => "badge-pending"
+    };
+
+    private static string GetSegmentStatusIcon(SegmentStatus status) => status switch
+    {
+        SegmentStatus.Pending => "⏳",
+        SegmentStatus.ExtractingKeywords => "🧠",
+        SegmentStatus.SearchingAssets => "🔍",
+        SegmentStatus.Downloading => "⬇️",
+        SegmentStatus.Completed => "✅",
+        SegmentStatus.NoResults => "⚠️",
+        SegmentStatus.Failed => "❌",
+        _ => "⏳"
+    };
+
+    public void Dispose()
+    {
+        Orchestrator.OnSegmentProgress -= HandleSegmentProgress;
+        Orchestrator.OnJobProgress -= HandleJobProgress;
+        _cts?.Cancel();
+        _cts?.Dispose();
+    }
+}

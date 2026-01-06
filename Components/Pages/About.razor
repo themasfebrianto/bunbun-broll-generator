@@ -1,0 +1,229 @@
+@page "/about"
+
+<PageTitle>About - BunBun B-Roll Generator</PageTitle>
+
+<div class="about-container animate-fadeIn">
+    <section class="about-hero">
+        <h1>About <span class="gradient-text">BunBun B-Roll</span></h1>
+        <p class="about-tagline">
+            An AI-powered automation engine for video content creators
+        </p>
+    </section>
+    
+    <section class="features-section">
+        <h2>🎯 How It Works</h2>
+        
+        <div class="pipeline-steps">
+            <div class="pipeline-step card">
+                <div class="step-number">1</div>
+                <h3>📝 Script Input</h3>
+                <p>
+                    Paste your video script. The system automatically segments it 
+                    into individual scenes based on sentences and paragraphs.
+                </p>
+            </div>
+            
+            <div class="pipeline-connector">→</div>
+            
+            <div class="pipeline-step card">
+                <div class="step-number">2</div>
+                <h3>🧠 AI Analysis</h3>
+                <p>
+                    Local Gemini 2.5 Flash extracts visual keywords from each segment,
+                    translating and optimizing for stock footage search.
+                </p>
+            </div>
+            
+            <div class="pipeline-connector">→</div>
+            
+            <div class="pipeline-step card">
+                <div class="step-number">3</div>
+                <h3>🔍 Asset Search</h3>
+                <p>
+                    Keywords are used to search Pexels API with smart filters:
+                    landscape orientation, 5-30s duration, HD quality.
+                </p>
+            </div>
+            
+            <div class="pipeline-connector">→</div>
+            
+            <div class="pipeline-step card">
+                <div class="step-number">4</div>
+                <h3>⬇️ Download</h3>
+                <p>
+                    Selected videos are streamed to disk with organized naming:
+                    <code>/ProjectName/01_keyword.mp4</code>
+                </p>
+            </div>
+        </div>
+    </section>
+    
+    <section class="tech-stack card">
+        <h2>⚡ Tech Stack</h2>
+        <div class="tech-grid">
+            <div class="tech-item">
+                <span class="tech-icon">🎨</span>
+                <span class="tech-name">.NET 8 Blazor Server</span>
+            </div>
+            <div class="tech-item">
+                <span class="tech-icon">🤖</span>
+                <span class="tech-name">Local Gemini 2.5 Flash</span>
+            </div>
+            <div class="tech-item">
+                <span class="tech-icon">📹</span>
+                <span class="tech-name">Pexels Video API</span>
+            </div>
+            <div class="tech-item">
+                <span class="tech-icon">🔄</span>
+                <span class="tech-name">Polly Retry Policies</span>
+            </div>
+        </div>
+    </section>
+    
+    <section class="config-section card">
+        <h2>⚙️ Configuration</h2>
+        <p>
+            Configure the app via <code>appsettings.json</code>:
+        </p>
+        <pre class="config-preview"><code>{
+  "Gemini": {
+    "BaseUrl": "http://127.0.0.1:8317",
+    "Model": "gemini-2.5-flash"
+  },
+  "Pexels": {
+    "ApiKey": "YOUR_PEXELS_API_KEY"
+  },
+  "Downloader": {
+    "OutputDirectory": "Broll_Workspace"
+  }
+}</code></pre>
+    </section>
+</div>
+
+<style>
+    .about-container {
+        max-width: 900px;
+        margin: 0 auto;
+    }
+    
+    .about-hero {
+        text-align: center;
+        padding: 2rem 0 3rem;
+    }
+    
+    .about-hero h1 {
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+    }
+    
+    .about-tagline {
+        color: var(--text-secondary);
+        font-size: 1.1rem;
+    }
+    
+    .features-section h2,
+    .tech-stack h2,
+    .config-section h2 {
+        font-size: 1.25rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .pipeline-steps {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .pipeline-step {
+        flex: 1;
+        min-width: 180px;
+        max-width: 200px;
+        text-align: center;
+        padding: 1.5rem 1rem;
+    }
+    
+    .step-number {
+        width: 40px;
+        height: 40px;
+        background: var(--accent-gradient);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        margin: 0 auto 1rem;
+    }
+    
+    .pipeline-step h3 {
+        font-size: 1rem;
+        margin-bottom: 0.75rem;
+    }
+    
+    .pipeline-step p {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+    }
+    
+    .pipeline-connector {
+        color: var(--accent-secondary);
+        font-size: 1.5rem;
+    }
+    
+    .tech-stack,
+    .config-section {
+        margin-top: 2rem;
+        padding: 2rem;
+    }
+    
+    .tech-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+    }
+    
+    .tech-item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.75rem;
+        background: var(--bg-tertiary);
+        border-radius: var(--radius-md);
+    }
+    
+    .tech-icon {
+        font-size: 1.5rem;
+    }
+    
+    .tech-name {
+        font-weight: 500;
+    }
+    
+    .config-section p {
+        color: var(--text-secondary);
+        margin-bottom: 1rem;
+    }
+    
+    .config-preview {
+        background: var(--bg-tertiary);
+        padding: 1rem;
+        border-radius: var(--radius-md);
+        overflow-x: auto;
+    }
+    
+    .config-preview code {
+        color: var(--accent-secondary);
+        font-size: 0.85rem;
+    }
+    
+    @@media (max-width: 768px) {
+        .pipeline-connector {
+            display: none;
+        }
+        
+        .pipeline-step {
+            max-width: 100%;
+        }
+    }
+</style>
