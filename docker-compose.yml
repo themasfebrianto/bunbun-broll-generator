@@ -11,3 +11,10 @@ services:
       - ./appsettings.Production.json:/app/appsettings.Production.json:ro
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
+      # Authentication credentials
+      - Auth__Email=${AUTH_EMAIL}
+      - Auth__Password=${AUTH_PASSWORD}
+      # API Keys
+      - Pexels__ApiKey=${PEXELS_API_KEY}
+      - Pixabay__ApiKey=${PIXABAY_API_KEY}
+      - Gemini__ApiKey=${GEMINI_API_KEY}

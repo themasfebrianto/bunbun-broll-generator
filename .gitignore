@@ -89,6 +89,15 @@ secrets.json
 *.pfx
 *.key
 
+# Environment variables (contains secrets!)
+.env
+.env.local
+.env.production
+
+# Production config with secrets (use .env instead)
+appsettings.Production.json
+appsettings.Development.json
+
 # =========================
 # Testing & Coverage
 # =========================
