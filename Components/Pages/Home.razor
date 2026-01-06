@@ -14,7 +14,7 @@
         </h1>
         <p class="hero-subtitle">
             Transform your video scripts into perfectly matched stock footage.
-            Powered by Local Gemini AI & Pexels.
+            Smart per-sentence B-Roll matching powered by Local Gemini AI & Pexels.
         </p>
     </section>
 
@@ -40,13 +40,15 @@
                           @bind="_scriptText" 
                           placeholder="Paste your video script here...
 
-Each line or sentence will become a segment.
-The AI will extract keywords and find matching B-Roll footage.
+Each sentence gets its own matched B-Roll clip.
+Separate scenes with blank lines.
 
 Example:
-Wanita sedang sholat malam di kamar yang tenang.
-Matahari terbit di atas kota yang sibuk.
-Seorang programmer coding di depan laptop."></textarea>
+Kadang, membuka mata di pagi hari terasa sebagai beban terberat.
+Langit-langit kamar seolah menatap balik.
+
+Di luar sana, dunia bergerak terlalu cepat.
+Suara klakson dan kerumunan orang di stasiun."></textarea>
             </div>
             
             <div class="form-group">
@@ -87,13 +89,14 @@ Seorang programmer coding di depan laptop."></textarea>
     {
         <!-- Processing View -->
         <section class="processing-section animate-fadeIn">
-            <!-- Job Header -->
+            <!-- Job Header with Stats -->
             <div class="job-header card">
                 <div class="job-info">
                     <h2>@_currentJob.ProjectName</h2>
                     <div class="job-meta">
                         <span class="badge @GetJobStatusClass(_currentJob.Status)">@_currentJob.Status</span>
-                        <span class="job-stat">@_currentJob.CompletedSegments / @_currentJob.TotalSegments segments</span>
+                        <span class="job-stat">@_currentJob.TotalSentences sentences</span>
+                        <span class="job-stat">~@_currentJob.EstimatedDurationFormatted</span>
                     </div>
                 </div>
                 
@@ -112,6 +115,31 @@ Seorang programmer coding di depan laptop."></textarea>
                 }
             </div>
             
+            <!-- Duration Stats -->
+            @if (_currentJob.TotalActualDuration > 0)
+            {
+                <div class="stats-bar card-glass">
+                    <div class="stat-item">
+                        <span class="stat-label">Coverage</span>
+                        <span class="stat-value @(_currentJob.DurationCoverage >= 80 ? "text-success" : "text-warning")">
+                            @_currentJob.DurationCoverage.ToString("F0")%
+                        </span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">B-Roll Duration</span>
+                        <span class="stat-value">@_currentJob.ActualDurationFormatted</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Target</span>
+                        <span class="stat-value">@_currentJob.EstimatedDurationFormatted</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Words</span>
+                        <span class="stat-value">@_currentJob.TotalWordCount</span>
+                    </div>
+                </div>
+            }
+            
             <!-- Status Log -->
             @if (!string.IsNullOrEmpty(_statusMessage))
             {
@@ -121,67 +149,148 @@ Seorang programmer coding di depan laptop."></textarea>
                 </div>
             }
             
-            <!-- Segments List -->
+            <!-- Segments with Sentences -->
             <div class="segments-section">
-                <h3 class="section-subtitle">Segments</h3>
-                <div class="segment-list">
-                    @foreach (var segment in _currentJob.Segments)
-                    {
-                        <div class="segment-item animate-slideIn" style="animation-delay: @(segment.Id * 50)ms">
-                            <div class="segment-number">@segment.Id</div>
-                            
-                            <div class="segment-content">
-                                <p class="segment-text" title="@segment.OriginalText">
-                                    @TruncateText(segment.OriginalText, 100)
-                                </p>
-                                
-                                @if (segment.Keywords.Count > 0)
-                                {
-                                    <div class="segment-keywords">
-                                        @foreach (var keyword in segment.Keywords.Take(4))
-                                        {
-                                            <span class="keyword-tag">@keyword</span>
-                                        }
-                                    </div>
-                                }
-                                
-                                @if (segment.SelectedAsset != null && segment.SelectedAsset.IsDownloaded)
-                                {
-                                    <div class="segment-file">
-                                        📁 @Path.GetFileName(segment.SelectedAsset.LocalPath)
-                                    </div>
-                                }
-                                
-                                @if (!string.IsNullOrEmpty(segment.ErrorMessage))
-                                {
-                                    <div class="segment-error">
-                                        ⚠️ @segment.ErrorMessage
-                                    </div>
-                                }
-                            </div>
-                            
-                            <div class="segment-status">
+                @foreach (var segment in _currentJob.Segments)
+                {
+                    <div class="segment-card card animate-fadeIn">
+                        <div class="segment-header">
+                            <h3 class="segment-title">@segment.Title</h3>
+                            <div class="segment-meta">
                                 <span class="badge @GetSegmentStatusClass(segment.Status)">
-                                    @GetSegmentStatusIcon(segment.Status) @segment.Status
+                                    @segment.CompletedSentences/@segment.Sentences.Count
                                 </span>
+                                <span class="coverage-badge">@segment.DurationCoverage.ToString("F0")% coverage</span>
                             </div>
                         </div>
-                    }
-                </div>
+                        
+                        <!-- Sentences in this segment -->
+                        <div class="sentence-list">
+                            @foreach (var sentence in segment.Sentences)
+                            {
+                                <div class="sentence-item @GetSentenceItemClass(sentence.Status)">
+                                    <div class="sentence-number">@sentence.Id</div>
+                                    
+                                    <div class="sentence-content">
+                                        <p class="sentence-text">@sentence.Text</p>
+                                        
+                                        @if (sentence.Keywords.Count > 0)
+                                        {
+                                            <div class="sentence-keywords">
+                                                @foreach (var keyword in sentence.Keywords.Take(4))
+                                                {
+                                                    <span class="keyword-tag">@keyword</span>
+                                                }
+                                            </div>
+                                        }
+                                        
+                                        <div class="sentence-meta">
+                                            <span class="duration-tag">
+                                                ~@sentence.EstimatedDurationSeconds.ToString("F1")s needed
+                                            </span>
+                                            @if (sentence.BRollClip != null)
+                                            {
+                                                <span class="clip-tag">
+                                                    📹 @sentence.BRollClip.DurationSeconds s clip
+                                                </span>
+                                            }
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="sentence-status">
+                                        <span class="status-icon-sm">@GetSentenceStatusIcon(sentence.Status)</span>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
             </div>
             
-            <!-- Video Previews -->
-            @if (_currentJob.Segments.Any(s => s.SelectedAsset?.ThumbnailUrl != null))
+            <!-- Video Player -->
+            @if (GetAllSentencesWithClips().Count > 0)
             {
-                <div class="previews-section">
-                    <h3 class="section-subtitle">Video Previews</h3>
-                    <div class="previews-grid">
-                        @foreach (var segment in _currentJob.Segments.Where(s => s.SelectedAsset?.ThumbnailUrl != null))
+                <div class="video-player-section card">
+                    <div class="player-header">
+                        <h3 class="section-subtitle">🎬 B-Roll Sequence (@GetAllSentencesWithClips().Count clips)</h3>
+                        <div class="player-controls-header">
+                            <span class="video-counter">
+                                @(_currentVideoIndex + 1) / @GetAllSentencesWithClips().Count
+                            </span>
+                            <button class="btn btn-secondary btn-sm" @onclick="PlayAllVideos" disabled="@_isPlayingAll">
+                                @(_isPlayingAll ? "⏸ Playing..." : "▶ Play All")
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Video Player -->
+                    <div class="main-player">
+                        @if (GetCurrentSentenceWithClip() is { } currentSentence)
                         {
-                            <div class="video-preview card">
-                                <img src="@segment.SelectedAsset!.ThumbnailUrl" alt="Preview for segment @segment.Id" />
-                                <div class="video-preview-overlay">
-                                    <span class="preview-label">Segment @segment.Id • @segment.SelectedAsset.DurationSeconds s</span>
+                            <div class="video-wrapper">
+                                <video @key="currentSentence.Id"
+                                       class="main-video"
+                                       controls
+                                       autoplay="@_isPlayingAll"
+                                       @onended="OnVideoEnded">
+                                    <source src="@currentSentence.BRollClip!.DownloadUrl" type="video/mp4" />
+                                </video>
+                                <div class="video-info-overlay">
+                                    <span class="segment-badge">Sentence @currentSentence.Id</span>
+                                    <span class="duration-badge">@currentSentence.BRollClip!.DurationSeconds s</span>
+                                </div>
+                            </div>
+                            
+                            <div class="current-segment-info">
+                                <p class="segment-script">@currentSentence.Text</p>
+                                <div class="sentence-keywords">
+                                    @foreach (var keyword in currentSentence.Keywords.Take(5))
+                                    {
+                                        <span class="keyword-tag">@keyword</span>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                    
+                    <!-- Navigation -->
+                    <div class="player-navigation">
+                        <button class="btn btn-secondary btn-nav" @onclick="PreviousVideo" disabled="@(_currentVideoIndex <= 0)">
+                            ⬅ Previous
+                        </button>
+                        
+                        <div class="video-progress-dots">
+                            @for (int i = 0; i < Math.Min(GetAllSentencesWithClips().Count, 20); i++)
+                            {
+                                var index = i;
+                                <button class="dot @(i == _currentVideoIndex ? "active" : "")" 
+                                        @onclick="() => GoToVideo(index)">
+                                </button>
+                            }
+                            @if (GetAllSentencesWithClips().Count > 20)
+                            {
+                                <span class="more-dots">+@(GetAllSentencesWithClips().Count - 20)</span>
+                            }
+                        </div>
+                        
+                        <button class="btn btn-secondary btn-nav" @onclick="NextVideo" 
+                                disabled="@(_currentVideoIndex >= GetAllSentencesWithClips().Count - 1)">
+                            Next ➡
+                        </button>
+                    </div>
+                    
+                    <!-- Thumbnail Strip -->
+                    <div class="thumbnail-strip">
+                        @for (int i = 0; i < GetAllSentencesWithClips().Count; i++)
+                        {
+                            var sentences = GetAllSentencesWithClips();
+                            var sentence = sentences[i];
+                            var index = i;
+                            <div class="thumbnail-item @(i == _currentVideoIndex ? "active" : "")"
+                                 @onclick="() => GoToVideo(index)">
+                                <img src="@sentence.BRollClip!.ThumbnailUrl" alt="Sentence @sentence.Id" />
+                                <div class="thumbnail-overlay">
+                                    <span class="thumb-number">@sentence.Id</span>
                                 </div>
                             </div>
                         }
@@ -193,160 +302,99 @@ Seorang programmer coding di depan laptop."></textarea>
 </div>
 
 <style>
-    .home-container {
-        max-width: 900px;
-        margin: 0 auto;
-    }
+    .home-container { max-width: 1000px; margin: 0 auto; }
     
-    .hero-section {
-        text-align: center;
-        padding: 2rem 0 3rem;
-    }
+    .hero-section { text-align: center; padding: 2rem 0 3rem; }
+    .hero-title { font-size: 2.5rem; font-weight: 700; margin-bottom: 1rem; }
+    .gradient-text { background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .hero-subtitle { color: var(--text-secondary); font-size: 1.1rem; max-width: 600px; margin: 0 auto; }
     
-    .hero-title {
-        font-size: 2.5rem;
-        font-weight: 700;
-        margin-bottom: 1rem;
-        line-height: 1.2;
-    }
+    .input-section { padding: 2rem; }
+    .section-title { font-size: 1.25rem; margin-bottom: 1.5rem; }
+    .btn-generate { width: 100%; padding: 1rem; font-size: 1.1rem; margin-top: 0.5rem; }
+    .error-message { margin-top: 1rem; padding: 1rem; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--radius-md); color: var(--error); }
     
-    .gradient-text {
-        background: var(--accent-gradient);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-    }
+    .processing-section { display: flex; flex-direction: column; gap: 1.5rem; }
     
-    .hero-subtitle {
-        color: var(--text-secondary);
-        font-size: 1.1rem;
-        max-width: 600px;
-        margin: 0 auto;
-    }
+    .job-header { display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: center; justify-content: space-between; }
+    .job-info h2 { font-size: 1.25rem; margin-bottom: 0.5rem; }
+    .job-meta { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+    .job-stat { color: var(--text-muted); font-size: 0.875rem; }
+    .progress-section { flex: 1; min-width: 200px; display: flex; align-items: center; gap: 1rem; }
+    .progress-section .progress-container { flex: 1; }
+    .progress-text { font-weight: 600; color: var(--accent-secondary); }
     
-    .input-section {
-        padding: 2rem;
-    }
+    .stats-bar { display: flex; flex-wrap: wrap; gap: 2rem; padding: 1rem 1.5rem; justify-content: center; }
+    .stat-item { text-align: center; }
+    .stat-label { display: block; font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; }
+    .stat-value { font-size: 1.25rem; font-weight: 700; }
+    .text-success { color: var(--success); }
+    .text-warning { color: var(--warning); }
     
-    .section-title {
-        font-size: 1.25rem;
-        margin-bottom: 1.5rem;
-    }
+    .status-log { padding: 1rem 1.25rem; display: flex; align-items: center; gap: 0.75rem; color: var(--text-secondary); }
+    .status-icon { font-size: 1.25rem; }
     
-    .btn-generate {
-        width: 100%;
-        padding: 1rem;
-        font-size: 1.1rem;
-        margin-top: 0.5rem;
-    }
+    .segment-card { margin-bottom: 1rem; }
+    .segment-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.1); }
+    .segment-title { font-size: 1rem; font-weight: 600; margin: 0; }
+    .segment-meta { display: flex; gap: 0.75rem; align-items: center; }
+    .coverage-badge { font-size: 0.75rem; color: var(--text-muted); }
     
-    .error-message {
-        margin-top: 1rem;
-        padding: 1rem;
-        background: rgba(239, 68, 68, 0.1);
-        border: 1px solid rgba(239, 68, 68, 0.3);
-        border-radius: var(--radius-md);
-        color: var(--error);
-    }
+    .sentence-list { display: flex; flex-direction: column; gap: 0.75rem; }
+    .sentence-item { display: grid; grid-template-columns: auto 1fr auto; gap: 1rem; align-items: flex-start; padding: 0.75rem; background: var(--bg-tertiary); border-radius: var(--radius-sm); border-left: 3px solid transparent; transition: all var(--transition-fast); }
+    .sentence-item.pending { border-left-color: var(--text-muted); opacity: 0.7; }
+    .sentence-item.processing { border-left-color: var(--info); animation: pulse-bg 1.5s infinite; }
+    .sentence-item.completed { border-left-color: var(--success); }
+    .sentence-item.failed { border-left-color: var(--error); }
     
-    .processing-section {
-        display: flex;
-        flex-direction: column;
-        gap: 1.5rem;
-    }
+    @@keyframes pulse-bg { 0%, 100% { background: var(--bg-tertiary); } 50% { background: rgba(59, 130, 246, 0.1); } }
     
-    .job-header {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 1.5rem;
-        align-items: center;
-        justify-content: space-between;
-    }
+    .sentence-number { width: 28px; height: 28px; background: var(--bg-card); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 600; color: var(--accent-secondary); }
+    .sentence-text { font-size: 0.9rem; line-height: 1.5; margin-bottom: 0.5rem; }
+    .sentence-keywords { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-bottom: 0.25rem; }
+    .sentence-meta { display: flex; gap: 0.75rem; font-size: 0.75rem; color: var(--text-muted); }
+    .duration-tag, .clip-tag { display: inline-flex; align-items: center; gap: 0.25rem; }
+    .status-icon-sm { font-size: 1.25rem; }
     
-    .job-info h2 {
-        font-size: 1.25rem;
-        margin-bottom: 0.5rem;
-    }
+    /* Video Player */
+    .video-player-section { padding: 1.5rem; }
+    .player-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+    .player-header .section-subtitle { margin-bottom: 0; font-size: 1rem; font-weight: 600; color: var(--text-secondary); }
+    .player-controls-header { display: flex; align-items: center; gap: 1rem; }
+    .video-counter { font-size: 0.9rem; color: var(--text-secondary); }
+    .btn-sm { padding: 0.5rem 1rem; font-size: 0.875rem; }
     
-    .job-meta {
-        display: flex;
-        gap: 1rem;
-        align-items: center;
-    }
+    .main-player { margin-bottom: 1.5rem; }
+    .video-wrapper { position: relative; border-radius: var(--radius-lg); overflow: hidden; background: var(--bg-tertiary); }
+    .main-video { width: 100%; aspect-ratio: 16/9; background: #000; display: block; }
+    .video-info-overlay { position: absolute; top: 1rem; left: 1rem; display: flex; gap: 0.5rem; }
+    .segment-badge, .duration-badge { padding: 0.25rem 0.75rem; background: rgba(0, 0, 0, 0.7); border-radius: 9999px; font-size: 0.75rem; font-weight: 600; color: white; }
+    .segment-badge { background: var(--accent-gradient); }
+    .current-segment-info { margin-top: 1rem; padding: 1rem; background: var(--bg-tertiary); border-radius: var(--radius-md); }
+    .segment-script { font-size: 0.9rem; line-height: 1.6; margin-bottom: 0.5rem; }
     
-    .job-stat {
-        color: var(--text-muted);
-        font-size: 0.875rem;
-    }
+    .player-navigation { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; }
+    .btn-nav { min-width: 100px; }
+    .video-progress-dots { display: flex; gap: 0.35rem; flex-wrap: wrap; justify-content: center; align-items: center; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--bg-tertiary); border: 2px solid rgba(255, 255, 255, 0.2); cursor: pointer; transition: all var(--transition-fast); padding: 0; }
+    .dot:hover { border-color: var(--accent-secondary); }
+    .dot.active { background: var(--accent-primary); border-color: var(--accent-primary); transform: scale(1.3); }
+    .more-dots { font-size: 0.75rem; color: var(--text-muted); }
     
-    .progress-section {
-        flex: 1;
-        min-width: 200px;
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-    }
-    
-    .progress-section .progress-container {
-        flex: 1;
-    }
-    
-    .progress-text {
-        font-weight: 600;
-        color: var(--accent-secondary);
-    }
-    
-    .status-log {
-        padding: 1rem 1.25rem;
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        color: var(--text-secondary);
-    }
-    
-    .status-icon {
-        font-size: 1.25rem;
-    }
-    
-    .section-subtitle {
-        font-size: 1rem;
-        font-weight: 600;
-        color: var(--text-secondary);
-        margin-bottom: 1rem;
-    }
-    
-    .segment-file {
-        margin-top: 0.5rem;
-        font-size: 0.8rem;
-        color: var(--success);
-    }
-    
-    .segment-error {
-        margin-top: 0.5rem;
-        font-size: 0.8rem;
-        color: var(--error);
-    }
-    
-    .previews-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-        gap: 1rem;
-    }
-    
-    .preview-label {
-        font-size: 0.8rem;
-        font-weight: 500;
-    }
+    .thumbnail-strip { display: flex; gap: 0.5rem; overflow-x: auto; padding: 0.5rem 0; }
+    .thumbnail-item { flex-shrink: 0; width: 100px; aspect-ratio: 16/9; border-radius: var(--radius-sm); overflow: hidden; cursor: pointer; position: relative; border: 2px solid transparent; transition: all var(--transition-fast); }
+    .thumbnail-item:hover { border-color: var(--accent-secondary); }
+    .thumbnail-item.active { border-color: var(--accent-primary); box-shadow: 0 0 15px rgba(124, 58, 237, 0.4); }
+    .thumbnail-item img { width: 100%; height: 100%; object-fit: cover; }
+    .thumbnail-overlay { position: absolute; bottom: 0; left: 0; right: 0; padding: 0.25rem 0.5rem; background: linear-gradient(to top, rgba(0,0,0,0.8), transparent); }
+    .thumb-number { font-size: 0.65rem; font-weight: 700; color: white; }
     
     @@media (max-width: 768px) {
-        .hero-title {
-            font-size: 1.75rem;
-        }
-        
-        .job-header {
-            flex-direction: column;
-            align-items: stretch;
-        }
+        .hero-title { font-size: 1.75rem; }
+        .job-header { flex-direction: column; align-items: stretch; }
+        .stats-bar { gap: 1rem; }
+        .player-navigation { flex-direction: column; }
+        .btn-nav { width: 100%; }
     }
 </style>
 
@@ -359,6 +407,10 @@ Seorang programmer coding di depan laptop."></textarea>
     private bool _isGenerating = false;
     private ProcessingJob? _currentJob;
     private CancellationTokenSource? _cts;
+    
+    // Video player state
+    private int _currentVideoIndex = 0;
+    private bool _isPlayingAll = false;
 
     private bool CanGenerate => !_isGenerating 
         && !string.IsNullOrWhiteSpace(_projectName) 
@@ -366,6 +418,7 @@ Seorang programmer coding di depan laptop."></textarea>
 
     protected override void OnInitialized()
     {
+        Orchestrator.OnSentenceProgress += HandleSentenceProgress;
         Orchestrator.OnSegmentProgress += HandleSegmentProgress;
         Orchestrator.OnJobProgress += HandleJobProgress;
     }
@@ -377,6 +430,7 @@ Seorang programmer coding di depan laptop."></textarea>
         _isGenerating = true;
         _errorMessage = "";
         _statusMessage = "Initializing...";
+        _currentVideoIndex = 0;
         _cts = new CancellationTokenSource();
 
         try
@@ -389,7 +443,6 @@ Seorang programmer coding di depan laptop."></textarea>
             };
 
             StateHasChanged();
-
             await Orchestrator.ProcessJobAsync(_currentJob, _cts.Token);
         }
         catch (Exception ex)
@@ -404,9 +457,15 @@ Seorang programmer coding di depan laptop."></textarea>
         }
     }
 
+    private void HandleSentenceProgress(object? sender, SentenceProgressEventArgs e)
+    {
+        _statusMessage = $"[{e.Sentence.Id}] {e.Message}";
+        InvokeAsync(StateHasChanged);
+    }
+
     private void HandleSegmentProgress(object? sender, SegmentProgressEventArgs e)
     {
-        _statusMessage = $"Segment {e.Segment.Id}: {e.Message}";
+        _statusMessage = e.Message;
         InvokeAsync(StateHasChanged);
     }
 
@@ -423,12 +482,83 @@ Seorang programmer coding di depan laptop."></textarea>
         _projectName = "";
         _scriptText = "";
         _selectedMood = "";
+        _currentVideoIndex = 0;
+        _isPlayingAll = false;
     }
 
-    private static string TruncateText(string text, int maxLength)
+    // Helper methods for video player
+    private List<ScriptSentence> GetAllSentencesWithClips()
     {
-        return text.Length <= maxLength ? text : text[..maxLength] + "...";
+        if (_currentJob == null) return new List<ScriptSentence>();
+        
+        return _currentJob.Segments
+            .SelectMany(s => s.Sentences)
+            .Where(s => s.BRollClip?.DownloadUrl != null)
+            .OrderBy(s => s.Id)
+            .ToList();
     }
+
+    private ScriptSentence? GetCurrentSentenceWithClip()
+    {
+        var sentences = GetAllSentencesWithClips();
+        if (sentences.Count == 0 || _currentVideoIndex >= sentences.Count)
+            return null;
+        return sentences[_currentVideoIndex];
+    }
+
+    // Video player controls
+    private void PlayAllVideos()
+    {
+        _currentVideoIndex = 0;
+        _isPlayingAll = true;
+        StateHasChanged();
+    }
+
+    private void NextVideo()
+    {
+        var count = GetAllSentencesWithClips().Count;
+        if (_currentVideoIndex < count - 1)
+        {
+            _currentVideoIndex++;
+            StateHasChanged();
+        }
+    }
+
+    private void PreviousVideo()
+    {
+        if (_currentVideoIndex > 0)
+        {
+            _currentVideoIndex--;
+            StateHasChanged();
+        }
+    }
+
+    private void GoToVideo(int index)
+    {
+        _currentVideoIndex = index;
+        _isPlayingAll = false;
+        StateHasChanged();
+    }
+
+    private void OnVideoEnded()
+    {
+        if (!_isPlayingAll) return;
+        
+        var count = GetAllSentencesWithClips().Count;
+        if (_currentVideoIndex < count - 1)
+        {
+            _currentVideoIndex++;
+            StateHasChanged();
+        }
+        else
+        {
+            _isPlayingAll = false;
+            StateHasChanged();
+        }
+    }
+
+    private static string TruncateText(string text, int maxLength) 
+        => text.Length <= maxLength ? text : text[..maxLength] + "...";
 
     private static string GetJobStatusClass(JobStatus status) => status switch
     {
@@ -443,27 +573,37 @@ Seorang programmer coding di depan laptop."></textarea>
     private static string GetSegmentStatusClass(SegmentStatus status) => status switch
     {
         SegmentStatus.Pending => "badge-pending",
-        SegmentStatus.ExtractingKeywords or SegmentStatus.SearchingAssets or SegmentStatus.Downloading => "badge-processing",
+        SegmentStatus.Processing => "badge-processing",
         SegmentStatus.Completed => "badge-completed",
-        SegmentStatus.NoResults => "badge-warning",
+        SegmentStatus.PartiallyCompleted => "badge-warning",
         SegmentStatus.Failed => "badge-failed",
         _ => "badge-pending"
     };
 
-    private static string GetSegmentStatusIcon(SegmentStatus status) => status switch
+    private static string GetSentenceItemClass(SentenceStatus status) => status switch
     {
-        SegmentStatus.Pending => "⏳",
-        SegmentStatus.ExtractingKeywords => "🧠",
-        SegmentStatus.SearchingAssets => "🔍",
-        SegmentStatus.Downloading => "⬇️",
-        SegmentStatus.Completed => "✅",
-        SegmentStatus.NoResults => "⚠️",
-        SegmentStatus.Failed => "❌",
+        SentenceStatus.Pending => "pending",
+        SentenceStatus.ExtractingKeywords or SentenceStatus.SearchingBRoll or SentenceStatus.Downloading => "processing",
+        SentenceStatus.Completed => "completed",
+        SentenceStatus.Failed or SentenceStatus.NoResults => "failed",
+        _ => "pending"
+    };
+
+    private static string GetSentenceStatusIcon(SentenceStatus status) => status switch
+    {
+        SentenceStatus.Pending => "⏳",
+        SentenceStatus.ExtractingKeywords => "🧠",
+        SentenceStatus.SearchingBRoll => "🔍",
+        SentenceStatus.Downloading => "⬇️",
+        SentenceStatus.Completed => "✅",
+        SentenceStatus.NoResults => "⚠️",
+        SentenceStatus.Failed => "❌",
         _ => "⏳"
     };
 
     public void Dispose()
     {
+        Orchestrator.OnSentenceProgress -= HandleSentenceProgress;
         Orchestrator.OnSegmentProgress -= HandleSegmentProgress;
         Orchestrator.OnJobProgress -= HandleJobProgress;
         _cts?.Cancel();

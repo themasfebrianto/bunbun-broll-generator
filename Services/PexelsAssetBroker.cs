@@ -5,13 +5,15 @@ using Microsoft.Extensions.Options;
 namespace BunBunBroll.Services;
 
 /// <summary>
-/// Asset Broker - Searches Pexels API for stock videos with quality filtering.
+/// Asset Broker - Searches Pexels API for stock videos with smart duration filtering.
 /// </summary>
 public interface IAssetBroker
 {
     Task<List<VideoAsset>> SearchVideosAsync(
         IEnumerable<string> keywords, 
         int maxResults = 3,
+        int? minDuration = null,
+        int? maxDuration = null,
         CancellationToken cancellationToken = default);
 }
 
@@ -21,10 +23,10 @@ public class PexelsAssetBroker : IAssetBroker
     private readonly ILogger<PexelsAssetBroker> _logger;
     private readonly PexelsSettings _settings;
 
-    // Filter constants from the context.md spec
-    private const int MinDuration = 5;
-    private const int MaxDuration = 30;
-    private static readonly string[] PreferredQualities = { "hd", "sd" }; // Avoid 4K (too large)
+    // Default filter constants
+    private const int DefaultMinDuration = 3;
+    private const int DefaultMaxDuration = 60;
+    private static readonly string[] PreferredQualities = { "hd", "sd" };
     private const int MinWidth = 1280;  // HD-Ready minimum
 
     public PexelsAssetBroker(
@@ -40,16 +42,21 @@ public class PexelsAssetBroker : IAssetBroker
     public async Task<List<VideoAsset>> SearchVideosAsync(
         IEnumerable<string> keywords, 
         int maxResults = 3,
+        int? minDuration = null,
+        int? maxDuration = null,
         CancellationToken cancellationToken = default)
     {
         var assets = new List<VideoAsset>();
         var keywordList = keywords.ToList();
+        
+        var minDur = minDuration ?? DefaultMinDuration;
+        var maxDur = maxDuration ?? DefaultMaxDuration;
 
         foreach (var keyword in keywordList)
         {
             try
             {
-                var videos = await SearchSingleKeywordAsync(keyword, cancellationToken);
+                var videos = await SearchSingleKeywordAsync(keyword, minDur, maxDur, cancellationToken);
                 assets.AddRange(videos);
 
                 // Stop if we have enough
@@ -71,13 +78,15 @@ public class PexelsAssetBroker : IAssetBroker
     }
 
     private async Task<List<VideoAsset>> SearchSingleKeywordAsync(
-        string keyword, 
+        string keyword,
+        int minDuration,
+        int maxDuration,
         CancellationToken cancellationToken)
     {
         var query = Uri.EscapeDataString(keyword);
-        var url = $"videos/search?query={query}&orientation=landscape&size=medium&per_page=10";
+        var url = $"videos/search?query={query}&orientation=landscape&size=medium&per_page=15";
 
-        _logger.LogDebug("Searching Pexels: {Query}", keyword);
+        _logger.LogDebug("Searching Pexels: {Query} (duration: {Min}-{Max}s)", keyword, minDuration, maxDuration);
 
         var response = await _httpClient.GetAsync(url, cancellationToken);
         response.EnsureSuccessStatusCode();
@@ -95,7 +104,7 @@ public class PexelsAssetBroker : IAssetBroker
         foreach (var video in pexelsResponse.Videos)
         {
             // Apply duration filter
-            if (video.Duration < MinDuration || video.Duration > MaxDuration)
+            if (video.Duration < minDuration || video.Duration > maxDuration)
                 continue;
 
             // Find the best video file (prefer HD, avoid 4K)
@@ -104,8 +113,17 @@ public class PexelsAssetBroker : IAssetBroker
                 .Where(f => PreferredQualities.Contains(f.Quality.ToLower()))
                 .Where(f => f.Width >= MinWidth)
                 .OrderByDescending(f => f.Width)
-                .ThenBy(f => f.Quality == "hd" ? 0 : 1) // Prefer HD over SD
+                .ThenBy(f => f.Quality == "hd" ? 0 : 1)
                 .FirstOrDefault();
+
+            // Fallback: accept any MP4 if no HD found
+            if (bestFile == null)
+            {
+                bestFile = video.VideoFiles
+                    .Where(f => f.FileType == "video/mp4")
+                    .OrderByDescending(f => f.Width)
+                    .FirstOrDefault();
+            }
 
             if (bestFile == null)
                 continue;
@@ -125,7 +143,8 @@ public class PexelsAssetBroker : IAssetBroker
             });
         }
 
-        _logger.LogInformation("Found {Count} suitable videos for: {Keyword}", assets.Count, keyword);
+        _logger.LogInformation("Found {Count} videos for: {Keyword} (target: {Min}-{Max}s)", 
+            assets.Count, keyword, minDuration, maxDuration);
         return assets;
     }
 }

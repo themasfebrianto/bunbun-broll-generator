@@ -3,10 +3,11 @@ using BunBunBroll.Models;
 namespace BunBunBroll.Services;
 
 /// <summary>
-/// Pipeline Orchestrator - Coordinates all services to process a complete B-Roll job.
+/// Pipeline Orchestrator - Coordinates all services to process B-Roll per sentence.
 /// </summary>
 public interface IPipelineOrchestrator
 {
+    event EventHandler<SentenceProgressEventArgs>? OnSentenceProgress;
     event EventHandler<SegmentProgressEventArgs>? OnSegmentProgress;
     event EventHandler<JobProgressEventArgs>? OnJobProgress;
     
@@ -21,6 +22,7 @@ public class PipelineOrchestrator : IPipelineOrchestrator
     private readonly IDownloaderService _downloaderService;
     private readonly ILogger<PipelineOrchestrator> _logger;
 
+    public event EventHandler<SentenceProgressEventArgs>? OnSentenceProgress;
     public event EventHandler<SegmentProgressEventArgs>? OnSegmentProgress;
     public event EventHandler<JobProgressEventArgs>? OnJobProgress;
 
@@ -46,7 +48,7 @@ public class PipelineOrchestrator : IPipelineOrchestrator
         {
             // Step 1: Segmentation
             job.Status = JobStatus.Segmenting;
-            RaiseJobProgress(job, "Segmenting script...");
+            RaiseJobProgress(job, "Segmenting script into sentences...");
             
             job.Segments = _scriptProcessor.SegmentScript(job.RawScript);
             
@@ -57,7 +59,10 @@ public class PipelineOrchestrator : IPipelineOrchestrator
                 return job;
             }
 
-            _logger.LogInformation("Created {Count} segments", job.Segments.Count);
+            _logger.LogInformation("Created {Segments} segments with {Sentences} sentences", 
+                job.Segments.Count, job.TotalSentences);
+            
+            RaiseJobProgress(job, $"Found {job.TotalSentences} sentences. Estimated duration: {job.EstimatedDurationFormatted}");
 
             // Step 2: Process each segment
             job.Status = JobStatus.Processing;
@@ -77,12 +82,16 @@ public class PipelineOrchestrator : IPipelineOrchestrator
             // Final status
             job.CompletedAt = DateTime.UtcNow;
             
-            if (job.FailedSegments == job.TotalSegments)
+            var totalSentences = job.TotalSentences;
+            var completedSentences = job.CompletedSentences;
+            var failedSentences = job.FailedSentences;
+            
+            if (completedSentences == 0)
             {
                 job.Status = JobStatus.Failed;
-                job.ErrorMessage = "All segments failed to process";
+                job.ErrorMessage = "All sentences failed to process";
             }
-            else if (job.FailedSegments > 0)
+            else if (failedSentences > 0)
             {
                 job.Status = JobStatus.PartiallyCompleted;
             }
@@ -91,8 +100,9 @@ public class PipelineOrchestrator : IPipelineOrchestrator
                 job.Status = JobStatus.Completed;
             }
 
-            RaiseJobProgress(job, $"Job completed: {job.CompletedSegments}/{job.TotalSegments} segments");
-            _logger.LogInformation("Job {JobId} completed with status: {Status}", job.Id, job.Status);
+            RaiseJobProgress(job, $"Job completed: {completedSentences}/{totalSentences} sentences. Coverage: {job.DurationCoverage:F0}%");
+            _logger.LogInformation("Job {JobId} completed: {Status}, Duration: {Actual}/{Estimated}", 
+                job.Id, job.Status, job.ActualDurationFormatted, job.EstimatedDurationFormatted);
 
             return job;
         }
@@ -107,119 +117,172 @@ public class PipelineOrchestrator : IPipelineOrchestrator
 
     private async Task ProcessSegmentAsync(ProcessingJob job, ScriptSegment segment, CancellationToken cancellationToken)
     {
+        segment.Status = SegmentStatus.Processing;
+        RaiseSegmentProgress(job, segment, $"Processing segment: {segment.Title}");
+        
+        foreach (var sentence in segment.Sentences)
+        {
+            if (cancellationToken.IsCancellationRequested)
+                break;
+                
+            await ProcessSentenceAsync(job, segment, sentence, cancellationToken);
+        }
+        
+        // Update segment status
+        segment.ProcessedAt = DateTime.UtcNow;
+        
+        if (segment.FailedSentences == segment.Sentences.Count)
+        {
+            segment.Status = SegmentStatus.Failed;
+        }
+        else if (segment.FailedSentences > 0)
+        {
+            segment.Status = SegmentStatus.PartiallyCompleted;
+        }
+        else
+        {
+            segment.Status = SegmentStatus.Completed;
+        }
+        
+        RaiseSegmentProgress(job, segment, 
+            $"Segment completed: {segment.CompletedSentences}/{segment.Sentences.Count} sentences, {segment.DurationCoverage:F0}% coverage");
+    }
+
+    private async Task ProcessSentenceAsync(
+        ProcessingJob job, 
+        ScriptSegment segment, 
+        ScriptSentence sentence, 
+        CancellationToken cancellationToken)
+    {
         try
         {
-            // Step 2a: Extract keywords with AI
-            segment.Status = SegmentStatus.ExtractingKeywords;
-            RaiseSegmentProgress(job, segment, "Extracting keywords with AI...");
+            _logger.LogDebug("Processing sentence {Id}: {Text}", sentence.Id, sentence.Text[..Math.Min(50, sentence.Text.Length)]);
+            
+            // Step 1: Extract keywords for this specific sentence
+            sentence.Status = SentenceStatus.ExtractingKeywords;
+            RaiseSentenceProgress(job, segment, sentence, "Extracting keywords...");
 
             var keywordResult = await _intelligenceService.ExtractKeywordsAsync(
-                segment.OriginalText, 
+                sentence.Text, 
                 job.Mood, 
                 cancellationToken);
 
             if (!keywordResult.Success || keywordResult.Keywords.Count == 0)
             {
-                // Fallback: Use simple word extraction
-                _logger.LogWarning("AI extraction failed for segment {Id}, using fallback", segment.Id);
-                segment.Keywords = ExtractFallbackKeywords(segment.OriginalText);
+                _logger.LogWarning("AI extraction failed for sentence {Id}, using fallback", sentence.Id);
+                sentence.Keywords = ExtractFallbackKeywords(sentence.Text);
             }
             else
             {
-                segment.Keywords = keywordResult.Keywords;
+                sentence.Keywords = keywordResult.Keywords;
             }
 
-            _logger.LogDebug("Segment {Id} keywords: {Keywords}", segment.Id, string.Join(", ", segment.Keywords));
-
-            // Step 2b: Search for assets
-            segment.Status = SegmentStatus.SearchingAssets;
-            RaiseSegmentProgress(job, segment, $"Searching videos for: {string.Join(", ", segment.Keywords.Take(2))}...");
-
-            var assets = await _assetBroker.SearchVideosAsync(segment.Keywords, maxResults: 3, cancellationToken);
-
-            if (assets.Count == 0)
+            if (sentence.Keywords.Count == 0)
             {
-                // Fallback: Try broader keywords
-                _logger.LogWarning("No assets found for segment {Id}, trying broader search", segment.Id);
-                
-                var broaderKeywords = await GetBroaderKeywordsAsync(segment.OriginalText, cancellationToken);
-                assets = await _assetBroker.SearchVideosAsync(broaderKeywords, maxResults: 3, cancellationToken);
-            }
-
-            if (assets.Count == 0)
-            {
-                segment.Status = SegmentStatus.NoResults;
-                segment.ErrorMessage = "No suitable videos found";
-                segment.ProcessedAt = DateTime.UtcNow;
-                RaiseSegmentProgress(job, segment, "No videos found");
+                sentence.Status = SentenceStatus.Failed;
+                sentence.ErrorMessage = "Could not extract keywords";
                 return;
             }
 
-            // Step 2c: Download primary asset
-            segment.Status = SegmentStatus.Downloading;
-            segment.SelectedAsset = assets[0];
-            segment.AlternativeAssets = assets.Skip(1).ToList();
-            
-            RaiseSegmentProgress(job, segment, "Downloading video...");
+            _logger.LogDebug("Sentence {Id} keywords: {Keywords}", sentence.Id, string.Join(", ", sentence.Keywords));
 
-            var keywordSlug = string.Join("_", segment.Keywords.Take(2))
+            // Step 2: Search for B-Roll
+            sentence.Status = SentenceStatus.SearchingBRoll;
+            RaiseSentenceProgress(job, segment, sentence, $"Searching: {string.Join(", ", sentence.Keywords.Take(2))}...");
+
+            // Target duration for this sentence
+            var targetDuration = (int)Math.Ceiling(sentence.EstimatedDurationSeconds);
+            
+            var assets = await _assetBroker.SearchVideosAsync(
+                sentence.Keywords, 
+                maxResults: 3, 
+                minDuration: Math.Max(3, targetDuration - 5),
+                maxDuration: targetDuration + 10,
+                cancellationToken: cancellationToken);
+
+            if (assets.Count == 0)
+            {
+                // Fallback: Try broader search without duration filter
+                _logger.LogWarning("No assets found for sentence {Id}, trying broader search", sentence.Id);
+                assets = await _assetBroker.SearchVideosAsync(
+                    sentence.Keywords, 
+                    maxResults: 3,
+                    cancellationToken: cancellationToken);
+            }
+
+            if (assets.Count == 0)
+            {
+                sentence.Status = SentenceStatus.NoResults;
+                sentence.ErrorMessage = "No suitable videos found";
+                RaiseSentenceProgress(job, segment, sentence, "No B-Roll found");
+                return;
+            }
+
+            // Select best match (prefer closest to target duration)
+            var bestAsset = assets
+                .OrderBy(a => Math.Abs(a.DurationSeconds - targetDuration))
+                .First();
+
+            // Step 3: Download B-Roll
+            sentence.Status = SentenceStatus.Downloading;
+            sentence.BRollClip = bestAsset;
+            
+            RaiseSentenceProgress(job, segment, sentence, $"Downloading {bestAsset.DurationSeconds}s clip...");
+
+            var keywordSlug = string.Join("_", sentence.Keywords.Take(2))
                 .ToLower()
                 .Replace(" ", "_");
 
             var localPath = await _downloaderService.DownloadVideoAsync(
-                segment.SelectedAsset,
+                bestAsset,
                 job.ProjectName,
-                segment.Id,
+                sentence.Id,
                 keywordSlug,
                 cancellationToken);
 
             if (localPath != null)
             {
-                segment.SelectedAsset.LocalPath = localPath;
-                segment.Status = SegmentStatus.Completed;
-                segment.ProcessedAt = DateTime.UtcNow;
-                RaiseSegmentProgress(job, segment, "Completed!");
+                sentence.BRollClip.LocalPath = localPath;
+                sentence.Status = SentenceStatus.Completed;
+                RaiseSentenceProgress(job, segment, sentence, 
+                    $"✓ {bestAsset.DurationSeconds}s clip ({sentence.DurationCoverage:F0}% coverage)");
             }
             else
             {
-                segment.Status = SegmentStatus.Failed;
-                segment.ErrorMessage = "Download failed";
-                RaiseSegmentProgress(job, segment, "Download failed");
+                sentence.Status = SentenceStatus.Failed;
+                sentence.ErrorMessage = "Download failed";
+                RaiseSentenceProgress(job, segment, sentence, "Download failed");
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to process segment {Id}", segment.Id);
-            segment.Status = SegmentStatus.Failed;
-            segment.ErrorMessage = ex.Message;
-            segment.ProcessedAt = DateTime.UtcNow;
-            RaiseSegmentProgress(job, segment, $"Error: {ex.Message}");
+            _logger.LogError(ex, "Failed to process sentence {Id}", sentence.Id);
+            sentence.Status = SentenceStatus.Failed;
+            sentence.ErrorMessage = ex.Message;
+            RaiseSentenceProgress(job, segment, sentence, $"Error: {ex.Message}");
         }
-    }
-
-    private async Task<List<string>> GetBroaderKeywordsAsync(string text, CancellationToken cancellationToken)
-    {
-        // Ask AI for broader keywords
-        var result = await _intelligenceService.ExtractKeywordsAsync(
-            $"Give me very generic, simple keywords for this (single words preferred): {text}",
-            null,
-            cancellationToken);
-
-        return result.Success ? result.Keywords : ExtractFallbackKeywords(text);
     }
 
     private List<string> ExtractFallbackKeywords(string text)
     {
-        // Simple fallback: extract nouns and key words
-        var stopWords = new HashSet<string> { "the", "a", "an", "in", "on", "at", "to", "for", "of", "and", "or", "is", "are", "was", "were" };
+        var stopWords = new HashSet<string> { 
+            "the", "a", "an", "in", "on", "at", "to", "for", "of", "and", "or", 
+            "is", "are", "was", "were", "yang", "di", "ke", "dari", "dan", "atau",
+            "ini", "itu", "dengan", "untuk", "pada", "ada", "tidak", "akan", "sudah"
+        };
         
         return text
             .Split(' ', StringSplitOptions.RemoveEmptyEntries)
             .Select(w => w.Trim().ToLower())
             .Where(w => w.Length > 3)
             .Where(w => !stopWords.Contains(w))
-            .Take(3)
+            .Take(4)
             .ToList();
+    }
+
+    private void RaiseSentenceProgress(ProcessingJob job, ScriptSegment segment, ScriptSentence sentence, string message)
+    {
+        OnSentenceProgress?.Invoke(this, new SentenceProgressEventArgs(job, segment, sentence, message));
     }
 
     private void RaiseSegmentProgress(ProcessingJob job, ScriptSegment segment, string message)
@@ -230,6 +293,22 @@ public class PipelineOrchestrator : IPipelineOrchestrator
     private void RaiseJobProgress(ProcessingJob job, string message)
     {
         OnJobProgress?.Invoke(this, new JobProgressEventArgs(job, message));
+    }
+}
+
+public class SentenceProgressEventArgs : EventArgs
+{
+    public ProcessingJob Job { get; }
+    public ScriptSegment Segment { get; }
+    public ScriptSentence Sentence { get; }
+    public string Message { get; }
+
+    public SentenceProgressEventArgs(ProcessingJob job, ScriptSegment segment, ScriptSentence sentence, string message)
+    {
+        Job = job;
+        Segment = segment;
+        Sentence = sentence;
+        Message = message;
     }
 }
 
