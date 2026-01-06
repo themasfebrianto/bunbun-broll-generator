@@ -111,18 +111,26 @@ public class PipelineOrchestrator : IPipelineOrchestrator
         }
     }
 
+    // Max concurrent sentence processing (balance speed vs API rate limits)
+    private const int MaxConcurrentSentences = 4;
+
     private async Task SearchSegmentPreviewsAsync(ProcessingJob job, ScriptSegment segment, CancellationToken cancellationToken)
     {
         segment.Status = SegmentStatus.Processing;
-        RaiseSegmentProgress(job, segment, $"Searching segment: {segment.Title}");
+        RaiseSegmentProgress(job, segment, $"Searching segment: {segment.Title} ({segment.Sentences.Count} sentences, {MaxConcurrentSentences} parallel)");
         
-        foreach (var sentence in segment.Sentences)
-        {
-            if (cancellationToken.IsCancellationRequested)
-                break;
-                
-            await SearchSentencePreviewAsync(job, segment, sentence, cancellationToken);
-        }
+        // Process sentences in PARALLEL batches for speed
+        await Parallel.ForEachAsync(
+            segment.Sentences,
+            new ParallelOptions 
+            { 
+                MaxDegreeOfParallelism = MaxConcurrentSentences,
+                CancellationToken = cancellationToken 
+            },
+            async (sentence, ct) =>
+            {
+                await SearchSentencePreviewAsync(job, segment, sentence, ct);
+            });
         
         segment.ProcessedAt = DateTime.UtcNow;
         segment.Status = SegmentStatus.Completed;

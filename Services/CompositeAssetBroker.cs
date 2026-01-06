@@ -108,35 +108,39 @@ public class CompositeAssetBroker : IAssetBroker
     {
         var assets = new List<VideoAsset>();
 
-        // Try Pexels first
+        // Search both sources in PARALLEL for speed
+        var pexelsTask = SafeSearchAsync(
+            () => _pexelsBroker.SearchVideosAsync(keywords, maxResults, minDuration, maxDuration, cancellationToken),
+            "Pexels", keywords);
+        
+        var pixabayTask = SafeSearchAsync(
+            () => _pixabayBroker.SearchVideosAsync(keywords, maxResults, minDuration, maxDuration, cancellationToken),
+            "Pixabay", keywords);
+
+        // Wait for both to complete
+        await Task.WhenAll(pexelsTask, pixabayTask);
+
+        // Combine results
+        assets.AddRange(await pexelsTask);
+        assets.AddRange(await pixabayTask);
+
+        return assets;
+    }
+
+    private async Task<List<VideoAsset>> SafeSearchAsync(
+        Func<Task<List<VideoAsset>>> searchFunc,
+        string providerName,
+        List<string> keywords)
+    {
         try
         {
-            var pexelsResults = await _pexelsBroker.SearchVideosAsync(
-                keywords, maxResults, minDuration, maxDuration, cancellationToken);
-            assets.AddRange(pexelsResults);
+            return await searchFunc();
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Pexels search failed for: {Keywords}", string.Join(", ", keywords));
+            _logger.LogWarning(ex, "{Provider} search failed for: {Keywords}", providerName, string.Join(", ", keywords));
+            return new List<VideoAsset>();
         }
-
-        // If not enough, try Pixabay
-        if (assets.Count < maxResults)
-        {
-            try
-            {
-                var needed = maxResults - assets.Count;
-                var pixabayResults = await _pixabayBroker.SearchVideosAsync(
-                    keywords, needed, minDuration, maxDuration, cancellationToken);
-                assets.AddRange(pixabayResults);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Pixabay search failed for: {Keywords}", string.Join(", ", keywords));
-            }
-        }
-
-        return assets;
     }
 
     private static List<string> GetRandomFallbacks(int count)

@@ -5,6 +5,7 @@
 @inject IHalalVideoFilter HalalFilter
 @inject IProjectService ProjectService
 @inject ILogger<Home> Logger
+@inject IJSRuntime JS
 @implements IDisposable
 
 <PageTitle>Sequence Generator</PageTitle>
@@ -121,8 +122,9 @@
                         </div>
                     </div>
 
+                    <!-- Direct CDN Download Buttons -->
                     <button class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground shadow hover:bg-primary/90 h-11 px-8 w-full"
-                            @onclick="DownloadAll" 
+                            @onclick="DownloadAllDirect" 
                             disabled="@(_isDownloading || _currentJob.PreviewReadySentences == 0)">
                         @if (_isDownloading)
                         {
@@ -130,8 +132,20 @@
                               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
+                            <span>Downloading...</span>
                         }
-                        Process Assets
+                        else
+                        {
+                            <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                            <span>Download All (@_currentJob.PreviewReadySentences)</span>
+                        }
+                    </button>
+                    
+                    <button class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 w-full"
+                            @onclick="ExportDownloadLinks"
+                            disabled="@(_currentJob.PreviewReadySentences == 0)">
+                        <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16c0 1.1.9 2 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/><path d="M14 3v5h5M16 13H8M16 17H8M10 9H8"/></svg>
+                        Export Links (.txt)
                     </button>
                     
                     <button class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 w-full"
@@ -140,7 +154,7 @@
                         Save Project
                     </button>
 
-                    <p class="text-center text-[10px] text-muted-foreground">@_currentJob.DownloadedSentences / @_currentJob.TotalSentences download complete</p>
+                    <p class="text-center text-[10px] text-muted-foreground">Downloads directly from CDN (fast!)</p>
                 </div>
 
                 <!-- Feed Content -->
@@ -216,16 +230,13 @@
                                                                     @onclick="() => ResearchSentence(sentence)">
                                                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.85.99 6.57 2.57L21 8M21 3v5h-5"/></svg>
                                                             </button>
-                                                            @if (!sentence.IsDownloaded)
+                                                            @if (sentence.SelectedVideo != null)
                                                             {
                                                                 <button class="inline-flex items-center justify-center rounded-md text-[10px] font-semibold h-7 px-3 border border-input opacity-70 hover:opacity-100 transition-opacity"
-                                                                        @onclick="() => DownloadSingle(sentence)">
-                                                                    Capture
+                                                                        @onclick="() => DownloadSingleDirect(sentence)">
+                                                                    <svg class="mr-1 h-3 w-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                                                    Download
                                                                 </button>
-                                                            }
-                                                            else
-                                                            {
-                                                                <span class="text-[9px] font-bold text-success px-3 uppercase tracking-tighter">Verified</span>
                                                             }
                                                         </div>
                                                     </div>
@@ -391,28 +402,156 @@
         }
     }
 
-    private async Task DownloadSingle(ScriptSentence sentence)
+    /// <summary>
+    /// Generate sanitized filename: ProjectTitle_01_keyword.mp4
+    /// </summary>
+    private string GenerateFileName(int index, ScriptSentence sentence)
     {
-        if (_currentJob == null) return;
-        await Orchestrator.DownloadSentenceAsync(_currentJob, sentence, _cts?.Token ?? default);
-        StateHasChanged();
+        var projectSlug = SanitizeForFilename(_currentJob?.ProjectName ?? "project");
+        var keyword = sentence.Keywords.FirstOrDefault() ?? "clip";
+        var keywordSlug = SanitizeForFilename(keyword);
+        return $"{projectSlug}_{index:D2}_{keywordSlug}.mp4";
     }
 
-    private async Task DownloadAll()
+    private static string SanitizeForFilename(string input)
+    {
+        var invalid = Path.GetInvalidFileNameChars();
+        var sanitized = new string(input
+            .Replace(' ', '_')
+            .Where(c => !invalid.Contains(c))
+            .ToArray())
+            .ToLower();
+        return sanitized.Length > 30 ? sanitized[..30] : sanitized;
+    }
+
+    /// <summary>
+    /// Download a single video directly from CDN
+    /// </summary>
+    private async Task DownloadSingleDirect(ScriptSentence sentence)
+    {
+        if (_currentJob == null || sentence.SelectedVideo == null) return;
+
+        // Find the sentence index
+        var index = 1;
+        foreach (var s in _currentJob.Segments.SelectMany(seg => seg.Sentences))
+        {
+            if (s.Id == sentence.Id) break;
+            if (s.SelectedVideo != null) index++;
+        }
+
+        var filename = GenerateFileName(index, sentence);
+        
+        try
+        {
+            await JS.InvokeVoidAsync("triggerDownload", sentence.SelectedVideo.DownloadUrl, filename);
+            _statusMessage = $"Downloading: {filename}";
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Single download failed");
+            _statusMessage = $"Download error: {ex.Message}";
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>
+    /// Download all videos directly from CDN via browser
+    /// </summary>
+    private async Task DownloadAllDirect()
     {
         if (_currentJob == null) return;
         _isDownloading = true;
         StateHasChanged();
+
+        try
+        {
+            var downloads = GetDownloadList();
+            
+            if (downloads.Count == 0)
+            {
+                _statusMessage = "No videos to download";
+                return;
+            }
+
+            _statusMessage = $"Starting {downloads.Count} downloads...";
+            StateHasChanged();
+
+            // Trigger downloads with delay to avoid browser blocking
+            foreach (var (url, filename, index) in downloads)
+            {
+                await JS.InvokeVoidAsync("triggerDownload", url, filename);
+                await Task.Delay(500); // Small delay between downloads
+                _statusMessage = $"Downloading {index}/{downloads.Count}: {filename}";
+                StateHasChanged();
+            }
+
+            _statusMessage = $"✓ {downloads.Count} downloads started! Check your Downloads folder.";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Download failed");
+            _statusMessage = $"Download error: {ex.Message}";
+        }
+        finally
+        {
+            _isDownloading = false;
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>
+    /// Export all download links as a text file
+    /// </summary>
+    private async Task ExportDownloadLinks()
+    {
+        if (_currentJob == null) return;
+
+        var downloads = GetDownloadList();
+        if (downloads.Count == 0)
+        {
+            _statusMessage = "No videos to export";
+            return;
+        }
+
+        var projectSlug = SanitizeForFilename(_currentJob.ProjectName);
+        var content = $"# {_currentJob.ProjectName} - B-Roll Download Links\n";
+        content += $"# Generated: {DateTime.Now:yyyy-MM-dd HH:mm}\n";
+        content += $"# Total: {downloads.Count} videos\n\n";
+        content += "# Format: filename | url\n\n";
+
+        foreach (var (url, filename, _) in downloads)
+        {
+            content += $"{filename}\n{url}\n\n";
+        }
+
+        // Download as text file
+        var bytes = System.Text.Encoding.UTF8.GetBytes(content);
+        var base64 = Convert.ToBase64String(bytes);
+        await JS.InvokeVoidAsync("downloadFile", $"{projectSlug}_links.txt", base64, "text/plain");
         
+        _statusMessage = $"Exported {downloads.Count} links to {projectSlug}_links.txt";
+        StateHasChanged();
+    }
+
+    private List<(string Url, string Filename, int Index)> GetDownloadList()
+    {
+        if (_currentJob == null) return new();
+
+        var index = 1;
+        var downloads = new List<(string, string, int)>();
+
         foreach (var sentence in _currentJob.Segments.SelectMany(s => s.Sentences))
         {
-            if (sentence.SelectedVideo != null && !sentence.IsDownloaded)
-                sentence.IsApproved = true;
+            if (sentence.SelectedVideo != null)
+            {
+                var filename = GenerateFileName(index, sentence);
+                downloads.Add((sentence.SelectedVideo.DownloadUrl, filename, index));
+                index++;
+            }
         }
-        
-        await Orchestrator.DownloadApprovedAsync(_currentJob, _cts?.Token ?? default);
-        _isDownloading = false;
-        StateHasChanged();
+
+        return downloads;
     }
 
     private void ResetJob()
