@@ -12,6 +12,7 @@ builder.Services.AddRazorComponents()
 // Configure settings from appsettings.json
 builder.Services.Configure<GeminiSettings>(builder.Configuration.GetSection("Gemini"));
 builder.Services.Configure<PexelsSettings>(builder.Configuration.GetSection("Pexels"));
+builder.Services.Configure<PixabaySettings>(builder.Configuration.GetSection("Pixabay"));
 builder.Services.Configure<DownloaderSettings>(builder.Configuration.GetSection("Downloader"));
 
 // Register core services
@@ -29,13 +30,24 @@ builder.Services.AddHttpClient<IIntelligenceService, IntelligenceService>((sp, c
 .AddPolicyHandler(GetRetryPolicy());
 
 // Configure HttpClient for Pexels API
-builder.Services.AddHttpClient<IAssetBroker, PexelsAssetBroker>((sp, client) =>
+builder.Services.AddHttpClient<PexelsAssetBroker>((sp, client) =>
 {
     var settings = builder.Configuration.GetSection("Pexels").Get<PexelsSettings>()!;
     client.BaseAddress = new Uri(settings.BaseUrl);
     client.DefaultRequestHeaders.Add("Authorization", settings.ApiKey);
 })
 .AddPolicyHandler(GetRetryPolicy());
+
+// Configure HttpClient for Pixabay API
+builder.Services.AddHttpClient<PixabayAssetBroker>((sp, client) =>
+{
+    var settings = builder.Configuration.GetSection("Pixabay").Get<PixabaySettings>()!;
+    client.BaseAddress = new Uri(settings.BaseUrl);
+})
+.AddPolicyHandler(GetRetryPolicy());
+
+// Register Composite Asset Broker (combines Pexels + Pixabay)
+builder.Services.AddScoped<IAssetBroker, CompositeAssetBroker>();
 
 // Configure HttpClient for Downloader (generic, no auth)
 builder.Services.AddHttpClient<IDownloaderService, DownloaderService>()
