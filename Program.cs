@@ -19,8 +19,9 @@ builder.Services.AddSingleton<CustomAuthStateProvider>();
 builder.Services.AddSingleton<AuthenticationStateProvider>(sp => sp.GetRequiredService<CustomAuthStateProvider>());
 
 // Configure SQLite
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=bunbun.db";
 builder.Services.AddDbContext<AppDbContext>(options => 
-    options.UseSqlite("Data Source=bunbun.db"));
+    options.UseSqlite(connectionString));
 
 // Configure settings from appsettings.json
 builder.Services.Configure<AuthSettings>(builder.Configuration.GetSection("Auth"));

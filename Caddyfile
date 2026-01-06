@@ -1,0 +1,3 @@
+bunbun.broll.goodtree.my.id {
+    reverse_proxy 172.17.0.1:5166
+}

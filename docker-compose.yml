@@ -1,0 +1,13 @@
+services:
+  app:
+    image: ghcr.io/themasfebrianto/bunbun-broll-generator:latest
+    container_name: bunbun-broll
+    restart: unless-stopped
+    ports:
+      - "5166:8080"
+    volumes:
+      - ./data:/app/data
+      - ./Broll_Workspace:/app/Broll_Workspace
+      - ./appsettings.Production.json:/app/appsettings.Production.json:ro
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production

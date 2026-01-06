@@ -3,11 +3,11 @@ param(
     [string]$Model
 )
 
-Write-Host "Connecting to Yaumi VPS..." -ForegroundColor Cyan
+Write-Host "Connecting to Bunbun B-Roll VPS..." -ForegroundColor Cyan
 
 if ($Action -eq "up") {
     Write-Host "[Deployment Mode] Pulling latest image and restarting containers..." -ForegroundColor Yellow
-    ssh -t yaumi@212.2.249.127 "cd /srv/goodtree/apps/Yaumi && docker compose -f docker-compose.yml pull app && docker compose -f docker-compose.yml up -d app && echo '' && echo '✅ Deployment complete!' && bash"
+    ssh -t yaumi@212.2.249.127 "cd /srv/goodtree/apps/Bunbun-Broll && docker compose -f docker-compose.yml pull app && docker compose -f docker-compose.yml up -d app && echo '' && echo '✅ Deployment complete!' && bash"
 } elseif ($Action -eq "logs") {
     Write-Host "[Logs Mode] Showing Laravel application logs (Ctrl+C to exit)..." -ForegroundColor Yellow
     ssh -t yaumi@212.2.249.127 "docker exec -it yaumi-app tail -f -n 100 /var/www/html/storage/logs/laravel.log"
@@ -49,5 +49,5 @@ if ($Action -eq "up") {
     Write-Host "Press Ctrl+C to close the tunnel." -ForegroundColor DarkGray
     ssh -N -L 8317:localhost:8317 yaumi@212.2.249.127
 } else {
-    ssh -t yaumi@212.2.249.127 "cd /srv/goodtree/apps/Yaumi && bash"
+    ssh -t yaumi@212.2.249.127 "cd /srv/goodtree/apps/Bunbun-Broll && bash"
 }
