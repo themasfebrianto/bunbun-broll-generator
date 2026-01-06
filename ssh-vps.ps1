@@ -92,6 +92,49 @@ EOF"
     Write-Host "API Key: (check your .env file)" -ForegroundColor Green
     Write-Host "Press Ctrl+C to close the tunnel." -ForegroundColor DarkGray
     ssh -N -L 8317:localhost:8317 ${VPS_USER}@${VPS_HOST}
+} elseif ($Action -eq "check-ai") {
+    Write-Host "[AI Check] Diagnosing CLIProxyAPI and AI connectivity..." -ForegroundColor Yellow
+    Write-Host ""
+    
+    Write-Host "1. Checking if CLIProxyAPI container is running..." -ForegroundColor Cyan
+    ssh ${VPS_USER}@${VPS_HOST} "docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}' | grep -E 'cli-proxy|NAMES'"
+    Write-Host ""
+    
+    Write-Host "2. Checking Docker network connectivity..." -ForegroundColor Cyan
+    ssh ${VPS_USER}@${VPS_HOST} "docker network ls | grep -E 'bunbun|cli|goodtree|bridge|NETWORK'"
+    Write-Host ""
+    
+    Write-Host "3. Testing CLIProxyAPI health from HOST (localhost:8317)..." -ForegroundColor Cyan
+    ssh ${VPS_USER}@${VPS_HOST} "curl -s -o /dev/null -w '%{http_code}' http://localhost:8317/health 2>/dev/null || echo 'FAIL'"
+    Write-Host ""
+    
+    Write-Host "4. Testing CLIProxyAPI from Bunbun container..." -ForegroundColor Cyan
+    ssh ${VPS_USER}@${VPS_HOST} "docker exec bunbun-broll curl -s -o /dev/null -w '%{http_code}' http://host.docker.internal:8317/health 2>/dev/null || echo 'FAIL (host.docker.internal not available)'"
+    ssh ${VPS_USER}@${VPS_HOST} "docker exec bunbun-broll curl -s -o /dev/null -w '%{http_code}' http://172.17.0.1:8317/health 2>/dev/null || echo 'FAIL (Docker bridge gateway)'"
+    Write-Host ""
+    
+    Write-Host "5. Testing AI request with sample prompt..." -ForegroundColor Cyan
+    $testResult = ssh ${VPS_USER}@${VPS_HOST} @"
+curl -s -X POST http://localhost:8317/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer yaumi_proxy_pk_7d9e2a4b8c1f0d3e5a2b6c9f' \
+  -d '{
+    "model": "gemini-2.5-flash",
+    "messages": [{"role": "user", "content": "Say hello"}],
+    "max_tokens": 50
+  }' 2>/dev/null | head -c 500
+"@
+    Write-Host $testResult
+    Write-Host ""
+    
+    Write-Host "6. Checking Bunbun container's GEMINI env vars..." -ForegroundColor Cyan
+    ssh ${VPS_USER}@${VPS_HOST} "docker exec bunbun-broll printenv | grep -i gemini || echo 'No GEMINI vars found!'"
+    Write-Host ""
+    
+    Write-Host "=== DIAGNOSIS ===" -ForegroundColor Magenta
+    Write-Host "If step 3 works but step 4 fails: Container can't reach host. Fix: Use Docker network or update BaseUrl." -ForegroundColor Yellow
+    Write-Host "If step 5 fails: CLIProxyAPI needs OAuth login. Run: .\ssh-vps.ps1 proxy-login" -ForegroundColor Yellow
+    Write-Host ""
 } elseif ($Action -eq "help" -or $Action -eq "-h" -or $Action -eq "--help") {
     Write-Host ""
     Write-Host "Usage: .\ssh-vps.ps1 [action]" -ForegroundColor Cyan
@@ -114,6 +157,7 @@ EOF"
     Write-Host "  proxy-bash   SSH into proxy directory" -ForegroundColor White
     Write-Host "  proxy-tunnel Create tunnel to proxy (port 8317)" -ForegroundColor White
     Write-Host "  proxy-login  Run OAuth login flow" -ForegroundColor White
+    Write-Host "  check-ai     Diagnose AI/Gemini proxy connectivity" -ForegroundColor White
     Write-Host ""
 } else {
     ssh -t ${VPS_USER}@${VPS_HOST} "cd ${VPS_PATH} && bash"

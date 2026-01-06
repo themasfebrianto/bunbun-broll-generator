@@ -35,13 +35,18 @@ builder.Services.AddScoped<IScriptProcessor, ScriptProcessor>();
 builder.Services.AddScoped<IPipelineOrchestrator, PipelineOrchestrator>();
 builder.Services.AddScoped<IProjectService, ProjectService>();
 
-// Configure HttpClient for Gemini (Local LLM)
-builder.Services.AddHttpClient<IIntelligenceService, IntelligenceService>((sp, client) =>
+// Configure HttpClient for Gemini (Local LLM) - Uses IOptions pattern for env var support
+builder.Services.AddHttpClient<IIntelligenceService, IntelligenceService>()
+.ConfigureHttpClient((sp, client) =>
 {
-    var settings = builder.Configuration.GetSection("Gemini").Get<GeminiSettings>()!;
-    client.BaseAddress = new Uri(settings.BaseUrl);
-    client.DefaultRequestHeaders.Add("Authorization", $"Bearer {settings.ApiKey}");
-    client.Timeout = TimeSpan.FromSeconds(settings.TimeoutSeconds);
+    var config = sp.GetRequiredService<IConfiguration>();
+    var baseUrl = config["Gemini:BaseUrl"] ?? "http://127.0.0.1:8317";
+    var apiKey = config["Gemini:ApiKey"] ?? "sk-dummy";
+    var timeout = int.TryParse(config["Gemini:TimeoutSeconds"], out var t) ? t : 30;
+    
+    client.BaseAddress = new Uri(baseUrl);
+    client.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
+    client.Timeout = TimeSpan.FromSeconds(timeout);
 })
 .AddPolicyHandler(GetRetryPolicy());
 
