@@ -1,4 +1,4 @@
-namespace BunBunBroll.Services;
+namespace BunbunBroll.Services;
 
 /// <summary>
 /// Halal Video Filter - Strict mode that:

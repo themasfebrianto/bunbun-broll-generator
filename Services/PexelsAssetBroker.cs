@@ -1,8 +1,8 @@
 using System.Net.Http.Json;
-using BunBunBroll.Models;
+using BunbunBroll.Models;
 using Microsoft.Extensions.Options;
 
-namespace BunBunBroll.Services;
+namespace BunbunBroll.Services;
 
 /// <summary>
 /// Asset Broker - Searches Pexels API for stock videos with smart duration filtering.

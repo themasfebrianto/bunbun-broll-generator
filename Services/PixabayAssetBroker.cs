@@ -1,8 +1,8 @@
 using System.Net.Http.Json;
-using BunBunBroll.Models;
+using BunbunBroll.Models;
 using Microsoft.Extensions.Options;
 
-namespace BunBunBroll.Services;
+namespace BunbunBroll.Services;
 
 /// <summary>
 /// Pixabay Asset Broker - Searches Pixabay API for free stock videos.

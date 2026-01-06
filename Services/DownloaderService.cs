@@ -1,7 +1,7 @@
-using BunBunBroll.Models;
+using BunbunBroll.Models;
 using Microsoft.Extensions.Options;
 
-namespace BunBunBroll.Services;
+namespace BunbunBroll.Services;
 
 /// <summary>
 /// Downloader Service - Streams video files to disk with proper naming.

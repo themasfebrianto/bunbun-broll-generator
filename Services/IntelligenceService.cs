@@ -2,10 +2,10 @@ using System.Diagnostics;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using BunBunBroll.Models;
+using BunbunBroll.Models;
 using Microsoft.Extensions.Options;
 
-namespace BunBunBroll.Services;
+namespace BunbunBroll.Services;
 
 /// <summary>
 /// Intelligence Layer - Interfaces with Local Gemini LLM for keyword extraction.
@@ -284,4 +284,10 @@ public class GeminiSettings
     public string Model { get; set; } = "gemini-2.5-flash";
     public string ApiKey { get; set; } = "sk-dummy";
     public int TimeoutSeconds { get; set; } = 30;
+}
+
+public class AuthSettings
+{
+    public string Email { get; set; } = "";
+    public string Password { get; set; } = "";
 }

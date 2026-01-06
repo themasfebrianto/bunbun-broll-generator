@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
 
-namespace BunBunBroll.Data;
+namespace BunbunBroll.Data;
 
 public class AppDbContext : DbContext
 {

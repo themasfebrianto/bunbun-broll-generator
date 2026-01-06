@@ -1,4 +1,4 @@
-namespace BunBunBroll.Models;
+namespace BunbunBroll.Models;
 
 /// <summary>
 /// Represents a single sentence within a segment - the atomic unit for B-Roll matching.

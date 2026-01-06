@@ -1,4 +1,4 @@
-namespace BunBunBroll.Models;
+namespace BunbunBroll.Models;
 
 /// <summary>
 /// Represents the result from the Intelligence Layer (Gemini).

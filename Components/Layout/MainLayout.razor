@@ -1,6 +1,4 @@
 ﻿@inherits LayoutComponentBase
-@inject CustomAuthStateProvider AuthStateProvider
-@inject NavigationManager Navigation
 
 <AuthGuard>
     <div class="app-container">
@@ -11,7 +9,7 @@
                         <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
                         <polyline points="14 2 14 8 20 8"/>
                     </svg>
-                    <span>BunBun</span>
+                    <span>Bunbun</span>
                 </a>
                 <div class="flex items-center gap-4">
                     <nav class="nav-links">
@@ -22,9 +20,7 @@
                     <div class="border-l h-4 mx-2"></div>
                     <div class="flex items-center gap-2">
                         <ThemeToggle />
-                        <button @onclick="HandleLogout" class="inline-flex items-center justify-center rounded-md text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-9 px-3">
-                            Sign Out
-                        </button>
+                        <SignOutButton />
                     </div>
                 </div>
             </div>
@@ -36,16 +32,8 @@
         
         <footer class="app-footer">
             <div class="footer-content">
-                <p class="text-sm text-muted-foreground">© 2026 BunBun Intelligence. High-Fidelity Sequence Generation Pipeline.</p>
+                <p class="text-sm text-muted-foreground">© 2026 Bunbun Intelligence. High-Fidelity Sequence Generation Pipeline.</p>
             </div>
         </footer>
     </div>
 </AuthGuard>
-
-@code {
-    private void HandleLogout()
-    {
-        AuthStateProvider.Logout();
-        Navigation.NavigateTo("/login", forceLoad: true);
-    }
-}

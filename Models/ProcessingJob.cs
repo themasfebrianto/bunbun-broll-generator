@@ -1,4 +1,4 @@
-namespace BunBunBroll.Models;
+namespace BunbunBroll.Models;
 
 /// <summary>
 /// Represents a complete B-Roll generation job with all segments and sentences.

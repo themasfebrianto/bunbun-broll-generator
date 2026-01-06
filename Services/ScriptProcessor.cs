@@ -1,6 +1,6 @@
-using BunBunBroll.Models;
+using BunbunBroll.Models;
 
-namespace BunBunBroll.Services;
+namespace BunbunBroll.Services;
 
 /// <summary>
 /// Script Processor - Ingests raw text and breaks it into segments and sentences.

@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace BunBunBroll.Models;
+namespace BunbunBroll.Models;
 
 /// <summary>
 /// Pexels API response models.

@@ -1,6 +1,6 @@
-using BunBunBroll.Models;
+using BunbunBroll.Models;
 
-namespace BunBunBroll.Services;
+namespace BunbunBroll.Services;
 
 /// <summary>
 /// Pipeline Orchestrator - Coordinates all services to process B-Roll per sentence.

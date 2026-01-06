@@ -1,6 +1,6 @@
-using BunBunBroll.Components;
-using BunBunBroll.Services;
-using BunBunBroll.Data;
+using BunbunBroll.Components;
+using BunbunBroll.Services;
+using BunbunBroll.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Components.Authorization;
 using Polly;
@@ -23,6 +23,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite("Data Source=bunbun.db"));
 
 // Configure settings from appsettings.json
+builder.Services.Configure<AuthSettings>(builder.Configuration.GetSection("Auth"));
 builder.Services.Configure<GeminiSettings>(builder.Configuration.GetSection("Gemini"));
 builder.Services.Configure<PexelsSettings>(builder.Configuration.GetSection("Pexels"));
 builder.Services.Configure<PixabaySettings>(builder.Configuration.GetSection("Pixabay"));

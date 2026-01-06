@@ -1,4 +1,4 @@
-namespace BunBunBroll.Models;
+namespace BunbunBroll.Models;
 
 /// <summary>
 /// Represents a segment (scene/paragraph) of the video script.

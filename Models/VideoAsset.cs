@@ -1,4 +1,4 @@
-namespace BunBunBroll.Models;
+namespace BunbunBroll.Models;
 
 /// <summary>
 /// Represents a video asset from an external provider (e.g., Pexels).

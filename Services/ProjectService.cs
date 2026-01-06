@@ -1,8 +1,8 @@
-using BunBunBroll.Data;
-using BunBunBroll.Models;
+using BunbunBroll.Data;
+using BunbunBroll.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace BunBunBroll.Services;
+namespace BunbunBroll.Services;
 
 public interface IProjectService
 {

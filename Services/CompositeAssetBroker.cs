@@ -1,6 +1,6 @@
-using BunBunBroll.Models;
+using BunbunBroll.Models;
 
-namespace BunBunBroll.Services;
+namespace BunbunBroll.Services;
 
 /// <summary>
 /// Composite Asset Broker - Combines multiple video sources (Pexels + Pixabay)

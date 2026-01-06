@@ -1,0 +1,15 @@
+@rendermode InteractiveServer
+@inject CustomAuthStateProvider AuthStateProvider
+@inject NavigationManager Navigation
+
+<button @onclick="HandleLogout" class="inline-flex items-center justify-center rounded-md text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-9 px-3">
+    Sign Out
+</button>
+
+@code {
+    private void HandleLogout()
+    {
+        AuthStateProvider.Logout();
+        Navigation.NavigateTo("/login", forceLoad: true);
+    }
+}
