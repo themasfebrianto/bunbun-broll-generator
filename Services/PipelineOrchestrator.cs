@@ -4,6 +4,7 @@ namespace BunBunBroll.Services;
 
 /// <summary>
 /// Pipeline Orchestrator - Coordinates all services to process B-Roll per sentence.
+/// NEW: Preview-first workflow - search and preview before download.
 /// </summary>
 public interface IPipelineOrchestrator
 {
@@ -11,7 +12,17 @@ public interface IPipelineOrchestrator
     event EventHandler<SegmentProgressEventArgs>? OnSegmentProgress;
     event EventHandler<JobProgressEventArgs>? OnJobProgress;
     
-    Task<ProcessingJob> ProcessJobAsync(ProcessingJob job, CancellationToken cancellationToken = default);
+    // Phase 1: Search & Preview (no download)
+    Task<ProcessingJob> SearchPreviewsAsync(ProcessingJob job, CancellationToken cancellationToken = default);
+    
+    // Phase 2: Re-search a specific sentence with new keywords
+    Task ResearchSentenceAsync(ProcessingJob job, ScriptSentence sentence, List<string>? customKeywords = null, CancellationToken cancellationToken = default);
+    
+    // Phase 3: Download approved videos
+    Task DownloadApprovedAsync(ProcessingJob job, CancellationToken cancellationToken = default);
+    
+    // Download a single sentence
+    Task DownloadSentenceAsync(ProcessingJob job, ScriptSentence sentence, CancellationToken cancellationToken = default);
 }
 
 public class PipelineOrchestrator : IPipelineOrchestrator
@@ -40,9 +51,12 @@ public class PipelineOrchestrator : IPipelineOrchestrator
         _logger = logger;
     }
 
-    public async Task<ProcessingJob> ProcessJobAsync(ProcessingJob job, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Phase 1: Search and get previews for all sentences (NO download yet)
+    /// </summary>
+    public async Task<ProcessingJob> SearchPreviewsAsync(ProcessingJob job, CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Starting job {JobId}: {ProjectName}", job.Id, job.ProjectName);
+        _logger.LogInformation("Starting preview search for job {JobId}: {ProjectName}", job.Id, job.ProjectName);
         
         try
         {
@@ -62,9 +76,9 @@ public class PipelineOrchestrator : IPipelineOrchestrator
             _logger.LogInformation("Created {Segments} segments with {Sentences} sentences", 
                 job.Segments.Count, job.TotalSentences);
             
-            RaiseJobProgress(job, $"Found {job.TotalSentences} sentences. Estimated duration: {job.EstimatedDurationFormatted}");
+            RaiseJobProgress(job, $"Found {job.TotalSentences} sentences. Searching previews...");
 
-            // Step 2: Process each segment
+            // Step 2: Process each segment (search only, no download)
             job.Status = JobStatus.Processing;
             
             foreach (var segment in job.Segments)
@@ -76,33 +90,15 @@ public class PipelineOrchestrator : IPipelineOrchestrator
                     break;
                 }
 
-                await ProcessSegmentAsync(job, segment, cancellationToken);
+                await SearchSegmentPreviewsAsync(job, segment, cancellationToken);
             }
 
-            // Final status
+            // Set to preview ready
+            job.Status = JobStatus.PreviewReady;
             job.CompletedAt = DateTime.UtcNow;
             
-            var totalSentences = job.TotalSentences;
-            var completedSentences = job.CompletedSentences;
-            var failedSentences = job.FailedSentences;
-            
-            if (completedSentences == 0)
-            {
-                job.Status = JobStatus.Failed;
-                job.ErrorMessage = "All sentences failed to process";
-            }
-            else if (failedSentences > 0)
-            {
-                job.Status = JobStatus.PartiallyCompleted;
-            }
-            else
-            {
-                job.Status = JobStatus.Completed;
-            }
-
-            RaiseJobProgress(job, $"Job completed: {completedSentences}/{totalSentences} sentences. Coverage: {job.DurationCoverage:F0}%");
-            _logger.LogInformation("Job {JobId} completed: {Status}, Duration: {Actual}/{Estimated}", 
-                job.Id, job.Status, job.ActualDurationFormatted, job.EstimatedDurationFormatted);
+            var readyCount = job.Segments.SelectMany(s => s.Sentences).Count(s => s.Status == SentenceStatus.PreviewReady);
+            RaiseJobProgress(job, $"Preview ready: {readyCount}/{job.TotalSentences} sentences have results. Review and approve.");
 
             return job;
         }
@@ -115,40 +111,26 @@ public class PipelineOrchestrator : IPipelineOrchestrator
         }
     }
 
-    private async Task ProcessSegmentAsync(ProcessingJob job, ScriptSegment segment, CancellationToken cancellationToken)
+    private async Task SearchSegmentPreviewsAsync(ProcessingJob job, ScriptSegment segment, CancellationToken cancellationToken)
     {
         segment.Status = SegmentStatus.Processing;
-        RaiseSegmentProgress(job, segment, $"Processing segment: {segment.Title}");
+        RaiseSegmentProgress(job, segment, $"Searching segment: {segment.Title}");
         
         foreach (var sentence in segment.Sentences)
         {
             if (cancellationToken.IsCancellationRequested)
                 break;
                 
-            await ProcessSentenceAsync(job, segment, sentence, cancellationToken);
+            await SearchSentencePreviewAsync(job, segment, sentence, cancellationToken);
         }
         
-        // Update segment status
         segment.ProcessedAt = DateTime.UtcNow;
+        segment.Status = SegmentStatus.Completed;
         
-        if (segment.FailedSentences == segment.Sentences.Count)
-        {
-            segment.Status = SegmentStatus.Failed;
-        }
-        else if (segment.FailedSentences > 0)
-        {
-            segment.Status = SegmentStatus.PartiallyCompleted;
-        }
-        else
-        {
-            segment.Status = SegmentStatus.Completed;
-        }
-        
-        RaiseSegmentProgress(job, segment, 
-            $"Segment completed: {segment.CompletedSentences}/{segment.Sentences.Count} sentences, {segment.DurationCoverage:F0}% coverage");
+        RaiseSegmentProgress(job, segment, $"Segment preview ready: {segment.Sentences.Count(s => s.HasSearchResults)}/{segment.Sentences.Count} have results");
     }
 
-    private async Task ProcessSentenceAsync(
+    private async Task SearchSentencePreviewAsync(
         ProcessingJob job, 
         ScriptSegment segment, 
         ScriptSentence sentence, 
@@ -156,9 +138,9 @@ public class PipelineOrchestrator : IPipelineOrchestrator
     {
         try
         {
-            _logger.LogDebug("Processing sentence {Id}: {Text}", sentence.Id, sentence.Text[..Math.Min(50, sentence.Text.Length)]);
+            _logger.LogDebug("Searching preview for sentence {Id}", sentence.Id);
             
-            // Step 1: Extract keywords for this specific sentence
+            // Step 1: Extract keywords
             sentence.Status = SentenceStatus.ExtractingKeywords;
             RaiseSentenceProgress(job, segment, sentence, "Extracting keywords...");
 
@@ -186,55 +168,159 @@ public class PipelineOrchestrator : IPipelineOrchestrator
 
             _logger.LogDebug("Sentence {Id} keywords: {Keywords}", sentence.Id, string.Join(", ", sentence.Keywords));
 
-            // Step 2: Search for B-Roll
+            // Step 2: Search for videos (NO download)
             sentence.Status = SentenceStatus.SearchingBRoll;
             RaiseSentenceProgress(job, segment, sentence, $"Searching: {string.Join(", ", sentence.Keywords.Take(2))}...");
 
-            // Target duration for this sentence
             var targetDuration = (int)Math.Ceiling(sentence.EstimatedDurationSeconds);
             
             var assets = await _assetBroker.SearchVideosAsync(
                 sentence.Keywords, 
-                maxResults: 3, 
+                maxResults: 6,  // Get more options for user to choose
                 minDuration: Math.Max(3, targetDuration - 5),
-                maxDuration: targetDuration + 10,
+                maxDuration: targetDuration + 15,
                 cancellationToken: cancellationToken);
 
             if (assets.Count == 0)
             {
-                // Fallback: Try broader search without duration filter
-                _logger.LogWarning("No assets found for sentence {Id}, trying broader search", sentence.Id);
+                // Fallback: broader search
                 assets = await _assetBroker.SearchVideosAsync(
                     sentence.Keywords, 
-                    maxResults: 3,
+                    maxResults: 6,
                     cancellationToken: cancellationToken);
             }
 
             if (assets.Count == 0)
             {
                 sentence.Status = SentenceStatus.NoResults;
-                sentence.ErrorMessage = "No suitable videos found";
-                RaiseSentenceProgress(job, segment, sentence, "No B-Roll found");
+                sentence.ErrorMessage = "No videos found";
+                RaiseSentenceProgress(job, segment, sentence, "No results - try custom keywords");
                 return;
             }
 
-            // Select best match (prefer closest to target duration)
-            var bestAsset = assets
+            // Store all results for user to choose
+            sentence.SearchResults = assets;
+            
+            // Auto-select best match (user can change)
+            sentence.SelectedVideo = assets
                 .OrderBy(a => Math.Abs(a.DurationSeconds - targetDuration))
                 .First();
-
-            // Step 3: Download B-Roll
-            sentence.Status = SentenceStatus.Downloading;
-            sentence.BRollClip = bestAsset;
             
-            RaiseSentenceProgress(job, segment, sentence, $"Downloading {bestAsset.DurationSeconds}s clip...");
+            sentence.Status = SentenceStatus.PreviewReady;
+            RaiseSentenceProgress(job, segment, sentence, $"✓ {assets.Count} options found ({sentence.SelectedVideo.DurationSeconds}s selected)");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to search sentence {Id}", sentence.Id);
+            sentence.Status = SentenceStatus.Failed;
+            sentence.ErrorMessage = ex.Message;
+            RaiseSentenceProgress(job, segment, sentence, $"Error: {ex.Message}");
+        }
+    }
 
+    /// <summary>
+    /// Re-search a specific sentence with optional custom keywords
+    /// </summary>
+    public async Task ResearchSentenceAsync(
+        ProcessingJob job, 
+        ScriptSentence sentence, 
+        List<string>? customKeywords = null, 
+        CancellationToken cancellationToken = default)
+    {
+        var segment = job.Segments.First(s => s.Sentences.Contains(sentence));
+        
+        // Use custom keywords if provided
+        if (customKeywords != null && customKeywords.Count > 0)
+        {
+            sentence.Keywords = customKeywords;
+        }
+        
+        sentence.Status = SentenceStatus.SearchingBRoll;
+        sentence.SearchResults.Clear();
+        sentence.SelectedVideo = null;
+        
+        RaiseSentenceProgress(job, segment, sentence, $"Re-searching: {string.Join(", ", sentence.Keywords.Take(2))}...");
+
+        var targetDuration = (int)Math.Ceiling(sentence.EstimatedDurationSeconds);
+        
+        var assets = await _assetBroker.SearchVideosAsync(
+            sentence.Keywords, 
+            maxResults: 6,
+            cancellationToken: cancellationToken);
+
+        if (assets.Count == 0)
+        {
+            sentence.Status = SentenceStatus.NoResults;
+            sentence.ErrorMessage = "No videos found";
+            RaiseSentenceProgress(job, segment, sentence, "No results found");
+            return;
+        }
+
+        sentence.SearchResults = assets;
+        sentence.SelectedVideo = assets
+            .OrderBy(a => Math.Abs(a.DurationSeconds - targetDuration))
+            .First();
+        
+        sentence.Status = SentenceStatus.PreviewReady;
+        RaiseSentenceProgress(job, segment, sentence, $"✓ {assets.Count} new options found");
+    }
+
+    /// <summary>
+    /// Download all approved sentences
+    /// </summary>
+    public async Task DownloadApprovedAsync(ProcessingJob job, CancellationToken cancellationToken = default)
+    {
+        var approvedSentences = job.Segments
+            .SelectMany(s => s.Sentences)
+            .Where(s => s.IsApproved && s.SelectedVideo != null && !s.IsDownloaded)
+            .ToList();
+
+        if (approvedSentences.Count == 0)
+        {
+            RaiseJobProgress(job, "No approved sentences to download");
+            return;
+        }
+
+        job.Status = JobStatus.Downloading;
+        RaiseJobProgress(job, $"Downloading {approvedSentences.Count} approved videos...");
+
+        foreach (var sentence in approvedSentences)
+        {
+            if (cancellationToken.IsCancellationRequested)
+                break;
+
+            await DownloadSentenceAsync(job, sentence, cancellationToken);
+        }
+
+        job.Status = JobStatus.Completed;
+        var downloaded = approvedSentences.Count(s => s.IsDownloaded);
+        RaiseJobProgress(job, $"Download complete: {downloaded}/{approvedSentences.Count} videos saved");
+    }
+
+    /// <summary>
+    /// Download a single sentence's selected video
+    /// </summary>
+    public async Task DownloadSentenceAsync(ProcessingJob job, ScriptSentence sentence, CancellationToken cancellationToken = default)
+    {
+        if (sentence.SelectedVideo == null)
+        {
+            sentence.ErrorMessage = "No video selected";
+            return;
+        }
+
+        var segment = job.Segments.First(s => s.Sentences.Contains(sentence));
+        
+        sentence.Status = SentenceStatus.Downloading;
+        RaiseSentenceProgress(job, segment, sentence, $"Downloading {sentence.SelectedVideo.DurationSeconds}s video...");
+
+        try
+        {
             var keywordSlug = string.Join("_", sentence.Keywords.Take(2))
                 .ToLower()
                 .Replace(" ", "_");
 
             var localPath = await _downloaderService.DownloadVideoAsync(
-                bestAsset,
+                sentence.SelectedVideo,
                 job.ProjectName,
                 sentence.Id,
                 keywordSlug,
@@ -242,10 +328,10 @@ public class PipelineOrchestrator : IPipelineOrchestrator
 
             if (localPath != null)
             {
-                sentence.BRollClip.LocalPath = localPath;
+                sentence.DownloadedVideo = sentence.SelectedVideo;
+                sentence.DownloadedVideo.LocalPath = localPath;
                 sentence.Status = SentenceStatus.Completed;
-                RaiseSentenceProgress(job, segment, sentence, 
-                    $"✓ {bestAsset.DurationSeconds}s clip ({sentence.DurationCoverage:F0}% coverage)");
+                RaiseSentenceProgress(job, segment, sentence, $"✓ Downloaded: {Path.GetFileName(localPath)}");
             }
             else
             {
@@ -256,7 +342,7 @@ public class PipelineOrchestrator : IPipelineOrchestrator
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to process sentence {Id}", sentence.Id);
+            _logger.LogError(ex, "Failed to download for sentence {Id}", sentence.Id);
             sentence.Status = SentenceStatus.Failed;
             sentence.ErrorMessage = ex.Message;
             RaiseSentenceProgress(job, segment, sentence, $"Error: {ex.Message}");
@@ -268,16 +354,43 @@ public class PipelineOrchestrator : IPipelineOrchestrator
         var stopWords = new HashSet<string> { 
             "the", "a", "an", "in", "on", "at", "to", "for", "of", "and", "or", 
             "is", "are", "was", "were", "yang", "di", "ke", "dari", "dan", "atau",
-            "ini", "itu", "dengan", "untuk", "pada", "ada", "tidak", "akan", "sudah"
+            "ini", "itu", "dengan", "untuk", "pada", "ada", "tidak", "akan", "sudah",
+            "saya", "kamu", "kami", "mereka", "aku", "kita", "nya", "sang", "para"
         };
         
-        return text
+        var translations = new Dictionary<string, string>
+        {
+            ["pagi"] = "morning", ["malam"] = "night", ["siang"] = "afternoon",
+            ["sore"] = "evening", ["hujan"] = "rain", ["matahari"] = "sun",
+            ["bulan"] = "moon", ["langit"] = "sky", ["kota"] = "city",
+            ["jalan"] = "street", ["rumah"] = "house", ["kantor"] = "office",
+            ["orang"] = "person", ["air"] = "water", ["pohon"] = "tree",
+            ["laut"] = "ocean", ["gunung"] = "mountain", ["hutan"] = "forest",
+            ["sedih"] = "sad", ["senang"] = "happy", ["lelah"] = "tired",
+            ["sibuk"] = "busy", ["sepi"] = "lonely", ["gelap"] = "dark"
+        };
+        
+        var keywords = new List<string>();
+        
+        var words = text.ToLower()
             .Split(' ', StringSplitOptions.RemoveEmptyEntries)
-            .Select(w => w.Trim().ToLower())
-            .Where(w => w.Length > 3)
+            .Select(w => w.Trim('.', ',', '!', '?', '"', '\''))
+            .Where(w => w.Length > 2)
             .Where(w => !stopWords.Contains(w))
-            .Take(4)
-            .ToList();
+            .Take(6);
+            
+        foreach (var word in words)
+        {
+            if (translations.TryGetValue(word, out var translation))
+                keywords.Add(translation);
+            else if (word.All(c => char.IsLetter(c)))
+                keywords.Add(word);
+        }
+        
+        if (keywords.Count < 3)
+            keywords.AddRange(new[] { "nature landscape", "city life", "person silhouette" });
+        
+        return keywords.Distinct().Take(5).ToList();
     }
 
     private void RaiseSentenceProgress(ProcessingJob job, ScriptSegment segment, ScriptSentence sentence, string message)

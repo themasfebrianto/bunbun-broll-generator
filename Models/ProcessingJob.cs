@@ -2,6 +2,7 @@ namespace BunBunBroll.Models;
 
 /// <summary>
 /// Represents a complete B-Roll generation job with all segments and sentences.
+/// Supports preview-first workflow.
 /// </summary>
 public class ProcessingJob
 {
@@ -19,8 +20,16 @@ public class ProcessingJob
     // Aggregate stats across all segments and sentences
     public int TotalSegments => Segments.Count;
     public int TotalSentences => Segments.Sum(s => s.Sentences.Count);
-    public int CompletedSentences => Segments.Sum(s => s.CompletedSentences);
-    public int FailedSentences => Segments.Sum(s => s.FailedSentences);
+    
+    // Preview workflow stats
+    public int PreviewReadySentences => Segments.Sum(s => s.Sentences.Count(sent => sent.Status == SentenceStatus.PreviewReady));
+    public int ApprovedSentences => Segments.Sum(s => s.Sentences.Count(sent => sent.IsApproved));
+    public int DownloadedSentences => Segments.Sum(s => s.Sentences.Count(sent => sent.IsDownloaded));
+    public int SkippedSentences => Segments.Sum(s => s.Sentences.Count(sent => sent.IsSkipped));
+    public int FailedSentences => Segments.Sum(s => s.Sentences.Count(sent => sent.Status == SentenceStatus.Failed || sent.Status == SentenceStatus.NoResults));
+    
+    // Legacy compatibility
+    public int CompletedSentences => DownloadedSentences;
     
     // Duration stats
     public int TotalWordCount => Segments.Sum(s => s.WordCount);
@@ -31,8 +40,14 @@ public class ProcessingJob
         : 0;
     
     // Progress tracking
-    public double ProgressPercentage => TotalSentences == 0 ? 0 
-        : (double)(CompletedSentences + FailedSentences) / TotalSentences * 100;
+    public double SearchProgress => TotalSentences == 0 ? 0 
+        : (double)(PreviewReadySentences + FailedSentences) / TotalSentences * 100;
+    
+    public double DownloadProgress => ApprovedSentences == 0 ? 0 
+        : (double)DownloadedSentences / ApprovedSentences * 100;
+    
+    // Legacy - overall progress
+    public double ProgressPercentage => SearchProgress;
     
     // Segment-level progress
     public int CompletedSegments => Segments.Count(s => s.Status == SegmentStatus.Completed || s.Status == SegmentStatus.PartiallyCompleted);
@@ -53,6 +68,8 @@ public enum JobStatus
     Created,
     Segmenting,
     Processing,
+    PreviewReady,    // NEW: All previews loaded, waiting for user review
+    Downloading,     // NEW: Downloading approved videos
     Completed,
     PartiallyCompleted,
     Failed

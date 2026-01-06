@@ -3,14 +3,21 @@
 <div class="app-container">
     <header class="app-header">
         <div class="header-content">
-            <div class="logo-section">
-                <span class="logo-icon">🎬</span>
-                <h1 class="logo-text">BunBun B-Roll</h1>
+            <a href="/" class="logo">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                </svg>
+                <span>BunBun</span>
+            </a>
+            <div class="flex items-center gap-4">
+                <nav class="nav-links">
+                    <a href="/" class="nav-link">Generator</a>
+                    <a href="/about" class="nav-link">About</a>
+                </nav>
+                <div class="border-l h-4 mx-2"></div>
+                <ThemeToggle />
             </div>
-            <nav class="nav-links">
-                <a href="/" class="nav-link">Generator</a>
-                <a href="/about" class="nav-link">About</a>
-            </nav>
         </div>
     </header>
     
@@ -19,6 +26,8 @@
     </main>
     
     <footer class="app-footer">
-        <p>Powered by Local Gemini AI & Pexels API</p>
+        <div class="footer-content">
+            <p class="text-sm text-muted-foreground">© 2026 BunBun Intelligence. High-Fidelity Sequence Generation Pipeline.</p>
+        </div>
     </footer>
 </div>

@@ -46,7 +46,10 @@ builder.Services.AddHttpClient<PixabayAssetBroker>((sp, client) =>
 })
 .AddPolicyHandler(GetRetryPolicy());
 
-// Register Composite Asset Broker (combines Pexels + Pixabay)
+// Register Halal Video Filter (singleton so toggle state persists across requests)
+builder.Services.AddSingleton<IHalalVideoFilter, HalalVideoFilter>();
+
+// Register Composite Asset Broker (combines Pexels + Pixabay + Halal Filter)
 builder.Services.AddScoped<IAssetBroker, CompositeAssetBroker>();
 
 // Configure HttpClient for Downloader (generic, no auth)

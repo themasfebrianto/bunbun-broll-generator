@@ -1,471 +1,352 @@
 ﻿@page "/"
 @rendermode InteractiveServer
 @inject IPipelineOrchestrator Orchestrator
+@inject IHalalVideoFilter HalalFilter
 @inject ILogger<Home> Logger
 @implements IDisposable
 
-<PageTitle>BunBun B-Roll Generator</PageTitle>
+<PageTitle>Sequence Generator</PageTitle>
 
-<div class="home-container">
-    <!-- Hero Section -->
-    <section class="hero-section animate-fadeIn">
-        <h1 class="hero-title">
-            <span class="gradient-text">AI-Powered</span> B-Roll Generator
-        </h1>
-        <p class="hero-subtitle">
-            Transform your video scripts into perfectly matched stock footage.
-            Smart per-sentence B-Roll matching powered by Local Gemini AI & Pexels.
-        </p>
-    </section>
-
+<div class="animate-in">
     @if (_currentJob == null)
     {
-        <!-- Input Form -->
-        <section class="input-section card animate-fadeIn">
-            <h2 class="section-title">📝 Enter Your Script</h2>
-            
-            <div class="form-group">
-                <label class="form-label" for="projectName">Project Name</label>
-                <input type="text" 
-                       id="projectName" 
-                       class="form-input" 
-                       @bind="_projectName" 
-                       placeholder="e.g., Yaumi_Feature_Intro" />
+        <!-- COMPOSER VIEW -->
+        <div class="max-w-[42rem] mx-auto py-16 px-4">
+            <div class="space-y-2 mb-8 text-center">
+                <h1 class="text-3xl font-bold tracking-tight">Create New Sequence</h1>
+                <p class="text-muted-foreground">Transform your script into a professional cinematic B-roll sequence.</p>
             </div>
-            
-            <div class="form-group">
-                <label class="form-label" for="script">Video Script</label>
-                <textarea id="script" 
-                          class="form-textarea" 
-                          @bind="_scriptText" 
-                          placeholder="Paste your video script here...
 
-Each sentence gets its own matched B-Roll clip.
-Separate scenes with blank lines.
-
-Example:
-Kadang, membuka mata di pagi hari terasa sebagai beban terberat.
-Langit-langit kamar seolah menatap balik.
-
-Di luar sana, dunia bergerak terlalu cepat.
-Suara klakson dan kerumunan orang di stasiun."></textarea>
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label" for="mood">Visual Mood (Optional)</label>
-                <select id="mood" class="form-input" @bind="_selectedMood">
-                    <option value="">Auto-detect</option>
-                    <option value="Cinematic">Cinematic</option>
-                    <option value="Moody">Moody / Dark</option>
-                    <option value="Bright">Bright / Uplifting</option>
-                    <option value="Professional">Professional / Corporate</option>
-                    <option value="Natural">Natural / Documentary</option>
-                </select>
-            </div>
-            
-            <button class="btn btn-primary btn-generate" 
-                    @onclick="StartGeneration" 
-                    disabled="@(!CanGenerate)">
-                @if (_isGenerating)
-                {
-                    <span class="spinner"></span>
-                    <span>Processing...</span>
-                }
-                else
-                {
-                    <span>🚀 Generate B-Roll</span>
-                }
-            </button>
-            
-            @if (!string.IsNullOrEmpty(_errorMessage))
-            {
-                <div class="error-message animate-fadeIn">
-                    ⚠️ @_errorMessage
+            <div class="rounded-xl border bg-card text-card-foreground shadow p-8 space-y-6">
+                <!-- Project Name -->
+                <div class="space-y-2">
+                    <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                        Project Title
+                    </label>
+                    <input type="text" 
+                           class="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                           @bind="_projectName" 
+                           placeholder="e.g. Morning Routine Intro" />
                 </div>
-            }
-        </section>
+
+                <!-- Script Body -->
+                <div class="space-y-2">
+                    <label class="text-sm font-medium leading-none">
+                        Script Body
+                    </label>
+                    <textarea class="flex min-h-[160px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                              @bind="_scriptText" 
+                              placeholder="Paste your script text here..."></textarea>
+                    <p class="text-[0.8rem] text-muted-foreground">Each sentence triggers a unique metadata-driven footage search.</p>
+                </div>
+
+                <!-- Settings Row -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
+                    <div class="space-y-2">
+                        <label class="text-sm font-medium leading-none">Visual Mood</label>
+                        <select class="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                @bind="_selectedMood">
+                            <option value="" class="bg-background text-foreground">Sequence Default</option>
+                            <option value="Cinematic" class="bg-background text-foreground">Cinematic High-Contrast</option>
+                            <option value="Moody" class="bg-background text-foreground">Moody / Desaturated</option>
+                            <option value="Bright" class="bg-background text-foreground">Bright / High-Key</option>
+                        </select>
+                    </div>
+
+                    <div class="flex items-center space-x-2 pb-2">
+                        <button type="button" 
+                                role="switch"
+                                aria-checked="@_halalFilterEnabled"
+                                class="peer inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 @(_halalFilterEnabled ? "bg-primary" : "bg-input")"
+                                @onclick="ToggleHalalFilter">
+                            <span class="pointer-events-none block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform @(_halalFilterEnabled ? "translate-x-4" : "translate-x-0")"></span>
+                        </button>
+                        <label class="text-sm font-medium leading-none">Halal Mode</label>
+                    </div>
+                </div>
+
+                <!-- Action -->
+                <div class="pt-4">
+                    <button class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground shadow hover:bg-primary/90 h-11 px-8 w-full"
+                            @onclick="StartSearch" 
+                            disabled="@(!CanGenerate || _isSearching)">
+                        @if (_isSearching)
+                        {
+                            <svg class="animate-spin -ml-1 mr-3 h-4 w-4 text-primary-foreground" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span>Synthesizing...</span>
+                        }
+                        else
+                        {
+                            <span>Generate Previews</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
     }
     else
     {
-        <!-- Processing View -->
-        <section class="processing-section animate-fadeIn">
-            <!-- Job Header with Stats -->
-            <div class="job-header card">
-                <div class="job-info">
-                    <h2>@_currentJob.ProjectName</h2>
-                    <div class="job-meta">
-                        <span class="badge @GetJobStatusClass(_currentJob.Status)">@_currentJob.Status</span>
-                        <span class="job-stat">@_currentJob.TotalSentences sentences</span>
-                        <span class="job-stat">~@_currentJob.EstimatedDurationFormatted</span>
-                    </div>
-                </div>
+        <!-- RESULTS VIEW -->
+        <div class="max-w-[1200px] mx-auto py-8 lg:px-8 px-4">
+            <div class="flex flex-col lg:flex-row gap-12 items-start">
                 
-                <div class="progress-section">
-                    <div class="progress-container">
-                        <div class="progress-bar" style="width: @_currentJob.ProgressPercentage%"></div>
-                    </div>
-                    <span class="progress-text">@_currentJob.ProgressPercentage.ToString("F0")%</span>
-                </div>
-                
-                @if (_currentJob.Status != JobStatus.Processing && _currentJob.Status != JobStatus.Segmenting)
-                {
-                    <button class="btn btn-secondary" @onclick="ResetJob">
-                        ↻ New Job
+                <!-- Sticky Sidebar -->
+                <div class="lg:w-[260px] w-full shrink-0 lg:sticky lg:top-24 space-y-6">
+                    <button class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 w-full lg:w-auto"
+                            @onclick="ResetJob">
+                        <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"></path></svg>
+                        Back to Editor
                     </button>
-                }
-            </div>
-            
-            <!-- Duration Stats -->
-            @if (_currentJob.TotalActualDuration > 0)
-            {
-                <div class="stats-bar card-glass">
-                    <div class="stat-item">
-                        <span class="stat-label">Coverage</span>
-                        <span class="stat-value @(_currentJob.DurationCoverage >= 80 ? "text-success" : "text-warning")">
-                            @_currentJob.DurationCoverage.ToString("F0")%
-                        </span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">B-Roll Duration</span>
-                        <span class="stat-value">@_currentJob.ActualDurationFormatted</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Target</span>
-                        <span class="stat-value">@_currentJob.EstimatedDurationFormatted</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Words</span>
-                        <span class="stat-value">@_currentJob.TotalWordCount</span>
-                    </div>
-                </div>
-            }
-            
-            <!-- Status Log -->
-            @if (!string.IsNullOrEmpty(_statusMessage))
-            {
-                <div class="status-log card-glass">
-                    <span class="status-icon">💬</span>
-                    <span>@_statusMessage</span>
-                </div>
-            }
-            
-            <!-- Segments with Sentences -->
-            <div class="segments-section">
-                @foreach (var segment in _currentJob.Segments)
-                {
-                    <div class="segment-card card animate-fadeIn">
-                        <div class="segment-header">
-                            <h3 class="segment-title">@segment.Title</h3>
-                            <div class="segment-meta">
-                                <span class="badge @GetSegmentStatusClass(segment.Status)">
-                                    @segment.CompletedSentences/@segment.Sentences.Count
-                                </span>
-                                <span class="coverage-badge">@segment.DurationCoverage.ToString("F0")% coverage</span>
-                            </div>
+
+                    <div class="rounded-xl border bg-card text-card-foreground shadow p-6 space-y-4">
+                        <div class="space-y-1">
+                            <h3 class="text-sm font-semibold tracking-tight uppercase text-muted-foreground/60 text-[10px]">Project</h3>
+                            <p class="text-sm font-medium truncate">@_currentJob.ProjectName</p>
                         </div>
                         
-                        <!-- Sentences in this segment -->
-                        <div class="sentence-list">
-                            @foreach (var sentence in segment.Sentences)
-                            {
-                                <div class="sentence-item @GetSentenceItemClass(sentence.Status)">
-                                    <div class="sentence-number">@sentence.Id</div>
-                                    
-                                    <div class="sentence-content">
-                                        <p class="sentence-text">@sentence.Text</p>
-                                        
-                                        @if (sentence.Keywords.Count > 0)
-                                        {
-                                            <div class="sentence-keywords">
-                                                @foreach (var keyword in sentence.Keywords.Take(4))
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="space-y-1">
+                                <h3 class="text-[10px] font-semibold tracking-tight uppercase text-muted-foreground/60">Ready</h3>
+                                <p class="text-lg font-bold">@_currentJob.PreviewReadySentences</p>
+                            </div>
+                            <div class="space-y-1">
+                                <h3 class="text-[10px] font-semibold tracking-tight uppercase text-muted-foreground/60">Total</h3>
+                                <p class="text-lg font-bold">@_currentJob.TotalSentences</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground shadow hover:bg-primary/90 h-11 px-8 w-full"
+                            @onclick="DownloadAll" 
+                            disabled="@(_isDownloading || _currentJob.PreviewReadySentences == 0)">
+                        @if (_isDownloading)
+                        {
+                            <svg class="animate-spin -ml-1 mr-3 h-4 w-4 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        }
+                        Process Assets
+                    </button>
+                    <p class="text-center text-[10px] text-muted-foreground">@_currentJob.DownloadedSentences / @_currentJob.TotalSentences download complete</p>
+                </div>
+
+                <!-- Feed Content -->
+                <div class="flex-1 min-w-0">
+                    @if (!string.IsNullOrEmpty(_statusMessage))
+                    {
+                        <div class="flex items-center gap-2 text-xs text-muted-foreground mb-8 bg-muted/50 p-2 px-3 rounded-md border border-border/50">
+                            <span class="flex h-1.5 w-1.5 rounded-full bg-primary animate-pulse"></span>
+                            <span>@_statusMessage</span>
+                        </div>
+                    }
+
+                    <div class="space-y-16">
+                        @foreach (var segment in _currentJob.Segments)
+                        {
+                            <div class="space-y-8">
+                                <div class="flex items-center gap-4">
+                                    <h2 class="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground/50">@segment.Title</h2>
+                                    <div class="h-[1px] flex-1 bg-border/50"></div>
+                                </div>
+                                
+                                <div class="space-y-12">
+                                    @foreach (var sentence in segment.Sentences)
+                                    {
+                                        <div class="flex flex-col md:flex-row gap-8 items-start relative group">
+                                            <!-- Indicator Line -->
+                                            <div class="absolute -left-6 top-1 bottom-1 w-0.5 bg-border/30 group-hover:bg-primary/50 transition-colors hidden lg:block"></div>
+                                            
+                                            <!-- Text Content -->
+                                            <div class="flex-1 space-y-4">
+                                                <div class="flex items-center gap-3">
+                                                    <span class="text-[10px] font-mono font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">#@sentence.Id.ToString("D2")</span>
+                                                    <span class="text-[10px] font-medium text-muted-foreground">@sentence.EstimatedDurationSeconds.ToString("F1")s duration</span>
+                                                </div>
+                                                <p class="text-xl leading-relaxed text-foreground font-medium">@sentence.Text</p>
+                                                
+                                                <div class="flex flex-wrap gap-2">
+                                                    @foreach (var kw in sentence.Keywords.Take(3))
+                                                    {
+                                                        <span class="inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary text-secondary-foreground">@kw</span>
+                                                    }
+                                                </div>
+                                            </div>
+
+                                            <!-- Visual Side -->
+                                            <div class="md:w-[320px] w-full shrink-0">
+                                                @if (_researchingSentenceId == sentence.Id && sentence.SearchResults.Count > 1)
                                                 {
-                                                    <span class="keyword-tag">@keyword</span>
+                                                    <div class="rounded-xl border bg-card p-2 shadow-lg space-y-2">
+                                                        <div class="grid grid-cols-2 gap-1.5">
+                                                            @foreach (var video in sentence.SearchResults)
+                                                            {
+                                                                <div class="aspect-video relative rounded-md overflow-hidden cursor-pointer border-2 transition-all @(sentence.SelectedVideo?.Id == video.Id ? "border-primary" : "border-transparent")"
+                                                                     @onclick="() => SelectVideo(sentence, video)">
+                                                                    <video src="@video.DownloadUrl" muted loop class="absolute inset-0 w-full h-full object-cover"></video>
+                                                                </div>
+                                                            }
+                                                        </div>
+                                                        <button class="inline-flex items-center justify-center rounded-md text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground shadow hover:bg-primary/90 h-8 px-3 w-full"
+                                                                @onclick="() => ConfirmSelection(sentence)">
+                                                            Confirm Choice
+                                                        </button>
+                                                    </div>
+                                                }
+                                                else if (sentence.SelectedVideo != null)
+                                                {
+                                                    <div class="rounded-xl border bg-card overflow-hidden shadow group/video">
+                                                        <div class="aspect-video relative bg-black">
+                                                            <video src="@sentence.SelectedVideo.DownloadUrl" controls muted loop class="absolute inset-0 w-full h-full object-cover"></video>
+                                                        </div>
+                                                        <div class="flex items-center justify-between p-1 bg-muted/30 border-t">
+                                                            <button class="inline-flex items-center justify-center rounded-md text-xs font-medium transition-colors h-8 w-8 hover:bg-black/10 dark:hover:bg-white/10"
+                                                                    @onclick="() => ResearchSentence(sentence)">
+                                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.85.99 6.57 2.57L21 8M21 3v5h-5"/></svg>
+                                                            </button>
+                                                            @if (!sentence.IsDownloaded)
+                                                            {
+                                                                <button class="inline-flex items-center justify-center rounded-md text-[10px] font-semibold h-7 px-3 border border-input opacity-70 hover:opacity-100 transition-opacity"
+                                                                        @onclick="() => DownloadSingle(sentence)">
+                                                                    Capture
+                                                                </button>
+                                                            }
+                                                            else
+                                                            {
+                                                                <span class="text-[9px] font-bold text-success px-3 uppercase tracking-tighter">Verified</span>
+                                                            }
+                                                        </div>
+                                                    </div>
+                                                }
+                                                else if (sentence.Status == SentenceStatus.NoResults)
+                                                {
+                                                    <div class="aspect-video rounded-xl border border-dashed flex flex-col items-center justify-center space-y-2 bg-muted/20">
+                                                        <span class="text-[10px] text-muted-foreground font-medium uppercase tracking-tighter">No visual match</span>
+                                                        <button class="inline-flex items-center justify-center rounded-md text-[10px] font-semibold h-7 px-3 border border-input shadow-sm hover:bg-accent" @onclick="() => ResearchSentence(sentence)">Retry</button>
+                                                    </div>
+                                                }
+                                                else
+                                                {
+                                                    <div class="aspect-video rounded-xl border bg-muted animate-pulse"></div>
                                                 }
                                             </div>
-                                        }
-                                        
-                                        <div class="sentence-meta">
-                                            <span class="duration-tag">
-                                                ~@sentence.EstimatedDurationSeconds.ToString("F1")s needed
-                                            </span>
-                                            @if (sentence.BRollClip != null)
-                                            {
-                                                <span class="clip-tag">
-                                                    📹 @sentence.BRollClip.DurationSeconds s clip
-                                                </span>
-                                            }
                                         </div>
-                                    </div>
-                                    
-                                    <div class="sentence-status">
-                                        <span class="status-icon-sm">@GetSentenceStatusIcon(sentence.Status)</span>
-                                    </div>
-                                </div>
-                            }
-                        </div>
-                    </div>
-                }
-            </div>
-            
-            <!-- Video Player -->
-            @if (GetAllSentencesWithClips().Count > 0)
-            {
-                <div class="video-player-section card">
-                    <div class="player-header">
-                        <h3 class="section-subtitle">🎬 B-Roll Sequence (@GetAllSentencesWithClips().Count clips)</h3>
-                        <div class="player-controls-header">
-                            <span class="video-counter">
-                                @(_currentVideoIndex + 1) / @GetAllSentencesWithClips().Count
-                            </span>
-                            <button class="btn btn-secondary btn-sm" @onclick="PlayAllVideos" disabled="@_isPlayingAll">
-                                @(_isPlayingAll ? "⏸ Playing..." : "▶ Play All")
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <!-- Video Player -->
-                    <div class="main-player">
-                        @if (GetCurrentSentenceWithClip() is { } currentSentence)
-                        {
-                            <div class="video-wrapper">
-                                <video @key="currentSentence.Id"
-                                       class="main-video"
-                                       controls
-                                       autoplay="@_isPlayingAll"
-                                       @onended="OnVideoEnded">
-                                    <source src="@currentSentence.BRollClip!.DownloadUrl" type="video/mp4" />
-                                </video>
-                                <div class="video-info-overlay">
-                                    <span class="segment-badge">Sentence @currentSentence.Id</span>
-                                    <span class="duration-badge">@currentSentence.BRollClip!.DurationSeconds s</span>
-                                </div>
-                            </div>
-                            
-                            <div class="current-segment-info">
-                                <p class="segment-script">@currentSentence.Text</p>
-                                <div class="sentence-keywords">
-                                    @foreach (var keyword in currentSentence.Keywords.Take(5))
-                                    {
-                                        <span class="keyword-tag">@keyword</span>
                                     }
                                 </div>
                             </div>
                         }
                     </div>
-                    
-                    <!-- Navigation -->
-                    <div class="player-navigation">
-                        <button class="btn btn-secondary btn-nav" @onclick="PreviousVideo" disabled="@(_currentVideoIndex <= 0)">
-                            ⬅ Previous
-                        </button>
-                        
-                        <div class="video-progress-dots">
-                            @for (int i = 0; i < Math.Min(GetAllSentencesWithClips().Count, 20); i++)
-                            {
-                                var index = i;
-                                <button class="dot @(i == _currentVideoIndex ? "active" : "")" 
-                                        @onclick="() => GoToVideo(index)">
-                                </button>
-                            }
-                            @if (GetAllSentencesWithClips().Count > 20)
-                            {
-                                <span class="more-dots">+@(GetAllSentencesWithClips().Count - 20)</span>
-                            }
-                        </div>
-                        
-                        <button class="btn btn-secondary btn-nav" @onclick="NextVideo" 
-                                disabled="@(_currentVideoIndex >= GetAllSentencesWithClips().Count - 1)">
-                            Next ➡
-                        </button>
-                    </div>
-                    
-                    <!-- Thumbnail Strip -->
-                    <div class="thumbnail-strip">
-                        @for (int i = 0; i < GetAllSentencesWithClips().Count; i++)
-                        {
-                            var sentences = GetAllSentencesWithClips();
-                            var sentence = sentences[i];
-                            var index = i;
-                            <div class="thumbnail-item @(i == _currentVideoIndex ? "active" : "")"
-                                 @onclick="() => GoToVideo(index)">
-                                <img src="@sentence.BRollClip!.ThumbnailUrl" alt="Sentence @sentence.Id" />
-                                <div class="thumbnail-overlay">
-                                    <span class="thumb-number">@sentence.Id</span>
-                                </div>
-                            </div>
-                        }
-                    </div>
                 </div>
-            }
-        </section>
+            </div>
+        </div>
     }
 </div>
-
-<style>
-    .home-container { max-width: 1000px; margin: 0 auto; }
-    
-    .hero-section { text-align: center; padding: 2rem 0 3rem; }
-    .hero-title { font-size: 2.5rem; font-weight: 700; margin-bottom: 1rem; }
-    .gradient-text { background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    .hero-subtitle { color: var(--text-secondary); font-size: 1.1rem; max-width: 600px; margin: 0 auto; }
-    
-    .input-section { padding: 2rem; }
-    .section-title { font-size: 1.25rem; margin-bottom: 1.5rem; }
-    .btn-generate { width: 100%; padding: 1rem; font-size: 1.1rem; margin-top: 0.5rem; }
-    .error-message { margin-top: 1rem; padding: 1rem; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--radius-md); color: var(--error); }
-    
-    .processing-section { display: flex; flex-direction: column; gap: 1.5rem; }
-    
-    .job-header { display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: center; justify-content: space-between; }
-    .job-info h2 { font-size: 1.25rem; margin-bottom: 0.5rem; }
-    .job-meta { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
-    .job-stat { color: var(--text-muted); font-size: 0.875rem; }
-    .progress-section { flex: 1; min-width: 200px; display: flex; align-items: center; gap: 1rem; }
-    .progress-section .progress-container { flex: 1; }
-    .progress-text { font-weight: 600; color: var(--accent-secondary); }
-    
-    .stats-bar { display: flex; flex-wrap: wrap; gap: 2rem; padding: 1rem 1.5rem; justify-content: center; }
-    .stat-item { text-align: center; }
-    .stat-label { display: block; font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; }
-    .stat-value { font-size: 1.25rem; font-weight: 700; }
-    .text-success { color: var(--success); }
-    .text-warning { color: var(--warning); }
-    
-    .status-log { padding: 1rem 1.25rem; display: flex; align-items: center; gap: 0.75rem; color: var(--text-secondary); }
-    .status-icon { font-size: 1.25rem; }
-    
-    .segment-card { margin-bottom: 1rem; }
-    .segment-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.1); }
-    .segment-title { font-size: 1rem; font-weight: 600; margin: 0; }
-    .segment-meta { display: flex; gap: 0.75rem; align-items: center; }
-    .coverage-badge { font-size: 0.75rem; color: var(--text-muted); }
-    
-    .sentence-list { display: flex; flex-direction: column; gap: 0.75rem; }
-    .sentence-item { display: grid; grid-template-columns: auto 1fr auto; gap: 1rem; align-items: flex-start; padding: 0.75rem; background: var(--bg-tertiary); border-radius: var(--radius-sm); border-left: 3px solid transparent; transition: all var(--transition-fast); }
-    .sentence-item.pending { border-left-color: var(--text-muted); opacity: 0.7; }
-    .sentence-item.processing { border-left-color: var(--info); animation: pulse-bg 1.5s infinite; }
-    .sentence-item.completed { border-left-color: var(--success); }
-    .sentence-item.failed { border-left-color: var(--error); }
-    
-    @@keyframes pulse-bg { 0%, 100% { background: var(--bg-tertiary); } 50% { background: rgba(59, 130, 246, 0.1); } }
-    
-    .sentence-number { width: 28px; height: 28px; background: var(--bg-card); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 600; color: var(--accent-secondary); }
-    .sentence-text { font-size: 0.9rem; line-height: 1.5; margin-bottom: 0.5rem; }
-    .sentence-keywords { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-bottom: 0.25rem; }
-    .sentence-meta { display: flex; gap: 0.75rem; font-size: 0.75rem; color: var(--text-muted); }
-    .duration-tag, .clip-tag { display: inline-flex; align-items: center; gap: 0.25rem; }
-    .status-icon-sm { font-size: 1.25rem; }
-    
-    /* Video Player */
-    .video-player-section { padding: 1.5rem; }
-    .player-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
-    .player-header .section-subtitle { margin-bottom: 0; font-size: 1rem; font-weight: 600; color: var(--text-secondary); }
-    .player-controls-header { display: flex; align-items: center; gap: 1rem; }
-    .video-counter { font-size: 0.9rem; color: var(--text-secondary); }
-    .btn-sm { padding: 0.5rem 1rem; font-size: 0.875rem; }
-    
-    .main-player { margin-bottom: 1.5rem; }
-    .video-wrapper { position: relative; border-radius: var(--radius-lg); overflow: hidden; background: var(--bg-tertiary); }
-    .main-video { width: 100%; aspect-ratio: 16/9; background: #000; display: block; }
-    .video-info-overlay { position: absolute; top: 1rem; left: 1rem; display: flex; gap: 0.5rem; }
-    .segment-badge, .duration-badge { padding: 0.25rem 0.75rem; background: rgba(0, 0, 0, 0.7); border-radius: 9999px; font-size: 0.75rem; font-weight: 600; color: white; }
-    .segment-badge { background: var(--accent-gradient); }
-    .current-segment-info { margin-top: 1rem; padding: 1rem; background: var(--bg-tertiary); border-radius: var(--radius-md); }
-    .segment-script { font-size: 0.9rem; line-height: 1.6; margin-bottom: 0.5rem; }
-    
-    .player-navigation { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; }
-    .btn-nav { min-width: 100px; }
-    .video-progress-dots { display: flex; gap: 0.35rem; flex-wrap: wrap; justify-content: center; align-items: center; }
-    .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--bg-tertiary); border: 2px solid rgba(255, 255, 255, 0.2); cursor: pointer; transition: all var(--transition-fast); padding: 0; }
-    .dot:hover { border-color: var(--accent-secondary); }
-    .dot.active { background: var(--accent-primary); border-color: var(--accent-primary); transform: scale(1.3); }
-    .more-dots { font-size: 0.75rem; color: var(--text-muted); }
-    
-    .thumbnail-strip { display: flex; gap: 0.5rem; overflow-x: auto; padding: 0.5rem 0; }
-    .thumbnail-item { flex-shrink: 0; width: 100px; aspect-ratio: 16/9; border-radius: var(--radius-sm); overflow: hidden; cursor: pointer; position: relative; border: 2px solid transparent; transition: all var(--transition-fast); }
-    .thumbnail-item:hover { border-color: var(--accent-secondary); }
-    .thumbnail-item.active { border-color: var(--accent-primary); box-shadow: 0 0 15px rgba(124, 58, 237, 0.4); }
-    .thumbnail-item img { width: 100%; height: 100%; object-fit: cover; }
-    .thumbnail-overlay { position: absolute; bottom: 0; left: 0; right: 0; padding: 0.25rem 0.5rem; background: linear-gradient(to top, rgba(0,0,0,0.8), transparent); }
-    .thumb-number { font-size: 0.65rem; font-weight: 700; color: white; }
-    
-    @@media (max-width: 768px) {
-        .hero-title { font-size: 1.75rem; }
-        .job-header { flex-direction: column; align-items: stretch; }
-        .stats-bar { gap: 1rem; }
-        .player-navigation { flex-direction: column; }
-        .btn-nav { width: 100%; }
-    }
-</style>
 
 @code {
     private string _projectName = "";
     private string _scriptText = "";
     private string _selectedMood = "";
-    private string _errorMessage = "";
     private string _statusMessage = "";
-    private bool _isGenerating = false;
+    private bool _isSearching = false;
+    private bool _isDownloading = false;
+    private bool _halalFilterEnabled = false;
     private ProcessingJob? _currentJob;
     private CancellationTokenSource? _cts;
-    
-    // Video player state
-    private int _currentVideoIndex = 0;
-    private bool _isPlayingAll = false;
+    private int? _researchingSentenceId;
 
-    private bool CanGenerate => !_isGenerating 
-        && !string.IsNullOrWhiteSpace(_projectName) 
-        && !string.IsNullOrWhiteSpace(_scriptText);
+    private bool CanGenerate => !string.IsNullOrWhiteSpace(_projectName) && !string.IsNullOrWhiteSpace(_scriptText);
 
     protected override void OnInitialized()
     {
-        Orchestrator.OnSentenceProgress += HandleSentenceProgress;
-        Orchestrator.OnSegmentProgress += HandleSegmentProgress;
+        _halalFilterEnabled = HalalFilter.IsEnabled;
+        Orchestrator.OnSentenceProgress += HandleProgress;
         Orchestrator.OnJobProgress += HandleJobProgress;
     }
 
-    private async Task StartGeneration()
+    private void ToggleHalalFilter()
+    {
+        _halalFilterEnabled = !_halalFilterEnabled;
+        HalalFilter.IsEnabled = _halalFilterEnabled;
+    }
+
+    private async Task StartSearch()
     {
         if (!CanGenerate) return;
-
-        _isGenerating = true;
-        _errorMessage = "";
-        _statusMessage = "Initializing...";
-        _currentVideoIndex = 0;
+        _isSearching = true;
         _cts = new CancellationTokenSource();
-
-        try
-        {
-            _currentJob = new ProcessingJob
-            {
-                ProjectName = _projectName.Trim(),
-                RawScript = _scriptText.Trim(),
-                Mood = string.IsNullOrEmpty(_selectedMood) ? null : _selectedMood
-            };
-
-            StateHasChanged();
-            await Orchestrator.ProcessJobAsync(_currentJob, _cts.Token);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Generation failed");
-            _errorMessage = ex.Message;
-        }
-        finally
-        {
-            _isGenerating = false;
-            StateHasChanged();
-        }
+        _researchingSentenceId = null;
+        
+        _currentJob = new ProcessingJob {
+            ProjectName = _projectName.Trim(),
+            RawScript = _scriptText.Trim(),
+            Mood = string.IsNullOrEmpty(_selectedMood) ? null : _selectedMood
+        };
+        
+        StateHasChanged();
+        await Orchestrator.SearchPreviewsAsync(_currentJob, _cts.Token);
+        _isSearching = false;
+        StateHasChanged();
     }
 
-    private void HandleSentenceProgress(object? sender, SentenceProgressEventArgs e)
+    private async Task ResearchSentence(ScriptSentence sentence)
     {
-        _statusMessage = $"[{e.Sentence.Id}] {e.Message}";
-        InvokeAsync(StateHasChanged);
+        if (_currentJob == null) return;
+        _researchingSentenceId = sentence.Id;
+        StateHasChanged();
+        await Orchestrator.ResearchSentenceAsync(_currentJob, sentence, null, _cts?.Token ?? default);
+        StateHasChanged();
     }
 
-    private void HandleSegmentProgress(object? sender, SegmentProgressEventArgs e)
+    private void SelectVideo(ScriptSentence sentence, VideoAsset video)
     {
-        _statusMessage = e.Message;
+        sentence.SelectedVideo = video;
+        StateHasChanged();
+    }
+
+    private void ConfirmSelection(ScriptSentence sentence)
+    {
+        _researchingSentenceId = null;
+        sentence.Status = SentenceStatus.PreviewReady;
+        StateHasChanged();
+    }
+
+    private async Task DownloadSingle(ScriptSentence sentence)
+    {
+        if (_currentJob == null) return;
+        await Orchestrator.DownloadSentenceAsync(_currentJob, sentence, _cts?.Token ?? default);
+        StateHasChanged();
+    }
+
+    private async Task DownloadAll()
+    {
+        if (_currentJob == null) return;
+        _isDownloading = true;
+        StateHasChanged();
+        
+        foreach (var sentence in _currentJob.Segments.SelectMany(s => s.Sentences))
+        {
+            if (sentence.SelectedVideo != null && !sentence.IsDownloaded)
+                sentence.IsApproved = true;
+        }
+        
+        await Orchestrator.DownloadApprovedAsync(_currentJob, _cts?.Token ?? default);
+        _isDownloading = false;
+        StateHasChanged();
+    }
+
+    private void ResetJob()
+    {
+        _currentJob = null;
+        _statusMessage = "";
+        _researchingSentenceId = null;
+    }
+
+    private void HandleProgress(object? sender, SentenceProgressEventArgs e)
+    {
+        _statusMessage = $"Analyzing Script #{e.Sentence.Id}... {e.Message}";
         InvokeAsync(StateHasChanged);
     }
 
@@ -475,138 +356,10 @@ Suara klakson dan kerumunan orang di stasiun."></textarea>
         InvokeAsync(StateHasChanged);
     }
 
-    private void ResetJob()
-    {
-        _currentJob = null;
-        _statusMessage = "";
-        _projectName = "";
-        _scriptText = "";
-        _selectedMood = "";
-        _currentVideoIndex = 0;
-        _isPlayingAll = false;
-    }
-
-    // Helper methods for video player
-    private List<ScriptSentence> GetAllSentencesWithClips()
-    {
-        if (_currentJob == null) return new List<ScriptSentence>();
-        
-        return _currentJob.Segments
-            .SelectMany(s => s.Sentences)
-            .Where(s => s.BRollClip?.DownloadUrl != null)
-            .OrderBy(s => s.Id)
-            .ToList();
-    }
-
-    private ScriptSentence? GetCurrentSentenceWithClip()
-    {
-        var sentences = GetAllSentencesWithClips();
-        if (sentences.Count == 0 || _currentVideoIndex >= sentences.Count)
-            return null;
-        return sentences[_currentVideoIndex];
-    }
-
-    // Video player controls
-    private void PlayAllVideos()
-    {
-        _currentVideoIndex = 0;
-        _isPlayingAll = true;
-        StateHasChanged();
-    }
-
-    private void NextVideo()
-    {
-        var count = GetAllSentencesWithClips().Count;
-        if (_currentVideoIndex < count - 1)
-        {
-            _currentVideoIndex++;
-            StateHasChanged();
-        }
-    }
-
-    private void PreviousVideo()
-    {
-        if (_currentVideoIndex > 0)
-        {
-            _currentVideoIndex--;
-            StateHasChanged();
-        }
-    }
-
-    private void GoToVideo(int index)
-    {
-        _currentVideoIndex = index;
-        _isPlayingAll = false;
-        StateHasChanged();
-    }
-
-    private void OnVideoEnded()
-    {
-        if (!_isPlayingAll) return;
-        
-        var count = GetAllSentencesWithClips().Count;
-        if (_currentVideoIndex < count - 1)
-        {
-            _currentVideoIndex++;
-            StateHasChanged();
-        }
-        else
-        {
-            _isPlayingAll = false;
-            StateHasChanged();
-        }
-    }
-
-    private static string TruncateText(string text, int maxLength) 
-        => text.Length <= maxLength ? text : text[..maxLength] + "...";
-
-    private static string GetJobStatusClass(JobStatus status) => status switch
-    {
-        JobStatus.Created => "badge-pending",
-        JobStatus.Segmenting or JobStatus.Processing => "badge-processing",
-        JobStatus.Completed => "badge-completed",
-        JobStatus.PartiallyCompleted => "badge-warning",
-        JobStatus.Failed => "badge-failed",
-        _ => "badge-pending"
-    };
-
-    private static string GetSegmentStatusClass(SegmentStatus status) => status switch
-    {
-        SegmentStatus.Pending => "badge-pending",
-        SegmentStatus.Processing => "badge-processing",
-        SegmentStatus.Completed => "badge-completed",
-        SegmentStatus.PartiallyCompleted => "badge-warning",
-        SegmentStatus.Failed => "badge-failed",
-        _ => "badge-pending"
-    };
-
-    private static string GetSentenceItemClass(SentenceStatus status) => status switch
-    {
-        SentenceStatus.Pending => "pending",
-        SentenceStatus.ExtractingKeywords or SentenceStatus.SearchingBRoll or SentenceStatus.Downloading => "processing",
-        SentenceStatus.Completed => "completed",
-        SentenceStatus.Failed or SentenceStatus.NoResults => "failed",
-        _ => "pending"
-    };
-
-    private static string GetSentenceStatusIcon(SentenceStatus status) => status switch
-    {
-        SentenceStatus.Pending => "⏳",
-        SentenceStatus.ExtractingKeywords => "🧠",
-        SentenceStatus.SearchingBRoll => "🔍",
-        SentenceStatus.Downloading => "⬇️",
-        SentenceStatus.Completed => "✅",
-        SentenceStatus.NoResults => "⚠️",
-        SentenceStatus.Failed => "❌",
-        _ => "⏳"
-    };
-
     public void Dispose()
     {
-        Orchestrator.OnSentenceProgress -= HandleSentenceProgress;
-        Orchestrator.OnSegmentProgress -= HandleSegmentProgress;
+        Orchestrator.OnSentenceProgress -= HandleProgress;
         Orchestrator.OnJobProgress -= HandleJobProgress;
-        _cts?.Cancel();
         _cts?.Dispose();
     }
 }
