@@ -1,5 +1,8 @@
 using BunBunBroll.Components;
 using BunBunBroll.Services;
+using BunBunBroll.Data;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Components.Authorization;
 using Polly;
 using Polly.Extensions.Http;
 
@@ -8,6 +11,16 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+// Authentication Support (Blazor-level only)
+builder.Services.AddCascadingAuthenticationState();
+builder.Services.AddAuthorizationCore();
+builder.Services.AddSingleton<CustomAuthStateProvider>();
+builder.Services.AddSingleton<AuthenticationStateProvider>(sp => sp.GetRequiredService<CustomAuthStateProvider>());
+
+// Configure SQLite
+builder.Services.AddDbContext<AppDbContext>(options => 
+    options.UseSqlite("Data Source=bunbun.db"));
 
 // Configure settings from appsettings.json
 builder.Services.Configure<GeminiSettings>(builder.Configuration.GetSection("Gemini"));
@@ -18,6 +31,7 @@ builder.Services.Configure<DownloaderSettings>(builder.Configuration.GetSection(
 // Register core services
 builder.Services.AddScoped<IScriptProcessor, ScriptProcessor>();
 builder.Services.AddScoped<IPipelineOrchestrator, PipelineOrchestrator>();
+builder.Services.AddScoped<IProjectService, ProjectService>();
 
 // Configure HttpClient for Gemini (Local LLM)
 builder.Services.AddHttpClient<IIntelligenceService, IntelligenceService>((sp, client) =>
@@ -71,6 +85,12 @@ app.UseAntiforgery();
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
+
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    db.Database.EnsureCreated();
+}
 
 app.Run();
 

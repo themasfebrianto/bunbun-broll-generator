@@ -1,0 +1,90 @@
+@page "/projects"
+@rendermode InteractiveServer
+@inject IProjectService ProjectService
+@inject NavigationManager Navigation
+@using BunBunBroll.Data
+
+<PageTitle>Saved Projects</PageTitle>
+
+<div class="animate-in max-w-5xl mx-auto py-12 px-4">
+    <div class="flex items-center justify-between mb-8">
+        <div class="space-y-1">
+            <h1 class="text-3xl font-bold tracking-tight">Project History</h1>
+            <p class="text-muted-foreground">Manage and edit your saved B-roll sequences.</p>
+        </div>
+        <a href="/" class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground shadow hover:bg-primary/90 h-10 px-6 font-semibold">
+            New Project
+        </a>
+    </div>
+
+    @if (_projects == null)
+    {
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            @for (int i = 0; i < 6; i++)
+            {
+                <div class="h-[180px] rounded-xl border bg-muted animate-pulse"></div>
+            }
+        </div>
+    }
+    else if (!_projects.Any())
+    {
+        <div class="flex flex-col items-center justify-center py-24 border rounded-xl border-dashed bg-muted/20">
+            <div class="h-14 w-14 rounded-full bg-muted flex items-center justify-center mb-6">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground/60"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+            </div>
+            <h3 class="text-xl font-bold tracking-tight mb-2">No projects found</h3>
+            <p class="text-muted-foreground mb-8 text-center max-w-xs">Create your first B-roll sequence and it will appear here for future editing.</p>
+            <a href="/" class="inline-flex items-center gap-2 text-sm font-semibold text-primary hover:underline underline-offset-4">
+                Get started
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
+            </a>
+        </div>
+    }
+    else
+    {
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            @foreach (var project in _projects)
+            {
+                <div class="group relative rounded-xl border bg-card text-card-foreground shadow-sm hover:shadow-md hover:border-primary/20 transition-all duration-300">
+                    <div class="p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <span class="text-[10px] font-mono font-bold tracking-wider text-muted-foreground bg-muted px-2 py-0.5 rounded uppercase">#@project.Id</span>
+                            <span class="text-[10px] font-medium text-muted-foreground">@project.CreatedAt.ToLocalTime().ToString("MMM dd, yyyy")</span>
+                        </div>
+                        <h3 class="font-bold text-lg mb-2 truncate leading-none">@project.Name</h3>
+                        <p class="text-sm text-muted-foreground line-clamp-2 mb-6 min-h-[40px]">@project.RawScript</p>
+                        
+                        <div class="flex items-center gap-2">
+                            <button @onclick="() => LoadProject(project.Id)" class="inline-flex items-center justify-center rounded-md text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-9 px-4 flex-1">
+                                Open View
+                            </button>
+                            <button @onclick="() => DeleteProject(project)" class="inline-flex items-center justify-center rounded-md text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring border border-destructive/20 bg-background text-destructive shadow-sm hover:bg-destructive hover:text-destructive-foreground h-9 w-9">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private List<Project>? _projects;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _projects = await ProjectService.GetProjectsAsync();
+    }
+
+    private void LoadProject(string id)
+    {
+        Navigation.NavigateTo($"/editor/{id}");
+    }
+
+    private async Task DeleteProject(Project project)
+    {
+        await ProjectService.DeleteProjectAsync(project.Id);
+        _projects = await ProjectService.GetProjectsAsync();
+    }
+}

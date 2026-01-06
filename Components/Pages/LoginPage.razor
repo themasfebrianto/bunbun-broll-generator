@@ -1,0 +1,82 @@
+@page "/login"
+@layout BunBunBroll.Components.Layout.EmptyLayout
+@rendermode InteractiveServer
+@inject CustomAuthStateProvider AuthStateProvider
+@inject NavigationManager Navigation
+
+<div class="min-h-screen flex items-center justify-center bg-background px-4">
+    <div class="w-full max-w-[400px] space-y-8 animate-in">
+        <div class="text-center space-y-2">
+            <div class="flex justify-center mb-6">
+                <div class="h-12 w-12 rounded-xl bg-primary flex items-center justify-center text-primary-foreground">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                    </svg>
+                </div>
+            </div>
+            <h1 class="text-2xl font-bold tracking-tight">Welcome Back</h1>
+            <p class="text-muted-foreground text-sm">Please sign in to access your dashboard</p>
+        </div>
+
+        <div class="rounded-xl border bg-card text-card-foreground shadow-sm p-8 space-y-6">
+            <EditForm Model="@_loginModel" OnValidSubmit="HandleLogin" FormName="loginForm">
+                <div class="space-y-4">
+                    <div class="space-y-2">
+                        <label class="text-sm font-medium leading-none">Email address</label>
+                        <InputText @bind-Value="_loginModel.Email" 
+                               class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                               placeholder="name@example.com" />
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-sm font-medium leading-none">Password</label>
+                        <InputText type="password" @bind-Value="_loginModel.Password"
+                               class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                               placeholder="••••••••" />
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrEmpty(_error))
+                {
+                    <div class="text-xs font-medium text-destructive bg-destructive/10 p-3 rounded-md border border-destructive/20 text-center">
+                        @_error
+                    </div>
+                }
+
+                <button type="submit"
+                        class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground shadow hover:bg-primary/90 h-10 px-8 w-full">
+                    Sign In
+                </button>
+            </EditForm>
+        </div>
+        
+        <p class="text-center text-xs text-muted-foreground">
+            &copy; 2026 BunBun Intelligence. All rights reserved.
+        </p>
+    </div>
+</div>
+
+@code {
+    private LoginModel _loginModel = new();
+    private string? _error;
+
+    private void HandleLogin()
+    {
+        if (_loginModel.Email == "bunbuncantik@gmail.com" && _loginModel.Password == "bunbuncantik123!")
+        {
+            _error = null;
+            AuthStateProvider.AuthenticateUser(_loginModel.Email);
+            Navigation.NavigateTo("/");
+        }
+        else
+        {
+            _error = "Invalid email or password. Please try again.";
+        }
+    }
+
+    public class LoginModel
+    {
+        public string Email { get; set; } = "";
+        public string Password { get; set; } = "";
+    }
+}

@@ -1,0 +1,29 @@
+@inject NavigationManager Navigation
+@inject CustomAuthStateProvider AuthStateProvider
+
+@if (!_checked)
+{
+    <div class="min-h-screen flex items-center justify-center bg-background">
+        <div class="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+    </div>
+}
+else if (AuthStateProvider.IsAuthenticated)
+{
+    @ChildContent
+}
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    
+    private bool _checked = false;
+
+    protected override void OnInitialized()
+    {
+        _checked = true;
+        
+        if (!AuthStateProvider.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/login");
+        }
+    }
+}
