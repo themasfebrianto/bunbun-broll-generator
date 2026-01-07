@@ -166,163 +166,203 @@
                         </div>
                     </div>
 
-                    <!-- Download Buttons -->
-                    <button class="btn-primary h-10 w-full"
-                            @onclick="DownloadAsZip" 
-                            disabled="@(_isDownloading || _currentJob.PreviewReadySentences == 0)">
-                        @if (_isDownloading)
-                        {
-                            <svg class="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    <!-- ============================================ -->
+                    <!-- SECTION 1: Raw B-Roll Downloads -->
+                    <!-- ============================================ -->
+                    <div class="card p-4 space-y-3">
+                        <div class="flex items-center gap-2">
+                            <svg class="h-4 w-4 text-muted-foreground" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
                             </svg>
-                            <span>@_statusMessage</span>
-                        }
-                        else
-                        {
-                            <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                            <span>Download ZIP (@_currentJob.PreviewReadySentences)</span>
-                        }
-                    </button>
-                    
-                    <!-- Secondary actions -->
-                    <div class="grid grid-cols-2 gap-2">
-                        <button class="btn-secondary h-9 text-xs"
-                                @onclick="ExportDownloadLinks"
-                                disabled="@(_currentJob.PreviewReadySentences == 0)">
-                            <svg class="mr-1.5 h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16c0 1.1.9 2 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/><path d="M14 3v5h5M16 13H8M16 17H8M10 9H8"/></svg>
-                            Export
+                            <span class="text-sm font-medium">Raw B-Roll Clips</span>
+                        </div>
+                        
+                        <button class="btn-secondary h-10 w-full"
+                                @onclick="DownloadAsZip" 
+                                disabled="@(_isDownloading || _currentJob.PreviewReadySentences == 0)">
+                            @if (_isDownloading)
+                            {
+                                <svg class="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <span>@_statusMessage</span>
+                            }
+                            else
+                            {
+                                <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                <span>Download ZIP (@_currentJob.PreviewReadySentences clips)</span>
+                            }
                         </button>
                         
-                        <button class="btn-secondary h-9 text-xs" @onclick="SaveCurrentProject">
-                            <svg class="mr-1.5 h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v13a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-                            Save
-                        </button>
+                        <!-- Secondary actions -->
+                        <div class="grid grid-cols-2 gap-2">
+                            <button class="btn-secondary h-9 text-xs"
+                                    @onclick="ExportDownloadLinks"
+                                    disabled="@(_currentJob.PreviewReadySentences == 0)">
+                                <svg class="mr-1.5 h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16c0 1.1.9 2 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/><path d="M14 3v5h5M16 13H8M16 17H8M10 9H8"/></svg>
+                                Export Links
+                            </button>
+                            
+                            <button class="btn-secondary h-9 text-xs" @onclick="SaveCurrentProject">
+                                <svg class="mr-1.5 h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v13a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                                Save Project
+                            </button>
+                        </div>
+
+                        <p class="text-center text-[10px] text-muted-foreground">Original landscape clips from Pexels/Pixabay</p>
                     </div>
 
-                    @if (_isDownloading)
-                    {
-                        <div class="space-y-2">
-                            <div class="progress-container">
-                                <div class="progress-bar-indeterminate"></div>
-                            </div>
-                            <p class="text-center text-xs text-muted-foreground">Creating ZIP in browser...</p>
-                        </div>
-                    }
-                    else
-                    {
-                        <p class="text-center text-xs text-muted-foreground">Direct download from CDN</p>
-                    }
-
-                    <!-- Short Video Generator Section -->
+                    <!-- ============================================ -->
+                    <!-- SECTION 2: Auto Short Video Generator -->
+                    <!-- ============================================ -->
                     @if (_ffmpegAvailable)
                     {
-                        <div class="pt-4 border-t border-border space-y-3">
-                            <button class="flex items-center justify-between w-full text-sm font-medium"
-                                    @onclick="ToggleShortVideoMode">
-                                <span class="flex items-center gap-2">
-                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                        <rect x="2" y="2" width="20" height="20" rx="2"/><path d="M10 8l6 4-6 4V8z"/>
-                                    </svg>
-                                    Auto Short Video
-                                </span>
-                                <svg class="h-4 w-4 transition-transform @(_shortVideoMode ? "rotate-180" : "")" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                    <path d="M6 9l6 6 6-6"/>
+                        <div class="card p-4 space-y-4">
+                            <div class="flex items-center gap-2">
+                                <svg class="h-4 w-4 text-primary" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <rect x="2" y="2" width="20" height="20" rx="2"/><path d="M10 8l6 4-6 4V8z"/>
                                 </svg>
+                                <span class="text-sm font-medium">Auto Short Video</span>
+                                <span class="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">NEW</span>
+                            </div>
+
+                            <!-- Aspect Ratio Selector -->
+                            <div class="space-y-2">
+                                <label class="text-xs font-medium text-muted-foreground">Aspect Ratio</label>
+                                <div class="grid grid-cols-4 gap-1.5">
+                                    @foreach (var ratio in Enum.GetValues<AspectRatio>())
+                                    {
+                                        <button type="button"
+                                                class="flex flex-col items-center justify-center p-2 rounded-md border text-xs transition-colors @(_selectedRatio == ratio ? "border-primary bg-primary/10" : "border-border hover:border-foreground/30")"
+                                                @onclick="() => SelectRatio(ratio)">
+                                            <!-- Visual ratio preview -->
+                                            <div class="mb-1 flex items-center justify-center" style="width: 24px; height: 24px;">
+                                                @switch (ratio)
+                                                {
+                                                    case AspectRatio.Portrait_9x16:
+                                                        <div class="w-3 h-5 border-2 rounded-sm @(_selectedRatio == ratio ? "border-primary" : "border-muted-foreground")"></div>
+                                                        break;
+                                                    case AspectRatio.Square_1x1:
+                                                        <div class="w-4 h-4 border-2 rounded-sm @(_selectedRatio == ratio ? "border-primary" : "border-muted-foreground")"></div>
+                                                        break;
+                                                    case AspectRatio.Portrait_4x5:
+                                                        <div class="w-3.5 h-4 border-2 rounded-sm @(_selectedRatio == ratio ? "border-primary" : "border-muted-foreground")"></div>
+                                                        break;
+                                                    case AspectRatio.Landscape_16x9:
+                                                        <div class="w-5 h-3 border-2 rounded-sm @(_selectedRatio == ratio ? "border-primary" : "border-muted-foreground")"></div>
+                                                        break;
+                                                }
+                                            </div>
+                                            <span class="text-[9px] font-medium @(_selectedRatio == ratio ? "text-primary" : "text-muted-foreground")">@ratio.GetDisplayName()</span>
+                                        </button>
+                                    }
+                                </div>
+                                <p class="text-[10px] text-muted-foreground text-center">@_selectedRatio.GetDescription()</p>
+                            </div>
+
+                            <!-- Category Selector -->
+                            <div class="space-y-2">
+                                <label class="text-xs font-medium text-muted-foreground">Content Style</label>
+                                <div class="grid grid-cols-3 gap-1.5">
+                                    @foreach (var category in CategoryPresets.GetAllCategories())
+                                    {
+                                        <button type="button"
+                                                class="flex flex-col items-center justify-center h-12 rounded-md border text-xs transition-colors @(_selectedCategory == category.Category ? "border-foreground bg-muted" : "border-border hover:border-foreground/30")"
+                                                @onclick="() => SelectCategory(category.Category)">
+                                            <span class="text-sm">@category.Icon</span>
+                                            <span class="text-[9px] @(_selectedCategory == category.Category ? "text-foreground" : "text-muted-foreground")">@category.DisplayName</span>
+                                        </button>
+                                    }
+                                </div>
+                            </div>
+
+                            <!-- Duration -->
+                            <div class="space-y-1.5">
+                                <div class="flex justify-between text-xs">
+                                    <span class="text-muted-foreground">Duration</span>
+                                    <span class="font-mono font-medium">@_targetDuration s</span>
+                                </div>
+                                <input type="range" min="15" max="60" step="5"
+                                       @bind="_targetDuration" @bind:event="oninput"
+                                       class="w-full h-1.5 bg-muted rounded-full appearance-none cursor-pointer accent-primary" />
+                            </div>
+
+                            <!-- Hook Text (Collapsible) -->
+                            <details class="group">
+                                <summary class="text-xs text-muted-foreground cursor-pointer hover:text-foreground flex items-center gap-1">
+                                    <svg class="h-3 w-3 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+                                    Advanced Options
+                                </summary>
+                                <div class="pt-3 space-y-2">
+                                    <label class="text-xs text-muted-foreground">Hook Text (Opening)</label>
+                                    <input type="text" class="input h-8 text-xs"
+                                           @bind="_hookText"
+                                           placeholder="e.g. Tahukah kamu? 🤔" />
+                                </div>
+                            </details>
+
+                            <!-- Generate Button -->
+                            <button class="btn-primary h-11 w-full"
+                                    @onclick="GenerateShortVideo"
+                                    disabled="@(_isGeneratingShortVideo || _currentJob.PreviewReadySentences == 0)">
+                                @if (_isGeneratingShortVideo)
+                                {
+                                    <svg class="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    <span>Generating @_selectedRatio.GetDisplayName()...</span>
+                                }
+                                else
+                                {
+                                    <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/>
+                                        <circle cx="12" cy="13" r="3"/>
+                                    </svg>
+                                    <span>Generate @_selectedRatio.GetDisplayName() Video</span>
+                                }
                             </button>
 
-                            @if (_shortVideoMode)
+                            <!-- Result -->
+                            @if (_shortVideoResult?.Success == true)
                             {
-                                <div class="space-y-4 animate-in">
-                                    <!-- Category Selector -->
-                                    <div class="space-y-2">
-                                        <label class="text-xs font-medium text-muted-foreground">Category</label>
-                                        <div class="grid grid-cols-3 gap-1.5">
-                                            @foreach (var category in CategoryPresets.GetAllCategories())
-                                            {
-                                                <button type="button"
-                                                        class="flex flex-col items-center justify-center h-14 rounded-md border text-xs transition-colors @(_selectedCategory == category.Category ? "border-foreground bg-muted" : "border-border hover:border-foreground/30")"
-                                                        @onclick="() => SelectCategory(category.Category)">
-                                                    <span class="text-base">@category.Icon</span>
-                                                    <span class="text-[9px] @(_selectedCategory == category.Category ? "text-foreground" : "text-muted-foreground")">@category.DisplayName</span>
-                                                </button>
-                                            }
-                                        </div>
-                                    </div>
-
-                                    <!-- Duration -->
-                                    <div class="space-y-1.5">
-                                        <div class="flex justify-between text-xs">
-                                            <span class="text-muted-foreground">Duration</span>
-                                            <span class="font-mono">@_targetDuration s</span>
-                                        </div>
-                                        <input type="range" min="15" max="60" step="5"
-                                               @bind="_targetDuration" @bind:event="oninput"
-                                               class="w-full h-1.5 bg-muted rounded-full appearance-none cursor-pointer accent-foreground" />
-                                    </div>
-
-                                    <!-- Hook Text -->
-                                    <div class="space-y-1.5">
-                                        <label class="text-xs text-muted-foreground">Hook Text</label>
-                                        <input type="text" class="input h-8 text-xs"
-                                               @bind="_hookText"
-                                               placeholder="e.g. Tahukah kamu? 🤔" />
-                                    </div>
-
-                                    <!-- Generate Button -->
-                                    <button class="btn-primary h-10 w-full"
-                                            @onclick="GenerateShortVideo"
-                                            disabled="@(_isGeneratingShortVideo || _currentJob.PreviewReadySentences == 0)">
-                                        @if (_isGeneratingShortVideo)
-                                        {
-                                            <svg class="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                            </svg>
-                                            <span>Generating...</span>
-                                        }
-                                        else
-                                        {
-                                            <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/>
-                                                <circle cx="12" cy="13" r="3"/>
-                                            </svg>
-                                            <span>Generate Short Video</span>
-                                        }
-                                    </button>
-
-                                    <!-- Result -->
-                                    @if (_shortVideoResult?.Success == true)
-                                    {
-                                        <div class="p-3 rounded-md bg-green-500/10 border border-green-500/30 space-y-2">
-                                            <p class="text-xs text-green-600 dark:text-green-400">
-                                                ✓ Video ready! @_shortVideoResult.DurationSeconds s
-                                            </p>
-                                            <button class="btn-secondary h-8 w-full text-xs"
-                                                    @onclick="DownloadShortVideo">
-                                                <svg class="mr-1.5 h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-                                                </svg>
-                                                Download MP4
-                                            </button>
-                                        </div>
-                                    }
-                                    else if (_shortVideoResult?.Success == false)
-                                    {
-                                        <p class="text-xs text-red-500 p-2 bg-red-500/10 rounded-md">
-                                            @_shortVideoResult.ErrorMessage
+                                <div class="p-3 rounded-md bg-green-500/10 border border-green-500/30 space-y-2">
+                                    <div class="flex items-center gap-2">
+                                        <svg class="h-4 w-4 text-green-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                                        <p class="text-xs text-green-600 dark:text-green-400 font-medium">
+                                            Video ready! @_shortVideoResult.DurationSeconds s • @FormatFileSize(_shortVideoResult.FileSizeBytes)
                                         </p>
-                                    }
+                                    </div>
+                                    <button class="btn-secondary h-8 w-full text-xs"
+                                            @onclick="DownloadShortVideo">
+                                        <svg class="mr-1.5 h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                                        </svg>
+                                        Download MP4
+                                    </button>
+                                </div>
+                            }
+                            else if (_shortVideoResult?.Success == false)
+                            {
+                                <div class="p-2 rounded-md bg-red-500/10 border border-red-500/30">
+                                    <p class="text-xs text-red-500">
+                                        @_shortVideoResult.ErrorMessage
+                                    </p>
                                 </div>
                             }
                         </div>
                     }
                     else
                     {
-                        <div class="pt-4 border-t border-border">
-                            <p class="text-xs text-muted-foreground text-center">
-                                <span class="text-yellow-500">⚠</span> FFmpeg not found. Install FFmpeg to enable Short Video generation.
-                            </p>
+                        <div class="card p-4">
+                            <div class="flex items-center gap-2 text-muted-foreground">
+                                <svg class="h-4 w-4 text-yellow-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                                    <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                                </svg>
+                                <span class="text-xs">FFmpeg required for Short Video</span>
+                            </div>
                         </div>
                     }
                 </div>
@@ -455,6 +495,7 @@
     private bool _isGeneratingShortVideo = false;
     private bool _ffmpegAvailable = false;
     private ContentCategory _selectedCategory = ContentCategory.Islami;
+    private AspectRatio _selectedRatio = AspectRatio.Portrait_9x16;
     private int _targetDuration = 30;
     private bool _autoCut = true;
     private bool _addTransitions = true;
@@ -833,6 +874,12 @@
         // Optionally update mood based on category
     }
 
+    private void SelectRatio(AspectRatio ratio)
+    {
+        _selectedRatio = ratio;
+        _shortVideoResult = null; // Clear previous result when ratio changes
+    }
+
     private async Task GenerateShortVideo()
     {
         if (_currentJob == null) return;
@@ -867,6 +914,7 @@
 
             var config = new ShortVideoConfig
             {
+                Ratio = _selectedRatio,
                 Category = _selectedCategory,
                 TargetDurationSeconds = _targetDuration,
                 AutoCut = _autoCut,

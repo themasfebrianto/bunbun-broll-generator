@@ -1,9 +1,10 @@
 # Feature: Auto Generate Short Video
 
-> **Status:** Proposed  
+> **Status:** ✅ In Development (Core Implemented)  
 > **Target Platform:** TikTok / Instagram Reels / YouTube Shorts  
-> **Version:** MVP v1.0  
-> **Created:** 2026-01-07
+> **Version:** MVP v1.1 (Aspect Ratio + Blur Background)  
+> **Created:** 2026-01-07  
+> **Last Updated:** 2026-01-07
 
 ---
 
@@ -271,7 +272,30 @@ public static class CategoryPresets
 }
 ```
 
-### 4.4 Short Video Configuration
+### 4.4 Aspect Ratio Support (NEW v1.1)
+
+```csharp
+// Models/AspectRatio.cs
+
+public enum AspectRatio
+{
+    Portrait_9x16 = 1,   // 1080 × 1920 (TikTok, Reels, Shorts)
+    Square_1x1 = 2,      // 1080 × 1080 (Instagram Feed, Facebook)
+    Portrait_4x5 = 3,    // 1080 × 1350 (Instagram Feed optimal)
+    Landscape_16x9 = 4   // 1920 × 1080 (YouTube, standard video)
+}
+```
+
+**Blur Background Reframing:**
+When source video aspect ratio doesn't match target, we use the "blur background" technique:
+1. Scale source video to **fill** the target frame (crops edges)
+2. Apply heavy blur (boxblur=25)
+3. Scale source video to **fit** within frame (maintains aspect)
+4. Overlay sharp video centered on blurred background
+
+This creates a professional TikTok/Reels-style look where landscape videos are displayed with aesthetic blurred sides.
+
+### 4.5 Short Video Configuration
 
 ```csharp
 // Models/ShortVideoConfig.cs
@@ -279,8 +303,9 @@ public static class CategoryPresets
 public record ShortVideoConfig
 {
     // Video Specs
-    public int Width { get; init; } = 1080;           // Portrait for shorts
-    public int Height { get; init; } = 1920;          // 9:16 aspect ratio
+    public AspectRatio Ratio { get; init; } = AspectRatio.Portrait_9x16;
+    public int Width => Ratio.GetResolution().Width;   // Computed from Ratio
+    public int Height => Ratio.GetResolution().Height; // Computed from Ratio
     public int TargetDurationSeconds { get; init; } = 30;
     public int MinDurationSeconds { get; init; } = 15;
     public int MaxDurationSeconds { get; init; } = 60;
@@ -635,21 +660,24 @@ public record TemplateSection
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| 3 kategori konten | ✅ MVP | Islami, Jualan, Hiburan |
-| Auto-cut clips | ✅ MVP | Berdasarkan target durasi |
-| Fade transition | ✅ MVP | Transisi paling universal |
-| Text overlay (hook) | ✅ MVP | Teks pembuka saja |
-| Background music | ✅ MVP | Opsional, volume 30% |
-| Portrait output (9:16) | ✅ MVP | Standard short video |
-| 15-60 detik durasi | ✅ MVP | Sesuai platform |
+| 3 kategori konten | ✅ Implemented | Islami, Jualan, Hiburan |
+| Auto-cut clips | ✅ Implemented | Berdasarkan target durasi |
+| Fade transition | ✅ Implemented | Transisi paling universal |
+| Text overlay (hook) | ✅ Implemented | Teks pembuka saja |
+| Background music | ✅ Implemented | Opsional, volume 30% |
+| Portrait output (9:16) | ✅ Implemented | Standard short video |
+| 15-60 detik durasi | ✅ Implemented | Sesuai platform |
+| **Aspect Ratio Selector** | ✅ NEW v1.1 | 9:16, 1:1, 4:5, 16:9 |
+| **Blur Background Reframe** | ✅ NEW v1.1 | Professional TikTok-style look |
+| **Separated UI** | ✅ NEW v1.1 | B-Roll download vs Short Video |
 
 ### 8.2 Apa yang BUKAN MVP (Future)
 
 | Feature | Status | Target |
 |---------|--------|--------|
-| Voice-over integration | ❌ Future | v1.1 |
-| Custom template builder | ❌ Future | v1.2 |
-| Multiple output formats | ❌ Future | v1.1 |
+| Voice-over integration | ❌ Future | v1.2 |
+| Custom template builder | ❌ Future | v1.3 |
+| ~~Multiple output formats~~ | ✅ Done | v1.1 (via Aspect Ratio) |
 | A/B testing variants | ❌ Future | v2.0 |
 | Analytics integration | ❌ Future | v2.0 |
 | AI-suggested hooks | ❌ Future | v1.2 |

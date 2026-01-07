@@ -8,14 +8,19 @@ public record ShortVideoConfig
     // === Video Specifications ===
 
     /// <summary>
-    /// Video width in pixels (1080 for portrait shorts).
+    /// Aspect ratio for the output video.
     /// </summary>
-    public int Width { get; init; } = 1080;
+    public AspectRatio Ratio { get; init; } = AspectRatio.Portrait_9x16;
 
     /// <summary>
-    /// Video height in pixels (1920 for 9:16 portrait).
+    /// Video width in pixels (computed from Ratio if not explicitly set).
     /// </summary>
-    public int Height { get; init; } = 1920;
+    public int Width => Ratio.GetResolution().Width;
+
+    /// <summary>
+    /// Video height in pixels (computed from Ratio if not explicitly set).
+    /// </summary>
+    public int Height => Ratio.GetResolution().Height;
 
     /// <summary>
     /// Target duration in seconds.

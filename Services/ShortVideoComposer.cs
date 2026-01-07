@@ -81,7 +81,8 @@ public class ShortVideoComposer : IShortVideoComposer
 
         try
         {
-            // Check common locations for FFmpeg
+            // Check common locations for FFmpeg first
+            progress?.Report("Checking for FFmpeg installation...");
             var ffmpegPath = await FindFFmpegAsync();
             
             if (!string.IsNullOrEmpty(ffmpegPath))
@@ -92,31 +93,47 @@ public class ShortVideoComposer : IShortVideoComposer
                     FFmpeg.SetExecutablesPath(directory);
                     _logger.LogInformation("FFmpeg found at: {Path}", ffmpegPath);
                     _isInitialized = true;
+                    progress?.Report($"FFmpeg ready: {ffmpegPath}");
                     return true;
                 }
             }
 
-            // Try to use Xabe.FFmpeg's built-in downloader (if available)
-            progress?.Report("Attempting to download FFmpeg...");
+            // FFmpeg not found - try to download it automatically
+            _logger.LogInformation("FFmpeg not found. Attempting automatic download to: {Dir}", _ffmpegDirectory);
+            progress?.Report("FFmpeg not found. Downloading automatically (this may take a few minutes)...");
             
             try
             {
-                // Xabe.FFmpeg.Downloader package is needed for auto-download
-                // Since it may not be installed, we'll catch if it fails
+                // Ensure directory exists
+                Directory.CreateDirectory(_ffmpegDirectory);
+                
+                // Use Xabe.FFmpeg.Downloader to get FFmpeg
+                _logger.LogInformation("Starting FFmpeg download...");
                 await Xabe.FFmpeg.Downloader.FFmpegDownloader.GetLatestVersion(
                     Xabe.FFmpeg.Downloader.FFmpegVersion.Official, 
                     _ffmpegDirectory
                 );
+                
                 FFmpeg.SetExecutablesPath(_ffmpegDirectory);
                 _isInitialized = true;
+                
+                _logger.LogInformation("FFmpeg downloaded successfully to: {Dir}", _ffmpegDirectory);
                 progress?.Report("FFmpeg downloaded successfully!");
                 return true;
             }
-            catch
+            catch (Exception downloadEx)
             {
-                // Downloader not available or failed
-                _logger.LogWarning("FFmpeg auto-download not available. Please install FFmpeg manually.");
-                progress?.Report("Please install FFmpeg manually from https://ffmpeg.org/download.html");
+                // Download failed - provide helpful error message
+                _logger.LogError(downloadEx, "FFmpeg auto-download failed. Error: {Message}", downloadEx.Message);
+                progress?.Report($"FFmpeg download failed: {downloadEx.Message}");
+                
+                // Provide manual download instructions
+                var instructions = OperatingSystem.IsWindows()
+                    ? "Please run: .\\download-ffmpeg.ps1 OR download from https://www.gyan.dev/ffmpeg/builds/"
+                    : "Please install via: apt install ffmpeg OR brew install ffmpeg";
+                
+                _logger.LogWarning("Manual FFmpeg installation required. {Instructions}", instructions);
+                progress?.Report(instructions);
                 return false;
             }
         }
@@ -480,7 +497,6 @@ public class ShortVideoComposer : IShortVideoComposer
         {
             var mediaInfo = await FFmpeg.GetMediaInfo(inputPath, cancellationToken);
             var videoStream = mediaInfo.VideoStreams.FirstOrDefault();
-            var audioStream = mediaInfo.AudioStreams.FirstOrDefault();
 
             if (videoStream == null)
             {
@@ -488,47 +504,73 @@ public class ShortVideoComposer : IShortVideoComposer
                 return;
             }
 
-            var conversion = FFmpeg.Conversions.New();
+            var inputWidth = videoStream.Width;
+            var inputHeight = videoStream.Height;
+            var inputAspect = (double)inputWidth / inputHeight;
+            var outputAspect = (double)config.Width / config.Height;
 
-            // Configure video stream - scale to 9:16 portrait with padding
-            videoStream
-                .SetSize(config.Width, config.Height)
-                .SetFramerate(config.Fps)
-                .SetCodec(VideoCodec.h264);
+            // Build FFmpeg filter for blur background effect
+            var filterComplex = BuildBlurBackgroundFilter(
+                inputWidth, inputHeight, 
+                config.Width, config.Height,
+                inputAspect, outputAspect
+            );
 
-            // Trim to specified duration
-            if (targetDuration > 0 && targetDuration < mediaInfo.Duration.TotalSeconds)
+            // Build duration filter - use InvariantCulture to ensure dot as decimal separator
+            var durationArg = targetDuration > 0 && targetDuration < mediaInfo.Duration.TotalSeconds
+                ? $"-t {targetDuration.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)}"
+                : "";
+
+            // Use raw FFmpeg command for complex filter
+            var ffmpegPath = await FindFFmpegExecutablePathAsync();
+            if (string.IsNullOrEmpty(ffmpegPath))
             {
-                videoStream.Split(TimeSpan.Zero, TimeSpan.FromSeconds(targetDuration));
+                _logger.LogError("FFmpeg executable not found");
+                return;
             }
 
-            conversion.AddStream(videoStream);
+            // Build FFmpeg arguments - use simplified approach that handles audio optionally
+            var arguments = $"-i \"{inputPath}\" -filter_complex \"{filterComplex}\" " +
+                           $"-map \"[vout]\" -map 0:a? " +
+                           $"-c:v libx264 -preset fast -crf 23 " +
+                           $"-c:a aac -b:a 128k -ac 2 -ar 44100 " +
+                           $"-r {config.Fps} {durationArg} " +
+                           $"-y \"{outputPath}\"";
 
-            // Add audio if present
-            if (audioStream != null)
+            _logger.LogDebug("FFmpeg command for clip processing: {Args}", arguments);
+
+            using var process = new Process
             {
-                audioStream.SetCodec(AudioCodec.aac);
-                if (targetDuration > 0 && targetDuration < mediaInfo.Duration.TotalSeconds)
+                StartInfo = new ProcessStartInfo
                 {
-                    audioStream.Split(TimeSpan.Zero, TimeSpan.FromSeconds(targetDuration));
+                    FileName = ffmpegPath,
+                    Arguments = arguments,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
                 }
-                conversion.AddStream(audioStream);
+            };
+
+            process.Start();
+            var stderr = await process.StandardError.ReadToEndAsync();
+            await process.WaitForExitAsync(cancellationToken);
+
+            if (process.ExitCode != 0)
+            {
+                _logger.LogWarning("FFmpeg processing failed for {Path}. Exit code: {Code}. Error: {Error}", 
+                    inputPath, process.ExitCode, stderr);
+            }
+            else if (File.Exists(outputPath))
+            {
+                var fileInfo = new FileInfo(outputPath);
+                _logger.LogInformation("Processed clip: {Input} -> {Output} ({Size} bytes)", 
+                    Path.GetFileName(inputPath), Path.GetFileName(outputPath), fileInfo.Length);
             }
             else
             {
-                // Add silent audio if no audio stream
-                conversion.AddParameter("-f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -shortest");
+                _logger.LogWarning("Output file not created for clip: {Path}", inputPath);
             }
-
-            conversion
-                .SetOutput(outputPath)
-                .SetOverwriteOutput(true)
-                .SetPreset(ConversionPreset.Fast)
-                .UseMultiThread(true);
-
-            await conversion.Start(cancellationToken);
-            
-            _logger.LogInformation("Processed clip: {Input} -> {Output}", inputPath, outputPath);
         }
         catch (Exception ex)
         {
@@ -536,37 +578,148 @@ public class ShortVideoComposer : IShortVideoComposer
         }
     }
 
+    /// <summary>
+    /// Builds FFmpeg filter_complex string for blur background effect.
+    /// This creates a blurred, scaled background with the sharp video centered on top.
+    /// </summary>
+    private string BuildBlurBackgroundFilter(
+        int inputWidth, int inputHeight,
+        int outputWidth, int outputHeight,
+        double inputAspect, double outputAspect)
+    {
+        // If input is already close to output aspect ratio, just scale
+        if (Math.Abs(inputAspect - outputAspect) < 0.1)
+        {
+            return $"[0:v]scale={outputWidth}:{outputHeight}:force_original_aspect_ratio=decrease," +
+                   $"pad={outputWidth}:{outputHeight}:(ow-iw)/2:(oh-ih)/2:black[vout]";
+        }
+
+        // Calculate foreground scale to fit within output while maintaining aspect ratio
+        int fgWidth, fgHeight;
+        if (inputAspect > outputAspect)
+        {
+            // Input is wider - fit to width
+            fgWidth = outputWidth;
+            fgHeight = (int)(outputWidth / inputAspect);
+        }
+        else
+        {
+            // Input is taller - fit to height
+            fgHeight = outputHeight;
+            fgWidth = (int)(outputHeight * inputAspect);
+        }
+
+        // Ensure even dimensions for video encoding
+        fgWidth = (fgWidth / 2) * 2;
+        fgHeight = (fgHeight / 2) * 2;
+
+        // Build blur background filter:
+        // 1. Scale video to fill output (will crop)
+        // 2. Apply heavy blur
+        // 3. Scale original video to fit (foreground)
+        // 4. Overlay foreground centered on blurred background
+        var filter = 
+            // Background: scale to fill, crop to output size, then blur
+            $"[0:v]scale={outputWidth}:{outputHeight}:force_original_aspect_ratio=increase," +
+            $"crop={outputWidth}:{outputHeight}," +
+            $"boxblur=luma_radius=25:luma_power=2[bg];" +
+            // Foreground: scale to fit within output
+            $"[0:v]scale={fgWidth}:{fgHeight}[fg];" +
+            // Overlay foreground centered on background
+            $"[bg][fg]overlay=(W-w)/2:(H-h)/2[vout]";
+
+        return filter;
+    }
+
+    /// <summary>
+    /// Find the FFmpeg executable path.
+    /// </summary>
+    private async Task<string?> FindFFmpegExecutablePathAsync()
+    {
+        var ffmpegPath = await FindFFmpegAsync();
+        if (!string.IsNullOrEmpty(ffmpegPath))
+        {
+            return ffmpegPath;
+        }
+
+        // Try common locations
+        var isWindows = OperatingSystem.IsWindows();
+        var ffmpegName = isWindows ? "ffmpeg.exe" : "ffmpeg";
+        var configuredPath = Path.Combine(_ffmpegDirectory, ffmpegName);
+        
+        return File.Exists(configuredPath) ? configuredPath : null;
+    }
+
     private async Task ConcatenateClipsAsync(
         List<string> clipPaths,
         string outputPath,
         CancellationToken cancellationToken)
     {
+        if (clipPaths.Count == 0)
+        {
+            _logger.LogWarning("No clips to concatenate");
+            return;
+        }
+
+        // If only one clip, just copy it
+        if (clipPaths.Count == 1)
+        {
+            _logger.LogInformation("Only one clip, copying directly to output");
+            File.Copy(clipPaths[0], outputPath, overwrite: true);
+            return;
+        }
+
         try
         {
+            var ffmpegPath = await FindFFmpegExecutablePathAsync();
+            if (string.IsNullOrEmpty(ffmpegPath))
+            {
+                throw new InvalidOperationException("FFmpeg executable not found");
+            }
+
             // Create concat file list with absolute paths
             var concatListPath = Path.Combine(_tempDirectory, $"concat_{Guid.NewGuid():N}.txt");
             
-            // Ensure all paths are absolute
+            // Ensure all paths are absolute and escaped for FFmpeg
             var absolutePaths = clipPaths.Select(p => Path.GetFullPath(p)).ToList();
             
-            // Create concat content with properly escaped paths
+            // Create concat content with properly escaped paths (use forward slashes for FFmpeg)
             var concatContent = string.Join("\n", absolutePaths.Select(p => 
                 $"file '{p.Replace("\\", "/").Replace("'", "'\\''")}'"));
             
-            _logger.LogInformation("Concat file path: {Path}", concatListPath);
-            _logger.LogInformation("Concat content:\n{Content}", concatContent);
+            _logger.LogInformation("Concatenating {Count} clips", clipPaths.Count);
+            _logger.LogDebug("Concat file content:\n{Content}", concatContent);
             
             await File.WriteAllTextAsync(concatListPath, concatContent, cancellationToken);
 
-            // Use concat demuxer for efficient concatenation
+            // Use concat demuxer with re-encoding for reliability
             var absoluteOutputPath = Path.GetFullPath(outputPath);
-            var conversion = FFmpeg.Conversions.New()
-                .AddParameter($"-f concat -safe 0 -i \"{concatListPath}\"")
-                .AddParameter("-c copy")
-                .SetOutput(absoluteOutputPath)
-                .SetOverwriteOutput(true);
+            
+            // FFmpeg command: concat with re-encoding to ensure compatibility
+            var arguments = $"-f concat -safe 0 -i \"{concatListPath}\" " +
+                           $"-c:v libx264 -preset fast -crf 23 " +
+                           $"-c:a aac -b:a 128k " +
+                           $"-movflags +faststart " +
+                           $"-y \"{absoluteOutputPath}\"";
 
-            await conversion.Start(cancellationToken);
+            _logger.LogDebug("FFmpeg concat command: {Cmd}", $"{ffmpegPath} {arguments}");
+
+            using var process = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = ffmpegPath,
+                    Arguments = arguments,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                }
+            };
+
+            process.Start();
+            var stderr = await process.StandardError.ReadToEndAsync();
+            await process.WaitForExitAsync(cancellationToken);
 
             // Cleanup concat list
             if (File.Exists(concatListPath))
@@ -574,7 +727,21 @@ public class ShortVideoComposer : IShortVideoComposer
                 File.Delete(concatListPath);
             }
 
-            _logger.LogInformation("Concatenated {Count} clips to: {Path}", clipPaths.Count, absoluteOutputPath);
+            if (process.ExitCode != 0)
+            {
+                _logger.LogError("FFmpeg concat failed. Exit code: {Code}. Error: {Error}", 
+                    process.ExitCode, stderr);
+                throw new InvalidOperationException($"FFmpeg concatenation failed: {stderr}");
+            }
+
+            if (!File.Exists(absoluteOutputPath))
+            {
+                throw new InvalidOperationException("Output file was not created after concatenation");
+            }
+
+            var fileInfo = new FileInfo(absoluteOutputPath);
+            _logger.LogInformation("Successfully concatenated {Count} clips to: {Path} ({Size} bytes)", 
+                clipPaths.Count, absoluteOutputPath, fileInfo.Length);
         }
         catch (Exception ex)
         {

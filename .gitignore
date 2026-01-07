@@ -71,6 +71,18 @@ $RECYCLE.BIN/
 
 # Downloaded B-Roll videos (output directory)
 Broll_Workspace/
+output/
+
+# FFmpeg binaries (downloaded locally)
+ffmpeg-binaries/
+
+# Temporary processing files
+temp/
+
+# SQLite database
+*.db
+*.db-shm
+*.db-wal
 
 # Logs
 *.log
