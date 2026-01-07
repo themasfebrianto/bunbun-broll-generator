@@ -690,18 +690,29 @@ public class ShortVideoComposer : IShortVideoComposer
 
             var absoluteOutputPath = Path.GetFullPath(outputPath);
             var transitionName = config.Transition.GetFFmpegName();
-            var transitionDuration = config.TransitionDuration.ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
+            var transitionDurationStr = config.TransitionDuration.ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
 
-            // Get durations of all clips
+            // Get durations of all clips and check for audio streams
             var clipDurations = new List<double>();
+            var hasAudioStreams = new List<bool>();
+            
             foreach (var clipPath in clipPaths)
             {
                 var duration = await GetVideoDurationAsync(clipPath, cancellationToken);
                 clipDurations.Add(duration);
+                
+                // Check if clip has audio stream
+                var hasAudio = await CheckHasAudioStreamAsync(clipPath, cancellationToken);
+                hasAudioStreams.Add(hasAudio);
             }
 
+            // If any clip is missing audio, use video-only transitions
+            var allHaveAudio = hasAudioStreams.All(h => h);
+            
+            _logger.LogInformation("Transition processing: {Count} clips, all have audio: {HasAudio}", 
+                clipPaths.Count, allHaveAudio);
+
             // Build xfade filter chain for multiple clips
-            // Format: [0:v][1:v]xfade=transition=fade:duration=0.5:offset=4.5[v01];[v01][2:v]xfade=...
             var filterParts = new List<string>();
             var inputArgs = new List<string>();
             
@@ -713,31 +724,92 @@ public class ShortVideoComposer : IShortVideoComposer
             }
 
             // Calculate offsets and build xfade chain
+            // FIXED: Properly accumulate offset based on effective duration after overlap
             double cumulativeOffset = 0;
             string lastVideoLabel = "[0:v]";
-            string lastAudioLabel = "[0:a]";
             
             for (int i = 1; i < clipPaths.Count; i++)
             {
                 var prevDuration = clipDurations[i - 1];
-                var offset = cumulativeOffset + prevDuration - config.TransitionDuration;
-                var offsetStr = offset.ToString("F3", System.Globalization.CultureInfo.InvariantCulture);
                 
-                var outputVideoLabel = i == clipPaths.Count - 1 ? "[vout]" : $"[v{i - 1}{i}]";
-                var outputAudioLabel = i == clipPaths.Count - 1 ? "[aout]" : $"[a{i - 1}{i}]";
+                // For the first clip, offset = duration - transition
+                // For subsequent clips, we need to account for the overlap
+                double offset;
+                if (i == 1)
+                {
+                    offset = prevDuration - config.TransitionDuration;
+                }
+                else
+                {
+                    // Each previous clip's effective contribution is: duration - transitionDuration
+                    // So cumulative offset = sum of (duration_k - transitionDuration) for k = 0 to i-1
+                    cumulativeOffset += (clipDurations[i - 1] - config.TransitionDuration);
+                    offset = cumulativeOffset;
+                }
+                
+                if (i == 1) cumulativeOffset = offset;
+                
+                var offsetStr = Math.Max(0, offset).ToString("F3", System.Globalization.CultureInfo.InvariantCulture);
+                
+                var outputVideoLabel = i == clipPaths.Count - 1 ? "[vout]" : $"[v{i}]";
                 
                 // Video transition using xfade
-                filterParts.Add($"{lastVideoLabel}[{i}:v]xfade=transition={transitionName}:duration={transitionDuration}:offset={offsetStr}{outputVideoLabel}");
-                
-                // Audio crossfade using acrossfade
-                filterParts.Add($"{lastAudioLabel}[{i}:a]acrossfade=d={transitionDuration}:c1=tri:c2=tri{outputAudioLabel}");
+                filterParts.Add($"{lastVideoLabel}[{i}:v]xfade=transition={transitionName}:duration={transitionDurationStr}:offset={offsetStr}{outputVideoLabel}");
                 
                 lastVideoLabel = outputVideoLabel;
-                lastAudioLabel = outputAudioLabel;
-                cumulativeOffset = offset;
             }
 
-            var filterComplex = string.Join(";", filterParts);
+            // Build audio filter - handle cases where clips may not have audio
+            string audioFilter;
+            if (allHaveAudio)
+            {
+                // All clips have audio - use acrossfade chain
+                var audioFilterParts = new List<string>();
+                string lastAudioLabel = "[0:a]";
+                cumulativeOffset = 0;
+                
+                for (int i = 1; i < clipPaths.Count; i++)
+                {
+                    var prevDuration = clipDurations[i - 1];
+                    
+                    double offset;
+                    if (i == 1)
+                    {
+                        offset = prevDuration - config.TransitionDuration;
+                    }
+                    else
+                    {
+                        cumulativeOffset += (clipDurations[i - 1] - config.TransitionDuration);
+                        offset = cumulativeOffset;
+                    }
+                    if (i == 1) cumulativeOffset = offset;
+                    
+                    var outputAudioLabel = i == clipPaths.Count - 1 ? "[aout]" : $"[a{i}]";
+                    
+                    audioFilterParts.Add($"{lastAudioLabel}[{i}:a]acrossfade=d={transitionDurationStr}:c1=tri:c2=tri{outputAudioLabel}");
+                    
+                    lastAudioLabel = outputAudioLabel;
+                }
+                
+                audioFilter = string.Join(";", audioFilterParts);
+            }
+            else
+            {
+                // Some clips missing audio - generate silent audio for the final output
+                // Calculate total duration accounting for overlaps
+                double totalDuration = clipDurations[0];
+                for (int i = 1; i < clipDurations.Count; i++)
+                {
+                    totalDuration += clipDurations[i] - config.TransitionDuration;
+                }
+                
+                var totalDurationStr = totalDuration.ToString("F3", System.Globalization.CultureInfo.InvariantCulture);
+                audioFilter = $"anullsrc=channel_layout=stereo:sample_rate=44100,atrim=0:{totalDurationStr}[aout]";
+                
+                _logger.LogInformation("Some clips missing audio, generating silent audio track ({Duration}s)", totalDuration);
+            }
+
+            var filterComplex = string.Join(";", filterParts) + ";" + audioFilter;
             
             _logger.LogInformation("Concatenating {Count} clips with {Transition} transition ({Duration}s)", 
                 clipPaths.Count, config.Transition.GetDisplayName(), config.TransitionDuration);
@@ -772,10 +844,21 @@ public class ShortVideoComposer : IShortVideoComposer
 
             if (process.ExitCode != 0)
             {
-                _logger.LogWarning("FFmpeg xfade failed (Exit: {Code}), falling back to simple concatenation. Error: {Error}", 
-                    process.ExitCode, stderr.Length > 500 ? stderr[..500] : stderr);
+                _logger.LogWarning("FFmpeg xfade with audio failed (Exit: {Code}). Trying video-only transition...", 
+                    process.ExitCode);
+                _logger.LogDebug("FFmpeg error: {Error}", stderr.Length > 1000 ? stderr[..1000] : stderr);
                 
-                // Fallback to simple concatenation without transitions
+                // Try again with video-only transitions (no audio crossfade)
+                var videoOnlySuccess = await TryVideoOnlyTransitionsAsync(
+                    ffmpegPath, clipPaths, clipDurations, absoluteOutputPath, 
+                    transitionName, config.TransitionDuration, cancellationToken);
+                
+                if (videoOnlySuccess)
+                {
+                    return;
+                }
+                
+                _logger.LogWarning("Video-only transitions also failed. Falling back to simple concatenation.");
                 await ConcatenateClipsAsync(clipPaths, outputPath, cancellationToken);
                 return;
             }
@@ -793,6 +876,131 @@ public class ShortVideoComposer : IShortVideoComposer
         {
             _logger.LogError(ex, "Failed to concatenate clips with transitions, falling back to simple concat");
             await ConcatenateClipsAsync(clipPaths, outputPath, cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// Check if a video file has an audio stream.
+    /// </summary>
+    private async Task<bool> CheckHasAudioStreamAsync(string videoPath, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var mediaInfo = await FFmpeg.GetMediaInfo(videoPath, cancellationToken);
+            return mediaInfo.AudioStreams.Any();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to check audio stream for {Path}, assuming no audio", videoPath);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Try to apply video-only transitions (without audio crossfade).
+    /// </summary>
+    private async Task<bool> TryVideoOnlyTransitionsAsync(
+        string ffmpegPath,
+        List<string> clipPaths,
+        List<double> clipDurations,
+        string outputPath,
+        string transitionName,
+        double transitionDuration,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var transitionDurationStr = transitionDuration.ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
+            
+            var filterParts = new List<string>();
+            var inputArgs = new List<string>();
+            
+            for (int i = 0; i < clipPaths.Count; i++)
+            {
+                var escapedPath = clipPaths[i].Replace("\\", "/");
+                inputArgs.Add($"-i \"{escapedPath}\"");
+            }
+
+            // Video xfade chain
+            double cumulativeOffset = 0;
+            string lastVideoLabel = "[0:v]";
+            
+            for (int i = 1; i < clipPaths.Count; i++)
+            {
+                var prevDuration = clipDurations[i - 1];
+                
+                double offset;
+                if (i == 1)
+                {
+                    offset = prevDuration - transitionDuration;
+                }
+                else
+                {
+                    cumulativeOffset += (clipDurations[i - 1] - transitionDuration);
+                    offset = cumulativeOffset;
+                }
+                if (i == 1) cumulativeOffset = offset;
+                
+                var offsetStr = Math.Max(0, offset).ToString("F3", System.Globalization.CultureInfo.InvariantCulture);
+                var outputVideoLabel = i == clipPaths.Count - 1 ? "[vout]" : $"[v{i}]";
+                
+                filterParts.Add($"{lastVideoLabel}[{i}:v]xfade=transition={transitionName}:duration={transitionDurationStr}:offset={offsetStr}{outputVideoLabel}");
+                lastVideoLabel = outputVideoLabel;
+            }
+
+            // Generate silent audio for the total duration
+            double totalDuration = clipDurations[0];
+            for (int i = 1; i < clipDurations.Count; i++)
+            {
+                totalDuration += clipDurations[i] - transitionDuration;
+            }
+            var totalDurationStr = totalDuration.ToString("F3", System.Globalization.CultureInfo.InvariantCulture);
+            filterParts.Add($"anullsrc=channel_layout=stereo:sample_rate=44100,atrim=0:{totalDurationStr}[aout]");
+
+            var filterComplex = string.Join(";", filterParts);
+            
+            var arguments = $"{string.Join(" ", inputArgs)} " +
+                           $"-filter_complex \"{filterComplex}\" " +
+                           $"-map \"[vout]\" -map \"[aout]\" " +
+                           $"-c:v libx264 -preset fast -crf 23 " +
+                           $"-c:a aac -b:a 128k " +
+                           $"-movflags +faststart " +
+                           $"-y \"{outputPath}\"";
+
+            _logger.LogDebug("FFmpeg video-only transition command: {Cmd}", arguments);
+
+            using var process = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = ffmpegPath,
+                    Arguments = arguments,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                }
+            };
+
+            process.Start();
+            var stderr = await process.StandardError.ReadToEndAsync();
+            await process.WaitForExitAsync(cancellationToken);
+
+            if (process.ExitCode == 0 && File.Exists(outputPath))
+            {
+                var fileInfo = new FileInfo(outputPath);
+                _logger.LogInformation("Successfully created video with video-only transitions: {Path} ({Size} bytes)", 
+                    outputPath, fileInfo.Length);
+                return true;
+            }
+
+            _logger.LogWarning("Video-only transition failed. Exit: {Code}", process.ExitCode);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Video-only transition attempt failed");
+            return false;
         }
     }
 
