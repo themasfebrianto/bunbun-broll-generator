@@ -45,15 +45,46 @@
 
                 <!-- Settings Row -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
-                    <div class="space-y-2">
+                    <div class="space-y-3">
                         <label class="text-sm font-medium leading-none">Visual Mood</label>
-                        <select class="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                                @bind="_selectedMood">
-                            <option value="" class="bg-background text-foreground">Sequence Default</option>
-                            <option value="Cinematic" class="bg-background text-foreground">Cinematic High-Contrast</option>
-                            <option value="Moody" class="bg-background text-foreground">Moody / Desaturated</option>
-                            <option value="Bright" class="bg-background text-foreground">Bright / High-Key</option>
-                        </select>
+                        <div class="flex gap-2">
+                            <!-- Default -->
+                            <button type="button" 
+                                    class="flex flex-col items-center justify-center w-full h-16 rounded-lg border-2 transition-all @(_selectedMood == "" ? "border-primary bg-primary/10" : "border-input hover:border-primary/50")"
+                                    @onclick="SelectMoodAuto">
+                                <svg class="h-5 w-5 mb-1 @(_selectedMood == "" ? "text-primary" : "text-muted-foreground")" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+                                </svg>
+                                <span class="text-[10px] font-medium @(_selectedMood == "" ? "text-primary" : "text-muted-foreground")">Auto</span>
+                            </button>
+                            <!-- Cinematic -->
+                            <button type="button" 
+                                    class="flex flex-col items-center justify-center w-full h-16 rounded-lg border-2 transition-all @(_selectedMood == "Cinematic" ? "border-primary bg-primary/10" : "border-input hover:border-primary/50")"
+                                    @onclick="SelectMoodCinematic">
+                                <svg class="h-5 w-5 mb-1 @(_selectedMood == "Cinematic" ? "text-primary" : "text-muted-foreground")" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <rect x="2" y="2" width="20" height="20" rx="2"/><path d="M7 2v20M17 2v20M2 12h20M2 7h5M2 17h5M17 7h5M17 17h5"/>
+                                </svg>
+                                <span class="text-[10px] font-medium @(_selectedMood == "Cinematic" ? "text-primary" : "text-muted-foreground")">Cinema</span>
+                            </button>
+                            <!-- Moody -->
+                            <button type="button" 
+                                    class="flex flex-col items-center justify-center w-full h-16 rounded-lg border-2 transition-all @(_selectedMood == "Moody" ? "border-primary bg-primary/10" : "border-input hover:border-primary/50")"
+                                    @onclick="SelectMoodMoody">
+                                <svg class="h-5 w-5 mb-1 @(_selectedMood == "Moody" ? "text-primary" : "text-muted-foreground")" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+                                </svg>
+                                <span class="text-[10px] font-medium @(_selectedMood == "Moody" ? "text-primary" : "text-muted-foreground")">Moody</span>
+                            </button>
+                            <!-- Bright -->
+                            <button type="button" 
+                                    class="flex flex-col items-center justify-center w-full h-16 rounded-lg border-2 transition-all @(_selectedMood == "Bright" ? "border-primary bg-primary/10" : "border-input hover:border-primary/50")"
+                                    @onclick="SelectMoodBright">
+                                <svg class="h-5 w-5 mb-1 @(_selectedMood == "Bright" ? "text-primary" : "text-muted-foreground")" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+                                </svg>
+                                <span class="text-[10px] font-medium @(_selectedMood == "Bright" ? "text-primary" : "text-muted-foreground")">Bright</span>
+                            </button>
+                        </div>
                     </div>
 
                     <div class="flex items-center space-x-2 pb-2">
@@ -353,6 +384,12 @@
         _halalFilterEnabled = !_halalFilterEnabled;
         HalalFilter.IsEnabled = _halalFilterEnabled;
     }
+
+    // Mood selection helpers
+    private void SelectMoodAuto() => _selectedMood = "";
+    private void SelectMoodCinematic() => _selectedMood = "Cinematic";
+    private void SelectMoodMoody() => _selectedMood = "Moody";
+    private void SelectMoodBright() => _selectedMood = "Bright";
 
     private async Task StartSearch()
     {
