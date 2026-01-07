@@ -1,0 +1,42 @@
+@using BunbunBroll.Models
+
+<div class="space-y-3">
+    <label class="text-sm font-medium leading-none">Content Category</label>
+    <div class="grid grid-cols-3 gap-2">
+        @foreach (var category in CategoryPresets.GetAllCategories())
+        {
+            <button type="button"
+                    class="flex flex-col items-center justify-center h-20 rounded-lg border transition-colors duration-150 @(SelectedCategory == category.Category ? "border-foreground bg-muted" : "border-border hover:border-foreground/30")"
+                    @onclick="() => SelectCategory(category.Category)">
+                <span class="text-xl mb-1">@category.Icon</span>
+                <span class="text-[10px] font-medium @(SelectedCategory == category.Category ? "text-foreground" : "text-muted-foreground")">@category.DisplayName</span>
+            </button>
+        }
+    </div>
+    @if (ShowDescription)
+    {
+        <p class="text-xs text-muted-foreground">@GetSelectedConfig().Description</p>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public ContentCategory SelectedCategory { get; set; } = ContentCategory.Islami;
+
+    [Parameter]
+    public EventCallback<ContentCategory> SelectedCategoryChanged { get; set; }
+
+    [Parameter]
+    public bool ShowDescription { get; set; } = true;
+
+    private void SelectCategory(ContentCategory category)
+    {
+        SelectedCategory = category;
+        SelectedCategoryChanged.InvokeAsync(category);
+    }
+
+    private CategoryConfig GetSelectedConfig()
+    {
+        return CategoryPresets.GetConfig(SelectedCategory);
+    }
+}

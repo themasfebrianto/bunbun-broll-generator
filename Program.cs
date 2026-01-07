@@ -34,6 +34,7 @@ builder.Services.Configure<DownloaderSettings>(builder.Configuration.GetSection(
 builder.Services.AddScoped<IScriptProcessor, ScriptProcessor>();
 builder.Services.AddScoped<IPipelineOrchestrator, PipelineOrchestrator>();
 builder.Services.AddScoped<IProjectService, ProjectService>();
+builder.Services.AddScoped<IShortVideoComposer, ShortVideoComposer>();
 
 // Configure HttpClient for Gemini (Local LLM) - Uses IOptions pattern for env var support
 builder.Services.AddHttpClient<IIntelligenceService, IntelligenceService>()

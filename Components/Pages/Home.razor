@@ -2,6 +2,7 @@
 @page "/editor/{ProjectId}"
 @rendermode InteractiveServer
 @inject IPipelineOrchestrator Orchestrator
+@inject IShortVideoComposer ShortVideoComposer
 @inject IHalalVideoFilter HalalFilter
 @inject IProjectService ProjectService
 @inject ILogger<Home> Logger
@@ -212,6 +213,118 @@
                     {
                         <p class="text-center text-xs text-muted-foreground">Direct download from CDN</p>
                     }
+
+                    <!-- Short Video Generator Section -->
+                    @if (_ffmpegAvailable)
+                    {
+                        <div class="pt-4 border-t border-border space-y-3">
+                            <button class="flex items-center justify-between w-full text-sm font-medium"
+                                    @onclick="ToggleShortVideoMode">
+                                <span class="flex items-center gap-2">
+                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                        <rect x="2" y="2" width="20" height="20" rx="2"/><path d="M10 8l6 4-6 4V8z"/>
+                                    </svg>
+                                    Auto Short Video
+                                </span>
+                                <svg class="h-4 w-4 transition-transform @(_shortVideoMode ? "rotate-180" : "")" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                    <path d="M6 9l6 6 6-6"/>
+                                </svg>
+                            </button>
+
+                            @if (_shortVideoMode)
+                            {
+                                <div class="space-y-4 animate-in">
+                                    <!-- Category Selector -->
+                                    <div class="space-y-2">
+                                        <label class="text-xs font-medium text-muted-foreground">Category</label>
+                                        <div class="grid grid-cols-3 gap-1.5">
+                                            @foreach (var category in CategoryPresets.GetAllCategories())
+                                            {
+                                                <button type="button"
+                                                        class="flex flex-col items-center justify-center h-14 rounded-md border text-xs transition-colors @(_selectedCategory == category.Category ? "border-foreground bg-muted" : "border-border hover:border-foreground/30")"
+                                                        @onclick="() => SelectCategory(category.Category)">
+                                                    <span class="text-base">@category.Icon</span>
+                                                    <span class="text-[9px] @(_selectedCategory == category.Category ? "text-foreground" : "text-muted-foreground")">@category.DisplayName</span>
+                                                </button>
+                                            }
+                                        </div>
+                                    </div>
+
+                                    <!-- Duration -->
+                                    <div class="space-y-1.5">
+                                        <div class="flex justify-between text-xs">
+                                            <span class="text-muted-foreground">Duration</span>
+                                            <span class="font-mono">@_targetDuration s</span>
+                                        </div>
+                                        <input type="range" min="15" max="60" step="5"
+                                               @bind="_targetDuration" @bind:event="oninput"
+                                               class="w-full h-1.5 bg-muted rounded-full appearance-none cursor-pointer accent-foreground" />
+                                    </div>
+
+                                    <!-- Hook Text -->
+                                    <div class="space-y-1.5">
+                                        <label class="text-xs text-muted-foreground">Hook Text</label>
+                                        <input type="text" class="input h-8 text-xs"
+                                               @bind="_hookText"
+                                               placeholder="e.g. Tahukah kamu? 🤔" />
+                                    </div>
+
+                                    <!-- Generate Button -->
+                                    <button class="btn-primary h-10 w-full"
+                                            @onclick="GenerateShortVideo"
+                                            disabled="@(_isGeneratingShortVideo || _currentJob.PreviewReadySentences == 0)">
+                                        @if (_isGeneratingShortVideo)
+                                        {
+                                            <svg class="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            <span>Generating...</span>
+                                        }
+                                        else
+                                        {
+                                            <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/>
+                                                <circle cx="12" cy="13" r="3"/>
+                                            </svg>
+                                            <span>Generate Short Video</span>
+                                        }
+                                    </button>
+
+                                    <!-- Result -->
+                                    @if (_shortVideoResult?.Success == true)
+                                    {
+                                        <div class="p-3 rounded-md bg-green-500/10 border border-green-500/30 space-y-2">
+                                            <p class="text-xs text-green-600 dark:text-green-400">
+                                                ✓ Video ready! @_shortVideoResult.DurationSeconds s
+                                            </p>
+                                            <button class="btn-secondary h-8 w-full text-xs"
+                                                    @onclick="DownloadShortVideo">
+                                                <svg class="mr-1.5 h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                                                </svg>
+                                                Download MP4
+                                            </button>
+                                        </div>
+                                    }
+                                    else if (_shortVideoResult?.Success == false)
+                                    {
+                                        <p class="text-xs text-red-500 p-2 bg-red-500/10 rounded-md">
+                                            @_shortVideoResult.ErrorMessage
+                                        </p>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="pt-4 border-t border-border">
+                            <p class="text-xs text-muted-foreground text-center">
+                                <span class="text-yellow-500">⚠</span> FFmpeg not found. Install FFmpeg to enable Short Video generation.
+                            </p>
+                        </div>
+                    }
                 </div>
 
                 <!-- Feed Content -->
@@ -337,6 +450,19 @@
     private int _totalCount = 0;
     [Parameter] public string? ProjectId { get; set; }
 
+    // === Short Video Generation State ===
+    private bool _shortVideoMode = false;
+    private bool _isGeneratingShortVideo = false;
+    private bool _ffmpegAvailable = false;
+    private ContentCategory _selectedCategory = ContentCategory.Islami;
+    private int _targetDuration = 30;
+    private bool _autoCut = true;
+    private bool _addTransitions = true;
+    private bool _addTextOverlay = true;
+    private bool _addBackgroundMusic = false;
+    private string _hookText = "";
+    private ShortVideoResult? _shortVideoResult;
+
     private bool CanGenerate => !string.IsNullOrWhiteSpace(_projectName) && !string.IsNullOrWhiteSpace(_scriptText);
 
     protected override async Task OnInitializedAsync()
@@ -344,6 +470,9 @@
         _halalFilterEnabled = HalalFilter.IsEnabled;
         Orchestrator.OnSentenceProgress += HandleProgress;
         Orchestrator.OnJobProgress += HandleJobProgress;
+
+        // Check FFmpeg availability for short video generation
+        _ffmpegAvailable = await ShortVideoComposer.IsFFmpegAvailableAsync();
 
         if (!string.IsNullOrEmpty(ProjectId))
         {
@@ -686,5 +815,130 @@
         Orchestrator.OnSentenceProgress -= HandleProgress;
         Orchestrator.OnJobProgress -= HandleJobProgress;
         _cts?.Dispose();
+    }
+
+    // === Short Video Generation Methods ===
+
+    private void ToggleShortVideoMode()
+    {
+        _shortVideoMode = !_shortVideoMode;
+        _shortVideoResult = null;
+    }
+
+    private void SelectCategory(ContentCategory category)
+    {
+        _selectedCategory = category;
+        // Apply category-specific keyword modifiers to mood
+        var config = CategoryPresets.GetConfig(category);
+        // Optionally update mood based on category
+    }
+
+    private async Task GenerateShortVideo()
+    {
+        if (_currentJob == null) return;
+
+        _isGeneratingShortVideo = true;
+        _statusMessage = "Preparing short video...";
+        _shortVideoResult = null;
+        StateHasChanged();
+
+        try
+        {
+            // Collect clips from the current job
+            var clips = _currentJob.Segments
+                .SelectMany(s => s.Sentences)
+                .Where(s => s.SelectedVideo != null)
+                .Select(s => new VideoClip
+                {
+                    SourceUrl = s.SelectedVideo!.DownloadUrl,
+                    SourcePath = s.SelectedVideo.LocalPath ?? "",
+                    AssociatedText = s.Text,
+                    DurationSeconds = s.SelectedVideo.DurationSeconds
+                })
+                .ToList();
+
+            if (clips.Count == 0)
+            {
+                _statusMessage = "No videos selected. Please select videos first.";
+                _isGeneratingShortVideo = false;
+                StateHasChanged();
+                return;
+            }
+
+            var config = new ShortVideoConfig
+            {
+                Category = _selectedCategory,
+                TargetDurationSeconds = _targetDuration,
+                AutoCut = _autoCut,
+                AddTransitions = _addTransitions,
+                AddTextOverlay = _addTextOverlay,
+                AddBackgroundMusic = _addBackgroundMusic,
+                HookText = _addTextOverlay ? _hookText : null
+            };
+
+            var progress = new Progress<CompositionProgress>(p =>
+            {
+                _statusMessage = $"{p.Stage}: {p.Message} ({p.Percent}%)";
+                InvokeAsync(StateHasChanged);
+            });
+
+            _shortVideoResult = await ShortVideoComposer.ComposeAsync(
+                clips,
+                config,
+                progress,
+                _cts?.Token ?? default
+            );
+
+            if (_shortVideoResult.Success)
+            {
+                _statusMessage = $"✓ Short video generated! Duration: {_shortVideoResult.DurationSeconds}s, Size: {FormatFileSize(_shortVideoResult.FileSizeBytes)}";
+            }
+            else
+            {
+                _statusMessage = $"✗ Generation failed: {_shortVideoResult.ErrorMessage}";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Short video generation failed");
+            _statusMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            _isGeneratingShortVideo = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task DownloadShortVideo()
+    {
+        if (_shortVideoResult?.OutputPath == null) return;
+
+        try
+        {
+            var fileName = Path.GetFileName(_shortVideoResult.OutputPath);
+            var bytes = await File.ReadAllBytesAsync(_shortVideoResult.OutputPath);
+            var base64 = Convert.ToBase64String(bytes);
+            await JS.InvokeVoidAsync("downloadFile", fileName, base64, "video/mp4");
+            _statusMessage = $"Downloaded: {fileName}";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Short video download failed");
+            _statusMessage = $"Download error: {ex.Message}";
+        }
+    }
+
+    private static string FormatFileSize(long bytes)
+    {
+        string[] sizes = { "B", "KB", "MB", "GB" };
+        double len = bytes;
+        int order = 0;
+        while (len >= 1024 && order < sizes.Length - 1)
+        {
+            order++;
+            len /= 1024;
+        }
+        return $"{len:0.##} {sizes[order]}";
     }
 }
