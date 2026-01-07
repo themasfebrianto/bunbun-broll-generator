@@ -31,3 +31,10 @@ html, body {
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(240 5% 64.9%);
 }
+
+/* Indeterminate progress animation */
+@keyframes progress-indeterminate {
+  0% { transform: translateX(-100%); }
+  50% { transform: translateX(0%); }
+  100% { transform: translateX(100%); }
+}
