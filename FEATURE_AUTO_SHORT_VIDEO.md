@@ -656,10 +656,11 @@ public record TemplateSection
 
 ### 8.3 Known Limitations
 
-1. **FFmpeg dependency** - User harus install FFmpeg
+1. **FFmpeg dependency** - FFmpeg akan didownload otomatis jika belum ada (via Xabe.FFmpeg.Downloader)
 2. **Processing time** - Composing video butuh waktu (estimasi 30-60 detik)
 3. **Storage** - Temporary files selama proses
 4. **Music licensing** - Perlu perhatikan lisensi untuk musik yang digunakan
+5. **First-run download** - Download FFmpeg (~80MB) pada pertama kali digunakan
 
 ---
 
@@ -713,8 +714,9 @@ public record TemplateSection
 <!-- Existing -->
 <PackageReference Include="Microsoft.AspNetCore.Components" Version="8.0.0" />
 
-<!-- NEW: For FFmpeg integration -->
+<!-- NEW: For FFmpeg integration with auto-download -->
 <PackageReference Include="Xabe.FFmpeg" Version="5.2.6" />
+<PackageReference Include="Xabe.FFmpeg.Downloader" Version="5.2.6" />
 ```
 
 ### 10.3 Configuration

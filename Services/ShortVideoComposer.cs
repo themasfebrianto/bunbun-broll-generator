@@ -1,7 +1,6 @@
 using BunbunBroll.Models;
+using Xabe.FFmpeg;
 using System.Diagnostics;
-using System.Text;
-using System.Text.Json;
 
 namespace BunbunBroll.Services;
 
@@ -16,6 +15,11 @@ public interface IShortVideoComposer
     Task<bool> IsFFmpegAvailableAsync();
 
     /// <summary>
+    /// Ensure FFmpeg is available (tries to find or download).
+    /// </summary>
+    Task<bool> EnsureFFmpegAsync(IProgress<string>? progress = null);
+
+    /// <summary>
     /// Compose multiple video clips into a single short video.
     /// </summary>
     Task<ShortVideoResult> ComposeAsync(
@@ -26,47 +30,118 @@ public interface IShortVideoComposer
     );
 
     /// <summary>
-    /// Get video duration using FFprobe.
+    /// Get video duration.
     /// </summary>
     Task<double> GetVideoDurationAsync(string videoPath, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
-/// Composes short videos using FFmpeg.
+/// Composes short videos using Xabe.FFmpeg wrapper.
 /// </summary>
 public class ShortVideoComposer : IShortVideoComposer
 {
     private readonly ILogger<ShortVideoComposer> _logger;
     private readonly IConfiguration _config;
-    private readonly string _ffmpegPath;
-    private readonly string _ffprobePath;
+    private readonly string _ffmpegDirectory;
     private readonly string _tempDirectory;
     private readonly string _outputDirectory;
+    private bool _isInitialized = false;
 
     public ShortVideoComposer(ILogger<ShortVideoComposer> logger, IConfiguration config)
     {
         _logger = logger;
         _config = config;
-        _ffmpegPath = config["FFmpeg:Path"] ?? "ffmpeg";
-        _ffprobePath = config["FFmpeg:ProbePath"] ?? "ffprobe";
-        _tempDirectory = config["FFmpeg:TempDirectory"] ?? Path.Combine(Path.GetTempPath(), "bunbun_ffmpeg");
-        _outputDirectory = config["ShortVideo:OutputDirectory"] ?? "./output/shorts";
+        
+        // FFmpeg binaries directory
+        _ffmpegDirectory = config["FFmpeg:BinaryDirectory"] 
+            ?? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ffmpeg-binaries");
+        _tempDirectory = config["FFmpeg:TempDirectory"] 
+            ?? Path.Combine(Path.GetTempPath(), "bunbun_ffmpeg");
+        _outputDirectory = config["ShortVideo:OutputDirectory"] 
+            ?? "./output/shorts";
 
         // Ensure directories exist
+        Directory.CreateDirectory(_ffmpegDirectory);
         Directory.CreateDirectory(_tempDirectory);
         Directory.CreateDirectory(_outputDirectory);
+
+        // Set FFmpeg path for Xabe.FFmpeg if binaries exist
+        if (Directory.Exists(_ffmpegDirectory))
+        {
+            FFmpeg.SetExecutablesPath(_ffmpegDirectory);
+        }
     }
 
-    public async Task<bool> IsFFmpegAvailableAsync()
+    public async Task<bool> EnsureFFmpegAsync(IProgress<string>? progress = null)
     {
+        if (_isInitialized) return true;
+
+        try
+        {
+            // Check common locations for FFmpeg
+            var ffmpegPath = await FindFFmpegAsync();
+            
+            if (!string.IsNullOrEmpty(ffmpegPath))
+            {
+                var directory = Path.GetDirectoryName(ffmpegPath);
+                if (!string.IsNullOrEmpty(directory))
+                {
+                    FFmpeg.SetExecutablesPath(directory);
+                    _logger.LogInformation("FFmpeg found at: {Path}", ffmpegPath);
+                    _isInitialized = true;
+                    return true;
+                }
+            }
+
+            // Try to use Xabe.FFmpeg's built-in downloader (if available)
+            progress?.Report("Attempting to download FFmpeg...");
+            
+            try
+            {
+                // Xabe.FFmpeg.Downloader package is needed for auto-download
+                // Since it may not be installed, we'll catch if it fails
+                await Xabe.FFmpeg.Downloader.FFmpegDownloader.GetLatestVersion(
+                    Xabe.FFmpeg.Downloader.FFmpegVersion.Official, 
+                    _ffmpegDirectory
+                );
+                FFmpeg.SetExecutablesPath(_ffmpegDirectory);
+                _isInitialized = true;
+                progress?.Report("FFmpeg downloaded successfully!");
+                return true;
+            }
+            catch
+            {
+                // Downloader not available or failed
+                _logger.LogWarning("FFmpeg auto-download not available. Please install FFmpeg manually.");
+                progress?.Report("Please install FFmpeg manually from https://ffmpeg.org/download.html");
+                return false;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to ensure FFmpeg availability");
+            return false;
+        }
+    }
+
+    private async Task<string?> FindFFmpegAsync()
+    {
+        // Check in configured directory
+        var configuredPath = Path.Combine(_ffmpegDirectory, "ffmpeg.exe");
+        if (File.Exists(configuredPath))
+        {
+            return configuredPath;
+        }
+
+        // Check if ffmpeg is in PATH
         try
         {
             using var process = new Process
             {
                 StartInfo = new ProcessStartInfo
                 {
-                    FileName = _ffmpegPath,
-                    Arguments = "-version",
+                    FileName = "where",
+                    Arguments = "ffmpeg",
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     UseShellExecute = false,
@@ -75,44 +150,70 @@ public class ShortVideoComposer : IShortVideoComposer
             };
 
             process.Start();
+            var output = await process.StandardOutput.ReadToEndAsync();
             await process.WaitForExitAsync();
-            return process.ExitCode == 0;
+
+            if (process.ExitCode == 0 && !string.IsNullOrEmpty(output))
+            {
+                var path = output.Split('\n').FirstOrDefault()?.Trim();
+                if (!string.IsNullOrEmpty(path) && File.Exists(path))
+                {
+                    return path;
+                }
+            }
         }
-        catch (Exception ex)
+        catch
         {
-            _logger.LogWarning(ex, "FFmpeg not available at path: {Path}", _ffmpegPath);
-            return false;
+            // Ignore - try other methods
         }
+
+        // Common installation paths on Windows
+        var commonPaths = new[]
+        {
+            @"C:\ffmpeg\bin\ffmpeg.exe",
+            @"C:\Program Files\ffmpeg\bin\ffmpeg.exe",
+            @"C:\Program Files (x86)\ffmpeg\bin\ffmpeg.exe",
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ffmpeg", "bin", "ffmpeg.exe")
+        };
+
+        foreach (var path in commonPaths)
+        {
+            if (File.Exists(path))
+            {
+                return path;
+            }
+        }
+
+        return null;
+    }
+
+    public async Task<bool> IsFFmpegAvailableAsync()
+    {
+        if (_isInitialized) return true;
+
+        var ffmpegPath = await FindFFmpegAsync();
+        if (!string.IsNullOrEmpty(ffmpegPath))
+        {
+            var directory = Path.GetDirectoryName(ffmpegPath);
+            if (!string.IsNullOrEmpty(directory))
+            {
+                FFmpeg.SetExecutablesPath(directory);
+            }
+            _isInitialized = true;
+            return true;
+        }
+
+        return false;
     }
 
     public async Task<double> GetVideoDurationAsync(string videoPath, CancellationToken cancellationToken = default)
     {
         try
         {
-            using var process = new Process
-            {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = _ffprobePath,
-                    Arguments = $"-v quiet -show_entries format=duration -of csv=p=0 \"{videoPath}\"",
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                }
-            };
-
-            process.Start();
-
-            var output = await process.StandardOutput.ReadToEndAsync(cancellationToken);
-            await process.WaitForExitAsync(cancellationToken);
-
-            if (double.TryParse(output.Trim(), out var duration))
-            {
-                return duration;
-            }
-
-            return 0;
+            if (!await EnsureFFmpegAsync()) return 0;
+            
+            var mediaInfo = await FFmpeg.GetMediaInfo(videoPath, cancellationToken);
+            return mediaInfo.Duration.TotalSeconds;
         }
         catch (Exception ex)
         {
@@ -136,54 +237,102 @@ public class ShortVideoComposer : IShortVideoComposer
             };
         }
 
-        // Check FFmpeg availability
-        if (!await IsFFmpegAvailableAsync())
-        {
-            return new ShortVideoResult
-            {
-                Success = false,
-                ErrorMessage = "FFmpeg is not available. Please install FFmpeg and ensure it's in your PATH."
-            };
-        }
-
         var sessionId = Guid.NewGuid().ToString("N")[..8];
         var outputFileName = $"short_{sessionId}_{DateTime.Now:yyyyMMdd_HHmmss}.mp4";
         var outputPath = Path.Combine(_outputDirectory, outputFileName);
 
         try
         {
-            progress?.Report(new CompositionProgress { Stage = "Preparing", Percent = 5, Message = "Preparing clips..." });
-
-            // Calculate clip durations to fit target
-            var clipDurations = CalculateClipDurations(clips, config);
-
-            progress?.Report(new CompositionProgress { Stage = "Building", Percent = 15, Message = "Building filter graph..." });
-
-            // Build FFmpeg command
-            var (arguments, filterPath) = await BuildFFmpegCommandAsync(clips, clipDurations, config, outputPath, cancellationToken);
-
-            progress?.Report(new CompositionProgress { Stage = "Composing", Percent = 30, Message = "Composing video..." });
-
-            // Execute FFmpeg
-            var success = await ExecuteFFmpegAsync(arguments, progress, cancellationToken);
-
-            // Cleanup temp filter file
-            if (!string.IsNullOrEmpty(filterPath) && File.Exists(filterPath))
-            {
-                File.Delete(filterPath);
-            }
-
-            if (!success || !File.Exists(outputPath))
+            // Step 1: Ensure FFmpeg is available
+            progress?.Report(new CompositionProgress { Stage = "Initializing", Percent = 5, Message = "Checking FFmpeg..." });
+            
+            if (!await EnsureFFmpegAsync())
             {
                 return new ShortVideoResult
                 {
                     Success = false,
-                    ErrorMessage = "FFmpeg composition failed"
+                    ErrorMessage = "FFmpeg not available. Please install FFmpeg from https://ffmpeg.org/download.html"
+                };
+            }
+
+            // Step 2: Download clips to temp directory if they are URLs
+            progress?.Report(new CompositionProgress { Stage = "Downloading", Percent = 10, Message = "Downloading clips..." });
+            var localClips = await DownloadClipsAsync(clips, progress, cancellationToken);
+
+            if (localClips.Count == 0)
+            {
+                return new ShortVideoResult
+                {
+                    Success = false,
+                    ErrorMessage = "Failed to download video clips"
+                };
+            }
+
+            // Step 3: Calculate clip durations
+            progress?.Report(new CompositionProgress { Stage = "Preparing", Percent = 30, Message = "Calculating durations..." });
+            var clipDurations = CalculateClipDurations(localClips, config);
+
+            // Step 4: Process and concatenate clips using Xabe.FFmpeg
+            progress?.Report(new CompositionProgress { Stage = "Processing", Percent = 40, Message = "Processing clips..." });
+            
+            var processedClips = new List<string>();
+            var clipIndex = 0;
+
+            foreach (var (clip, clipDuration) in localClips.Zip(clipDurations))
+            {
+                var processedPath = Path.Combine(_tempDirectory, $"clip_{sessionId}_{clipIndex}.mp4");
+                
+                await ProcessSingleClipAsync(
+                    clip.LocalPath, 
+                    processedPath, 
+                    clipDuration.Duration,
+                    config,
+                    cancellationToken
+                );
+
+                if (File.Exists(processedPath))
+                {
+                    processedClips.Add(processedPath);
+                }
+
+                clipIndex++;
+                var percent = 40 + (int)(clipIndex * 30.0 / localClips.Count);
+                progress?.Report(new CompositionProgress 
+                { 
+                    Stage = "Processing", 
+                    Percent = percent, 
+                    Message = $"Processing clip {clipIndex}/{localClips.Count}..." 
+                });
+            }
+
+            if (processedClips.Count == 0)
+            {
+                return new ShortVideoResult
+                {
+                    Success = false,
+                    ErrorMessage = "No clips were successfully processed"
+                };
+            }
+
+            // Step 5: Concatenate all processed clips
+            progress?.Report(new CompositionProgress { Stage = "Concatenating", Percent = 75, Message = "Joining clips..." });
+            await ConcatenateClipsAsync(processedClips, outputPath, cancellationToken);
+
+            // Step 6: Cleanup temp files
+            progress?.Report(new CompositionProgress { Stage = "Cleanup", Percent = 90, Message = "Cleaning up..." });
+            CleanupTempFiles(processedClips, localClips);
+
+            if (!File.Exists(outputPath))
+            {
+                return new ShortVideoResult
+                {
+                    Success = false,
+                    ErrorMessage = "Failed to create output video"
                 };
             }
 
             var fileInfo = new FileInfo(outputPath);
-            var duration = await GetVideoDurationAsync(outputPath, cancellationToken);
+            var videoDuration = await GetVideoDurationAsync(outputPath, cancellationToken);
 
             progress?.Report(new CompositionProgress { Stage = "Complete", Percent = 100, Message = "Video ready!" });
 
@@ -191,7 +340,7 @@ public class ShortVideoComposer : IShortVideoComposer
             {
                 Success = true,
                 OutputPath = outputPath,
-                DurationSeconds = (int)duration,
+                DurationSeconds = (int)videoDuration,
                 ClipsUsed = clips.Count,
                 FileSizeBytes = fileInfo.Length
             };
@@ -216,8 +365,68 @@ public class ShortVideoComposer : IShortVideoComposer
         }
     }
 
-    private List<(int ClipIndex, double Start, double Duration)> CalculateClipDurations(
+    private async Task<List<(string LocalPath, VideoClip Original)>> DownloadClipsAsync(
         List<VideoClip> clips,
+        IProgress<CompositionProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        var result = new List<(string, VideoClip)>();
+        using var httpClient = new HttpClient();
+        httpClient.Timeout = TimeSpan.FromMinutes(5);
+        var index = 0;
+
+        foreach (var clip in clips)
+        {
+            try
+            {
+                string localPath;
+
+                // Check if already a local file
+                if (!string.IsNullOrEmpty(clip.SourcePath) && File.Exists(clip.SourcePath))
+                {
+                    localPath = clip.SourcePath;
+                }
+                else if (!string.IsNullOrEmpty(clip.SourceUrl))
+                {
+                    // Download from URL
+                    localPath = Path.Combine(_tempDirectory, $"download_{Guid.NewGuid():N}.mp4");
+                    
+                    var response = await httpClient.GetAsync(clip.SourceUrl, cancellationToken);
+                    response.EnsureSuccessStatusCode();
+                    
+                    var content = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+                    await File.WriteAllBytesAsync(localPath, content, cancellationToken);
+                    
+                    _logger.LogInformation("Downloaded clip to: {Path} ({Size} bytes)", localPath, content.Length);
+                }
+                else
+                {
+                    _logger.LogWarning("Clip has no source path or URL, skipping");
+                    continue;
+                }
+
+                result.Add((localPath, clip));
+                
+                index++;
+                var percent = 10 + (int)(index * 20.0 / clips.Count);
+                progress?.Report(new CompositionProgress
+                {
+                    Stage = "Downloading",
+                    Percent = percent,
+                    Message = $"Downloaded {index}/{clips.Count} clips..."
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to download clip: {Url}", clip.SourceUrl);
+            }
+        }
+
+        return result;
+    }
+
+    private List<(int ClipIndex, double Start, double Duration)> CalculateClipDurations(
+        List<(string LocalPath, VideoClip Original)> clips,
         ShortVideoConfig config)
     {
         // Reserve time for hook if enabled
@@ -235,7 +444,7 @@ public class ShortVideoComposer : IShortVideoComposer
 
         for (int i = 0; i < clips.Count; i++)
         {
-            var clip = clips[i];
+            var clip = clips[i].Original;
             var clipDuration = clip.DurationSeconds > 0
                 ? Math.Min(perClipDuration, clip.DurationSeconds)
                 : perClipDuration;
@@ -246,125 +455,147 @@ public class ShortVideoComposer : IShortVideoComposer
         return result;
     }
 
-    private async Task<(string Arguments, string? FilterPath)> BuildFFmpegCommandAsync(
-        List<VideoClip> clips,
-        List<(int ClipIndex, double Start, double Duration)> durations,
-        ShortVideoConfig config,
+    private async Task ProcessSingleClipAsync(
+        string inputPath,
         string outputPath,
-        CancellationToken cancellationToken)
-    {
-        var args = new StringBuilder();
-        var filterComplex = new StringBuilder();
-
-        // Input files
-        for (int i = 0; i < clips.Count; i++)
-        {
-            var clip = clips[i];
-            var source = !string.IsNullOrEmpty(clip.SourcePath) && File.Exists(clip.SourcePath)
-                ? clip.SourcePath
-                : clip.SourceUrl;
-
-            args.Append($"-i \"{source}\" ");
-        }
-
-        // Build filter complex for scaling, trimming, and concatenation
-        var scaleFilter = $"scale={config.Width}:{config.Height}:force_original_aspect_ratio=decrease,pad={config.Width}:{config.Height}:(ow-iw)/2:(oh-ih)/2,setsar=1";
-
-        // Process each clip
-        for (int i = 0; i < clips.Count; i++)
-        {
-            var (_, start, duration) = durations[i];
-            filterComplex.Append($"[{i}:v]trim=start={start}:duration={duration},setpts=PTS-STARTPTS,{scaleFilter},fps={config.Fps}[v{i}];");
-            filterComplex.Append($"[{i}:a]atrim=start={start}:duration={duration},asetpts=PTS-STARTPTS[a{i}];");
-        }
-
-        // Concatenate all streams
-        for (int i = 0; i < clips.Count; i++)
-        {
-            filterComplex.Append($"[v{i}][a{i}]");
-        }
-        filterComplex.Append($"concat=n={clips.Count}:v=1:a=1[outv][outa]");
-
-        // Add transitions if enabled (xfade filter)
-        // Note: For MVP, we use simple concat without complex transitions
-
-        // Write filter to temp file (for complex filters)
-        var filterPath = Path.Combine(_tempDirectory, $"filter_{Guid.NewGuid():N}.txt");
-        await File.WriteAllTextAsync(filterPath, filterComplex.ToString(), cancellationToken);
-
-        // Build final arguments
-        args.Append($"-filter_complex_script \"{filterPath}\" ");
-        args.Append("-map \"[outv]\" -map \"[outa]\" ");
-        args.Append($"-c:v {config.VideoCodec} -b:v {config.VideoBitrate}k ");
-        args.Append($"-c:a {config.AudioCodec} -b:a {config.AudioBitrate}k ");
-        args.Append($"-r {config.Fps} ");
-        args.Append("-movflags +faststart ");
-        args.Append($"-y \"{outputPath}\"");
-
-        return (args.ToString(), filterPath);
-    }
-
-    private async Task<bool> ExecuteFFmpegAsync(
-        string arguments,
-        IProgress<CompositionProgress>? progress,
+        double targetDuration,
+        ShortVideoConfig config,
         CancellationToken cancellationToken)
     {
         try
         {
-            _logger.LogInformation("Executing FFmpeg: {Args}", arguments);
+            var mediaInfo = await FFmpeg.GetMediaInfo(inputPath, cancellationToken);
+            var videoStream = mediaInfo.VideoStreams.FirstOrDefault();
+            var audioStream = mediaInfo.AudioStreams.FirstOrDefault();
 
-            using var process = new Process
+            if (videoStream == null)
             {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = _ffmpegPath,
-                    Arguments = arguments,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                }
-            };
+                _logger.LogWarning("No video stream found in: {Path}", inputPath);
+                return;
+            }
 
-            process.Start();
+            var conversion = FFmpeg.Conversions.New();
 
-            // Read stderr for progress (FFmpeg outputs progress to stderr)
-            var errorTask = Task.Run(async () =>
+            // Configure video stream - scale to 9:16 portrait with padding
+            videoStream
+                .SetSize(config.Width, config.Height)
+                .SetFramerate(config.Fps)
+                .SetCodec(VideoCodec.h264);
+
+            // Trim to specified duration
+            if (targetDuration > 0 && targetDuration < mediaInfo.Duration.TotalSeconds)
             {
-                var reader = process.StandardError;
-                while (!reader.EndOfStream)
+                videoStream.Split(TimeSpan.Zero, TimeSpan.FromSeconds(targetDuration));
+            }
+
+            conversion.AddStream(videoStream);
+
+            // Add audio if present
+            if (audioStream != null)
+            {
+                audioStream.SetCodec(AudioCodec.aac);
+                if (targetDuration > 0 && targetDuration < mediaInfo.Duration.TotalSeconds)
                 {
-                    var line = await reader.ReadLineAsync(cancellationToken);
-                    if (line != null)
-                    {
-                        _logger.LogDebug("FFmpeg: {Line}", line);
-
-                        // Parse progress from FFmpeg output
-                        if (line.Contains("time="))
-                        {
-                            progress?.Report(new CompositionProgress
-                            {
-                                Stage = "Encoding",
-                                Percent = 50,
-                                Message = "Encoding video..."
-                            });
-                        }
-                    }
+                    audioStream.Split(TimeSpan.Zero, TimeSpan.FromSeconds(targetDuration));
                 }
-            }, cancellationToken);
+                conversion.AddStream(audioStream);
+            }
+            else
+            {
+                // Add silent audio if no audio stream
+                conversion.AddParameter("-f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -shortest");
+            }
 
-            await process.WaitForExitAsync(cancellationToken);
-            await errorTask;
+            conversion
+                .SetOutput(outputPath)
+                .SetOverwriteOutput(true)
+                .SetPreset(ConversionPreset.Fast)
+                .UseMultiThread(true);
 
-            var exitCode = process.ExitCode;
-            _logger.LogInformation("FFmpeg exited with code: {ExitCode}", exitCode);
-
-            return exitCode == 0;
+            await conversion.Start(cancellationToken);
+            
+            _logger.LogInformation("Processed clip: {Input} -> {Output}", inputPath, outputPath);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "FFmpeg execution failed");
-            return false;
+            _logger.LogError(ex, "Failed to process clip: {Path}", inputPath);
+        }
+    }
+
+    private async Task ConcatenateClipsAsync(
+        List<string> clipPaths,
+        string outputPath,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            // Create concat file list
+            var concatListPath = Path.Combine(_tempDirectory, $"concat_{Guid.NewGuid():N}.txt");
+            var concatContent = string.Join("\n", clipPaths.Select(p => $"file '{p.Replace("\\", "/").Replace("'", "'\\''")}'"));
+            await File.WriteAllTextAsync(concatListPath, concatContent, cancellationToken);
+
+            // Use concat demuxer for efficient concatenation
+            var conversion = FFmpeg.Conversions.New()
+                .AddParameter($"-f concat -safe 0 -i \"{concatListPath}\"")
+                .AddParameter("-c copy")
+                .SetOutput(outputPath)
+                .SetOverwriteOutput(true);
+
+            await conversion.Start(cancellationToken);
+
+            // Cleanup concat list
+            if (File.Exists(concatListPath))
+            {
+                File.Delete(concatListPath);
+            }
+
+            _logger.LogInformation("Concatenated {Count} clips to: {Path}", clipPaths.Count, outputPath);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to concatenate clips");
+            throw;
+        }
+    }
+
+    private void CleanupTempFiles(
+        List<string> processedClips,
+        List<(string LocalPath, VideoClip Original)> downloadedClips)
+    {
+        // Delete processed clips
+        foreach (var path in processedClips)
+        {
+            try
+            {
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to delete temp file: {Path}", path);
+            }
+        }
+
+        // Delete downloaded clips (only if they were downloaded, not original local files)
+        foreach (var (localPath, original) in downloadedClips)
+        {
+            // Only delete if this was a downloaded file (not from SourcePath)
+            if (localPath != original.SourcePath && localPath.Contains(_tempDirectory))
+            {
+                try
+                {
+                    if (File.Exists(localPath))
+                    {
+                        File.Delete(localPath);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to delete downloaded file: {Path}", localPath);
+                }
+            }
         }
     }
 }
