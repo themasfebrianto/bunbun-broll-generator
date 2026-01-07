@@ -336,6 +336,32 @@
                                 }
                             </button>
 
+                            <!-- Progress Bar (only show when generating) -->
+                            @if (_isGeneratingShortVideo)
+                            {
+                                <div class="space-y-2 p-3 rounded-lg bg-muted/50 border border-border">
+                                    <!-- Stage & Time -->
+                                    <div class="flex items-center justify-between text-xs">
+                                        <span class="font-medium text-primary">@_generateStage</span>
+                                        <span class="font-mono text-muted-foreground">
+                                            @TimeSpan.FromSeconds(_elapsedSeconds).ToString(@"mm\:ss")
+                                        </span>
+                                    </div>
+                                    
+                                    <!-- Progress Bar -->
+                                    <div class="h-2 w-full bg-muted rounded-full overflow-hidden">
+                                        <div class="h-full bg-gradient-to-r from-primary to-primary/70 transition-all duration-300 ease-out rounded-full"
+                                             style="width: @(_generateProgress)%"></div>
+                                    </div>
+                                    
+                                    <!-- Message & Percent -->
+                                    <div class="flex items-center justify-between text-[10px] text-muted-foreground">
+                                        <span class="truncate max-w-[70%]">@_generateMessage</span>
+                                        <span class="font-mono font-medium">@_generateProgress%</span>
+                                    </div>
+                                </div>
+                            }
+
                             <!-- Result -->
                             @if (_shortVideoResult?.Success == true)
                             {
@@ -516,6 +542,14 @@
     private bool _addBackgroundMusic = false;
     private string _hookText = "";
     private ShortVideoResult? _shortVideoResult;
+    
+    // Progress tracking
+    private int _generateProgress = 0;
+    private string _generateStage = "";
+    private string _generateMessage = "";
+    private System.Diagnostics.Stopwatch? _generateStopwatch;
+    private System.Threading.Timer? _elapsedTimer;
+    private int _elapsedSeconds = 0;
 
     private bool CanGenerate => !string.IsNullOrWhiteSpace(_projectName) && !string.IsNullOrWhiteSpace(_scriptText);
 
@@ -869,6 +903,7 @@
         Orchestrator.OnSentenceProgress -= HandleProgress;
         Orchestrator.OnJobProgress -= HandleJobProgress;
         _cts?.Dispose();
+        _elapsedTimer?.Dispose();
     }
 
     // === Short Video Generation Methods ===
@@ -900,6 +935,22 @@
         _isGeneratingShortVideo = true;
         _statusMessage = "Preparing short video...";
         _shortVideoResult = null;
+        
+        // Initialize progress tracking
+        _generateProgress = 0;
+        _generateStage = "Initializing";
+        _generateMessage = "Starting...";
+        _elapsedSeconds = 0;
+        _generateStopwatch = System.Diagnostics.Stopwatch.StartNew();
+        
+        // Start smooth elapsed timer (updates every second)
+        _elapsedTimer?.Dispose();
+        _elapsedTimer = new System.Threading.Timer(async _ =>
+        {
+            _elapsedSeconds++;
+            await InvokeAsync(StateHasChanged);
+        }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+        
         StateHasChanged();
 
         try
@@ -921,6 +972,7 @@
             {
                 _statusMessage = "No videos selected. Please select videos first.";
                 _isGeneratingShortVideo = false;
+                _generateStopwatch?.Stop();
                 StateHasChanged();
                 return;
             }
@@ -940,6 +992,9 @@
 
             var progress = new Progress<CompositionProgress>(p =>
             {
+                _generateProgress = p.Percent;
+                _generateStage = p.Stage;
+                _generateMessage = p.Message;
                 _statusMessage = $"{p.Stage}: {p.Message} ({p.Percent}%)";
                 InvokeAsync(StateHasChanged);
             });
@@ -951,9 +1006,14 @@
                 _cts?.Token ?? default
             );
 
+            _generateStopwatch?.Stop();
+            _elapsedTimer?.Dispose();
+            _elapsedTimer = null;
+            var elapsed = _generateStopwatch?.Elapsed.TotalSeconds ?? 0;
+
             if (_shortVideoResult.Success)
             {
-                _statusMessage = $"✓ Short video generated! Duration: {_shortVideoResult.DurationSeconds}s, Size: {FormatFileSize(_shortVideoResult.FileSizeBytes)}";
+                _statusMessage = $"✓ Generated in {elapsed:F1}s! Duration: {_shortVideoResult.DurationSeconds}s, Size: {FormatFileSize(_shortVideoResult.FileSizeBytes)}";
             }
             else
             {
@@ -964,6 +1024,9 @@
         {
             Logger.LogError(ex, "Short video generation failed");
             _statusMessage = $"Error: {ex.Message}";
+            _generateStopwatch?.Stop();
+            _elapsedTimer?.Dispose();
+            _elapsedTimer = null;
         }
         finally
         {

@@ -436,59 +436,81 @@ public class ShortVideoComposer : IShortVideoComposer
         IProgress<CompositionProgress>? progress,
         CancellationToken cancellationToken)
     {
-        var result = new List<(string, VideoClip)>();
+        var results = new (string? LocalPath, VideoClip Original)?[clips.Count];
         using var httpClient = new HttpClient();
         httpClient.Timeout = TimeSpan.FromMinutes(5);
-        var index = 0;
+        var downloadedCount = 0;
 
-        foreach (var clip in clips)
+        progress?.Report(new CompositionProgress
         {
-            try
+            Stage = "Downloading",
+            Percent = 10,
+            Message = $"Downloading {clips.Count} clips in parallel..."
+        });
+
+        // Download clips in parallel for speed
+        await Parallel.ForEachAsync(
+            clips.Select((clip, index) => (clip, index)),
+            new ParallelOptions
             {
-                string localPath;
-
-                // Check if already a local file
-                if (!string.IsNullOrEmpty(clip.SourcePath) && File.Exists(clip.SourcePath))
-                {
-                    localPath = clip.SourcePath;
-                }
-                else if (!string.IsNullOrEmpty(clip.SourceUrl))
-                {
-                    // Download from URL
-                    localPath = Path.Combine(_tempDirectory, $"download_{Guid.NewGuid():N}.mp4");
-                    
-                    var response = await httpClient.GetAsync(clip.SourceUrl, cancellationToken);
-                    response.EnsureSuccessStatusCode();
-                    
-                    var content = await response.Content.ReadAsByteArrayAsync(cancellationToken);
-                    await File.WriteAllBytesAsync(localPath, content, cancellationToken);
-                    
-                    _logger.LogInformation("Downloaded clip to: {Path} ({Size} bytes)", localPath, content.Length);
-                }
-                else
-                {
-                    _logger.LogWarning("Clip has no source path or URL, skipping");
-                    continue;
-                }
-
-                result.Add((localPath, clip));
-                
-                index++;
-                var percent = 10 + (int)(index * 20.0 / clips.Count);
-                progress?.Report(new CompositionProgress
-                {
-                    Stage = "Downloading",
-                    Percent = percent,
-                    Message = $"Downloaded {index}/{clips.Count} clips..."
-                });
-            }
-            catch (Exception ex)
+                MaxDegreeOfParallelism = _parallelClips,
+                CancellationToken = cancellationToken
+            },
+            async (item, ct) =>
             {
-                _logger.LogWarning(ex, "Failed to download clip: {Url}", clip.SourceUrl);
-            }
-        }
+                var (clip, index) = item;
+                try
+                {
+                    string localPath;
 
-        return result;
+                    // Check if already a local file
+                    if (!string.IsNullOrEmpty(clip.SourcePath) && File.Exists(clip.SourcePath))
+                    {
+                        localPath = clip.SourcePath;
+                    }
+                    else if (!string.IsNullOrEmpty(clip.SourceUrl))
+                    {
+                        // Download from URL
+                        localPath = Path.Combine(_tempDirectory, $"download_{Guid.NewGuid():N}.mp4");
+                        
+                        var response = await httpClient.GetAsync(clip.SourceUrl, ct);
+                        response.EnsureSuccessStatusCode();
+                        
+                        var content = await response.Content.ReadAsByteArrayAsync(ct);
+                        await File.WriteAllBytesAsync(localPath, content, ct);
+                        
+                        _logger.LogDebug("Downloaded clip {Index}: {Path} ({Size} bytes)", 
+                            index, Path.GetFileName(localPath), content.Length);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Clip {Index} has no source path or URL, skipping", index);
+                        return;
+                    }
+
+                    results[index] = (localPath, clip);
+                    
+                    var count = Interlocked.Increment(ref downloadedCount);
+                    var percent = 10 + (int)(count * 20.0 / clips.Count);
+                    progress?.Report(new CompositionProgress
+                    {
+                        Stage = "Downloading",
+                        Percent = percent,
+                        Message = $"Downloaded {count}/{clips.Count} clips..."
+                    });
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to download clip {Index}: {Url}", index, clip.SourceUrl);
+                }
+            }
+        );
+
+        // Filter nulls and maintain order
+        return results
+            .Where(r => r.HasValue && r.Value.LocalPath != null)
+            .Select(r => (r!.Value.LocalPath!, r.Value.Original))
+            .ToList();
     }
 
     private List<(int ClipIndex, double Start, double Duration)> CalculateClipDurations(
