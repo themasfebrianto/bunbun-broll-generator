@@ -52,12 +52,13 @@ function downloadFile(filename, base64Content, mimeType) {
  * Download multiple files as a single ZIP
  * @param {string} zipFilename - Name of the output ZIP file
  * @param {Array<{url: string, filename: string}>} files - Array of files to download
- * @param {Function} progressCallback - Called with progress updates (0-100)
  */
-async function downloadAsZip(zipFilename, files, progressCallback) {
+async function downloadAsZip(zipFilename, files) {
     if (typeof JSZip === 'undefined') {
         throw new Error('JSZip library not loaded');
     }
+
+    console.log(`Starting ZIP download: ${files.length} files`);
 
     const zip = new JSZip();
     const total = files.length;
@@ -72,20 +73,18 @@ async function downloadAsZip(zipFilename, files, progressCallback) {
         const batch = files.slice(i, i + concurrencyLimit);
         const batchPromises = batch.map(async (file) => {
             try {
+                console.log(`Fetching: ${file.filename}`);
                 const response = await fetch(file.url);
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 const blob = await response.blob();
+                completed++;
+                console.log(`Downloaded ${completed}/${total}: ${file.filename}`);
                 return { filename: file.filename, blob, success: true };
             } catch (error) {
                 console.error(`Failed to fetch ${file.filename}:`, error);
                 failed++;
-                return { filename: file.filename, success: false };
-            } finally {
                 completed++;
-                if (progressCallback) {
-                    const progress = Math.round((completed / total) * 90); // 90% for downloads
-                    progressCallback(progress, `Downloading ${completed}/${total}...`);
-                }
+                return { filename: file.filename, success: false };
             }
         });
 
@@ -94,15 +93,15 @@ async function downloadAsZip(zipFilename, files, progressCallback) {
     }
 
     // Add successful downloads to ZIP
+    let addedCount = 0;
     for (const result of results) {
         if (result.success && result.blob) {
             zip.file(result.filename, result.blob);
+            addedCount++;
         }
     }
 
-    if (progressCallback) {
-        progressCallback(95, 'Creating ZIP file...');
-    }
+    console.log(`Creating ZIP with ${addedCount} files...`);
 
     // Generate ZIP
     const zipBlob = await zip.generateAsync({
@@ -110,9 +109,7 @@ async function downloadAsZip(zipFilename, files, progressCallback) {
         compression: 'STORE' // No compression for video files (already compressed)
     });
 
-    if (progressCallback) {
-        progressCallback(100, 'Done!');
-    }
+    console.log(`ZIP created: ${(zipBlob.size / 1024 / 1024).toFixed(2)} MB`);
 
     // Trigger download
     const blobUrl = URL.createObjectURL(zipBlob);
@@ -125,10 +122,10 @@ async function downloadAsZip(zipFilename, files, progressCallback) {
     link.click();
     document.body.removeChild(link);
 
-    setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
 
     return {
-        success: results.filter(r => r.success).length,
+        success: addedCount,
         failed: failed,
         total: total
     };

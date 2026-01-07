@@ -490,8 +490,7 @@
             StateHasChanged();
 
             // Call JavaScript to create ZIP
-            var result = await JS.InvokeAsync<ZipResult>("downloadAsZip", zipFilename, filesArray, 
-                DotNetObjectReference.Create(new ProgressHandler(this)));
+            var result = await JS.InvokeAsync<ZipResult>("downloadAsZip", zipFilename, filesArray);
 
             if (result != null)
             {
