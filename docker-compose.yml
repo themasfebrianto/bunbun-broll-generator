@@ -8,6 +8,8 @@ services:
     volumes:
       - ./data:/app/data
       - ./Broll_Workspace:/app/Broll_Workspace
+      - ./output/shorts:/app/output/shorts
+      - ./temp/ffmpeg:/app/temp/ffmpeg
       - ./appsettings.Production.json:/app/appsettings.Production.json:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"

@@ -122,13 +122,13 @@ public class ShortVideoComposer : IShortVideoComposer
             _logger.LogError(ex, "Failed to ensure FFmpeg availability");
             return false;
         }
-    }
+    }                                                                                                                                                                                                                                               
 
     private async Task<string?> FindFFmpegAsync()
     {
         var isWindows = OperatingSystem.IsWindows();
         var ffmpegName = isWindows ? "ffmpeg.exe" : "ffmpeg";
-
+                                                                                                                                                                                            
         // Check in configured directory
         var configuredPath = Path.Combine(_ffmpegDirectory, ffmpegName);
         if (File.Exists(configuredPath))

@@ -135,6 +135,32 @@ curl -s -X POST http://localhost:8317/v1/chat/completions \
     Write-Host "If step 3 works but step 4 fails: Container can't reach host. Fix: Use Docker network or update BaseUrl." -ForegroundColor Yellow
     Write-Host "If step 5 fails: CLIProxyAPI needs OAuth login. Run: .\ssh-vps.ps1 proxy-login" -ForegroundColor Yellow
     Write-Host ""
+} elseif ($Action -eq "check-ffmpeg") {
+    Write-Host "[FFmpeg Check] Diagnosing FFmpeg availability in container..." -ForegroundColor Yellow
+    Write-Host ""
+    
+    Write-Host "1. Checking FFmpeg version in container..." -ForegroundColor Cyan
+    ssh ${VPS_USER}@${VPS_HOST} "docker exec bunbun-broll ffmpeg -version 2>&1 | head -3"
+    Write-Host ""
+    
+    Write-Host "2. Checking FFprobe version in container..." -ForegroundColor Cyan
+    ssh ${VPS_USER}@${VPS_HOST} "docker exec bunbun-broll ffprobe -version 2>&1 | head -1"
+    Write-Host ""
+    
+    Write-Host "3. Checking output directories..." -ForegroundColor Cyan
+    ssh ${VPS_USER}@${VPS_HOST} "docker exec bunbun-broll ls -la /app/output/shorts 2>&1 || echo 'Directory not found'"
+    ssh ${VPS_USER}@${VPS_HOST} "docker exec bunbun-broll ls -la /app/temp/ffmpeg 2>&1 || echo 'Directory not found'"
+    Write-Host ""
+    
+    Write-Host "4. Checking host volume mounts..." -ForegroundColor Cyan
+    ssh ${VPS_USER}@${VPS_HOST} "ls -la ${VPS_PATH}/output/shorts 2>&1 || echo 'Creating directory...'; mkdir -p ${VPS_PATH}/output/shorts"
+    ssh ${VPS_USER}@${VPS_HOST} "ls -la ${VPS_PATH}/temp/ffmpeg 2>&1 || echo 'Creating directory...'; mkdir -p ${VPS_PATH}/temp/ffmpeg"
+    Write-Host ""
+    
+    Write-Host "=== RESULT ===" -ForegroundColor Magenta
+    Write-Host "If FFmpeg version shows: FFmpeg is installed correctly!" -ForegroundColor Green
+    Write-Host "If 'command not found': Rebuild container with: .\ssh-vps.ps1 up" -ForegroundColor Yellow
+    Write-Host ""
 } elseif ($Action -eq "help" -or $Action -eq "-h" -or $Action -eq "--help") {
     Write-Host ""
     Write-Host "Usage: .\ssh-vps.ps1 [action]" -ForegroundColor Cyan
@@ -150,6 +176,9 @@ curl -s -X POST http://localhost:8317/v1/chat/completions \
     Write-Host "  env-edit     Edit .env on VPS (nano)" -ForegroundColor White
     Write-Host "  env-sync     Sync local .env to VPS" -ForegroundColor White
     Write-Host "  env-create   Create .env on VPS with defaults" -ForegroundColor White
+    Write-Host ""
+    Write-Host "FFmpeg / Short Video:" -ForegroundColor Yellow
+    Write-Host "  check-ffmpeg Check if FFmpeg is working in container" -ForegroundColor White
     Write-Host ""
     Write-Host "Proxy:" -ForegroundColor Yellow
     Write-Host "  proxy-up     Rebuild and restart proxy" -ForegroundColor White
