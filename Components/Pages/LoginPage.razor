@@ -5,7 +5,12 @@
 @inject NavigationManager Navigation
 @inject Microsoft.Extensions.Options.IOptions<AuthSettings> AuthOptions
 
-<div class="min-h-screen flex items-center justify-center bg-background px-4">
+<div class="min-h-screen flex items-center justify-center bg-background px-4 relative">
+    <!-- Theme Toggle in corner -->
+    <div class="absolute top-4 right-4">
+        <ThemeToggle />
+    </div>
+    
     <div class="w-full max-w-[400px] space-y-8 animate-in">
         <div class="text-center space-y-2">
             <div class="flex justify-center mb-6">
