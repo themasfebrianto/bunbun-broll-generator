@@ -434,6 +434,7 @@ MOOD→VISUAL: melancholic=rain window, anxious=clock ticking, hopeful=sunrise, 
 
             if (!string.IsNullOrEmpty(rawContent))
             {
+                _logger.LogDebug("Raw AI response for batch: {Content}", rawContent.Length > 200 ? rawContent[..200] + "..." : rawContent);
                 var cleanedJson = CleanJsonResponse(rawContent);
                 var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
 
@@ -473,6 +474,10 @@ MOOD→VISUAL: melancholic=rain window, anxious=clock ticking, hopeful=sunrise, 
                         _logger.LogWarning("Both batch parse attempts failed: {Error}", ex2.Message);
                     }
                 }
+            }
+            else
+            {
+                _logger.LogWarning("AI returned empty response for batch extraction");
             }
 
             _logger.LogInformation("Batch extracted layered keywords for {Success}/{Total} sentences in {Ms}ms",

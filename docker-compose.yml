@@ -24,4 +24,4 @@ services:
       - Gemini__ApiKey=${GEMINI_API_KEY}
       # Gemini Proxy URL - Use host.docker.internal to reach host machine
       - Gemini__BaseUrl=${GEMINI_BASE_URL:-http://host.docker.internal:8317}
-      - Gemini__Model=${GEMINI_MODEL:-gemini-2.5-pro}
+      - Gemini__Model=${GEMINI_MODEL:-gemini-2.5-flash}
