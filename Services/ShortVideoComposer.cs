@@ -46,6 +46,14 @@ public class ShortVideoComposer : IShortVideoComposer
     private readonly string _tempDirectory;
     private readonly string _outputDirectory;
     private bool _isInitialized = false;
+    
+    // Optimization settings
+    private readonly bool _useHardwareAccel;
+    private readonly string _preset;
+    private readonly int _parallelClips;
+    private readonly int _crf;
+    private string? _hwEncoder = null;
+    private bool _hwEncoderChecked = false;
 
     public ShortVideoComposer(ILogger<ShortVideoComposer> logger, IConfiguration config)
     {
@@ -60,8 +68,16 @@ public class ShortVideoComposer : IShortVideoComposer
         _outputDirectory = Path.GetFullPath(config["ShortVideo:OutputDirectory"] 
             ?? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "output", "shorts"));
 
+        // Optimization settings
+        _useHardwareAccel = config.GetValue("FFmpeg:UseHardwareAccel", true);
+        _preset = config["FFmpeg:Preset"] ?? "veryfast";
+        _parallelClips = Math.Clamp(config.GetValue("FFmpeg:ParallelClips", 3), 1, 8);
+        _crf = Math.Clamp(config.GetValue("FFmpeg:CRF", 23), 18, 35);
+
         _logger.LogInformation("FFmpeg directories - Binaries: {Bin}, Temp: {Temp}, Output: {Out}", 
             _ffmpegDirectory, _tempDirectory, _outputDirectory);
+        _logger.LogInformation("FFmpeg optimization - HwAccel: {Hw}, Preset: {Preset}, Parallel: {Para}, CRF: {Crf}",
+            _useHardwareAccel, _preset, _parallelClips, _crf);
 
         // Ensure directories exist
         Directory.CreateDirectory(_ffmpegDirectory);
@@ -303,40 +319,59 @@ public class ShortVideoComposer : IShortVideoComposer
             progress?.Report(new CompositionProgress { Stage = "Preparing", Percent = 30, Message = "Calculating durations..." });
             var clipDurations = CalculateClipDurations(localClips, config);
 
-            // Step 4: Process and concatenate clips using Xabe.FFmpeg
-            progress?.Report(new CompositionProgress { Stage = "Processing", Percent = 40, Message = "Processing clips..." });
+            // Step 4: Process clips in PARALLEL for speedup
+            progress?.Report(new CompositionProgress { Stage = "Processing", Percent = 40, Message = $"Processing {localClips.Count} clips (parallel x{_parallelClips})..." });
             
-            var processedClips = new List<string>();
-            var clipIndex = 0;
-
-            foreach (var (clip, clipDuration) in localClips.Zip(clipDurations))
+            // Prepare clip processing tasks
+            var clipTasks = localClips.Zip(clipDurations).Select((pair, index) => new
             {
-                var processedPath = Path.Combine(_tempDirectory, $"clip_{sessionId}_{clipIndex}.mp4");
-                
-                await ProcessSingleClipAsync(
-                    clip.LocalPath, 
-                    processedPath, 
-                    clipDuration.Duration,
-                    config,
-                    cancellationToken
-                );
+                Clip = pair.First,
+                Duration = pair.Second.Duration,
+                Index = index,
+                OutputPath = Path.Combine(_tempDirectory, $"clip_{sessionId}_{index}.mp4")
+            }).ToList();
 
-                if (File.Exists(processedPath))
-                {
-                    processedClips.Add(processedPath);
-                }
+            var processedClips = new string?[clipTasks.Count];
+            var processedCount = 0;
 
-                clipIndex++;
-                var percent = 40 + (int)(clipIndex * 30.0 / localClips.Count);
-                progress?.Report(new CompositionProgress 
+            // Process clips in parallel with limited concurrency
+            await Parallel.ForEachAsync(
+                clipTasks,
+                new ParallelOptions 
                 { 
-                    Stage = "Processing", 
-                    Percent = percent, 
-                    Message = $"Processing clip {clipIndex}/{localClips.Count}..." 
-                });
-            }
+                    MaxDegreeOfParallelism = _parallelClips,
+                    CancellationToken = cancellationToken 
+                },
+                async (task, ct) =>
+                {
+                    await ProcessSingleClipAsync(
+                        task.Clip.LocalPath,
+                        task.OutputPath,
+                        task.Duration,
+                        config,
+                        ct
+                    );
 
-            if (processedClips.Count == 0)
+                    if (File.Exists(task.OutputPath))
+                    {
+                        processedClips[task.Index] = task.OutputPath;
+                    }
+
+                    var processed = Interlocked.Increment(ref processedCount);
+                    var percent = 40 + (int)(processed * 30.0 / clipTasks.Count);
+                    progress?.Report(new CompositionProgress
+                    {
+                        Stage = "Processing",
+                        Percent = percent,
+                        Message = $"Processed clip {processed}/{clipTasks.Count}..."
+                    });
+                }
+            );
+
+            // Filter out nulls and maintain order
+            var orderedClips = processedClips.Where(p => p != null).Select(p => p!).ToList();
+
+            if (orderedClips.Count == 0)
             {
                 return new ShortVideoResult
                 {
@@ -347,11 +382,11 @@ public class ShortVideoComposer : IShortVideoComposer
 
             // Step 5: Concatenate all processed clips with transitions
             progress?.Report(new CompositionProgress { Stage = "Concatenating", Percent = 75, Message = "Joining clips with transitions..." });
-            await ConcatenateClipsWithTransitionsAsync(processedClips, outputPath, config, cancellationToken);
+            await ConcatenateClipsWithTransitionsAsync(orderedClips, outputPath, config, cancellationToken);
 
             // Step 6: Cleanup temp files
             progress?.Report(new CompositionProgress { Stage = "Cleanup", Percent = 90, Message = "Cleaning up..." });
-            CleanupTempFiles(processedClips, localClips);
+            CleanupTempFiles(orderedClips, localClips);
 
             if (!File.Exists(outputPath))
             {
@@ -529,10 +564,11 @@ public class ShortVideoComposer : IShortVideoComposer
                 return;
             }
 
-            // Build FFmpeg arguments - use simplified approach that handles audio optionally
-            var arguments = $"-i \"{inputPath}\" -filter_complex \"{filterComplex}\" " +
+            // Build FFmpeg arguments - use configurable preset and CRF for speed optimization
+            // -threads 0 = use all available CPU cores
+            var arguments = $"-threads 0 -i \"{inputPath}\" -filter_complex \"{filterComplex}\" " +
                            $"-map \"[vout]\" -map 0:a? " +
-                           $"-c:v libx264 -preset fast -crf 23 " +
+                           $"-c:v libx264 -preset {_preset} -crf {_crf} -threads 0 " +
                            $"-c:a aac -b:a 128k -ac 2 -ar 44100 " +
                            $"-r {config.Fps} {durationArg} " +
                            $"-y \"{outputPath}\"";
@@ -613,18 +649,18 @@ public class ShortVideoComposer : IShortVideoComposer
         fgWidth = (fgWidth / 2) * 2;
         fgHeight = (fgHeight / 2) * 2;
 
-        // Build blur background filter:
-        // 1. Scale video to fill output (will crop)
-        // 2. Apply heavy blur
+        // Build blur background filter (optimized for speed):
+        // 1. Scale video to fill output (will crop) - using fast bilinear
+        // 2. Apply lighter blur (radius 15 vs 25 for speed)
         // 3. Scale original video to fit (foreground)
         // 4. Overlay foreground centered on blurred background
         var filter = 
-            // Background: scale to fill, crop to output size, then blur
-            $"[0:v]scale={outputWidth}:{outputHeight}:force_original_aspect_ratio=increase," +
+            // Background: scale to fill, crop to output size, then blur (lighter for speed)
+            $"[0:v]scale={outputWidth}:{outputHeight}:force_original_aspect_ratio=increase:flags=fast_bilinear," +
             $"crop={outputWidth}:{outputHeight}," +
-            $"boxblur=luma_radius=25:luma_power=2[bg];" +
+            $"boxblur=luma_radius=15:luma_power=1[bg];" +
             // Foreground: scale to fit within output
-            $"[0:v]scale={fgWidth}:{fgHeight}[fg];" +
+            $"[0:v]scale={fgWidth}:{fgHeight}:flags=fast_bilinear[fg];" +
             // Overlay foreground centered on background
             $"[bg][fg]overlay=(W-w)/2:(H-h)/2[vout]";
 
@@ -815,10 +851,10 @@ public class ShortVideoComposer : IShortVideoComposer
                 clipPaths.Count, config.Transition.GetDisplayName(), config.TransitionDuration);
             _logger.LogDebug("Transition filter: {Filter}", filterComplex);
 
-            var arguments = $"{string.Join(" ", inputArgs)} " +
+            var arguments = $"-threads 0 {string.Join(" ", inputArgs)} " +
                            $"-filter_complex \"{filterComplex}\" " +
                            $"-map \"[vout]\" -map \"[aout]\" " +
-                           $"-c:v libx264 -preset fast -crf 23 " +
+                           $"-c:v libx264 -preset {_preset} -crf {_crf} -threads 0 " +
                            $"-c:a aac -b:a 128k " +
                            $"-movflags +faststart " +
                            $"-y \"{absoluteOutputPath}\"";
@@ -962,7 +998,7 @@ public class ShortVideoComposer : IShortVideoComposer
             var arguments = $"{string.Join(" ", inputArgs)} " +
                            $"-filter_complex \"{filterComplex}\" " +
                            $"-map \"[vout]\" -map \"[aout]\" " +
-                           $"-c:v libx264 -preset fast -crf 23 " +
+                           $"-c:v libx264 -preset {_preset} -crf {_crf} " +
                            $"-c:a aac -b:a 128k " +
                            $"-movflags +faststart " +
                            $"-y \"{outputPath}\"";
@@ -1051,7 +1087,7 @@ public class ShortVideoComposer : IShortVideoComposer
             
             // FFmpeg command: concat with re-encoding to ensure compatibility
             var arguments = $"-f concat -safe 0 -i \"{concatListPath}\" " +
-                           $"-c:v libx264 -preset fast -crf 23 " +
+                           $"-c:v libx264 -preset {_preset} -crf {_crf} " +
                            $"-c:a aac -b:a 128k " +
                            $"-movflags +faststart " +
                            $"-y \"{absoluteOutputPath}\"";
