@@ -3,10 +3,26 @@ using BunbunBroll.Models;
 namespace BunbunBroll.Services;
 
 /// <summary>
-/// Composite Asset Broker - Combines multiple video sources (Pexels + Pixabay)
-/// with smart fallback logic, universal fallback keywords, and Halal filter support.
+/// Enhanced Asset Broker interface that supports layered keyword sets.
 /// </summary>
-public class CompositeAssetBroker : IAssetBroker
+public interface IAssetBrokerV2 : IAssetBroker
+{
+    /// <summary>
+    /// Search videos using a layered KeywordSet for optimized cascading search.
+    /// </summary>
+    Task<List<VideoAsset>> SearchVideosAsync(
+        KeywordSet keywordSet,
+        int maxResults = 3,
+        int? minDuration = null,
+        int? maxDuration = null,
+        CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// Composite Asset Broker - Combines multiple video sources (Pexels + Pixabay)
+/// with smart tiered fallback logic, keyword layering, and Halal filter support.
+/// </summary>
+public class CompositeAssetBroker : IAssetBrokerV2
 {
     private readonly PexelsAssetBroker _pexelsBroker;
     private readonly PixabayAssetBroker _pixabayBroker;
@@ -16,16 +32,16 @@ public class CompositeAssetBroker : IAssetBroker
     // Universal fallback keywords that almost always return results
     private static readonly string[] UniversalFallbacks = new[]
     {
-        "city skyline",
+        "city skyline night",
         "nature landscape",
         "clouds timelapse", 
-        "ocean waves",
-        "sunset",
-        "person silhouette",
-        "abstract light",
-        "rain window",
-        "sunrise",
-        "forest"
+        "ocean waves sunset",
+        "sunset horizon",
+        "person silhouette window",
+        "abstract light bokeh",
+        "rain window night",
+        "sunrise timelapse",
+        "forest path morning"
     };
 
     public CompositeAssetBroker(
@@ -40,6 +56,80 @@ public class CompositeAssetBroker : IAssetBroker
         _logger = logger;
     }
 
+    /// <summary>
+    /// Search using layered KeywordSet with tier-based cascading.
+    /// </summary>
+    public async Task<List<VideoAsset>> SearchVideosAsync(
+        KeywordSet keywordSet,
+        int maxResults = 3,
+        int? minDuration = null,
+        int? maxDuration = null,
+        CancellationToken cancellationToken = default)
+    {
+        var allAssets = new List<VideoAsset>();
+        
+        // TIER 1: Primary + Mood keywords (highest relevance)
+        var tier1Keywords = ApplyFilters(keywordSet.GetTier(1));
+        if (tier1Keywords.Count > 0)
+        {
+            _logger.LogDebug("Tier 1 (Primary+Mood): {Keywords}", string.Join(", ", tier1Keywords));
+            allAssets.AddRange(await SearchBothSourcesAsync(tier1Keywords, maxResults, minDuration, maxDuration, cancellationToken));
+            
+            if (allAssets.Count >= maxResults)
+            {
+                _logger.LogInformation("Found {Count} results in Tier 1", allAssets.Count);
+                return DeduplicateAndLimit(allAssets, maxResults);
+            }
+        }
+
+        // TIER 2: Contextual + Action keywords
+        var tier2Keywords = ApplyFilters(keywordSet.GetTier(2));
+        if (tier2Keywords.Count > 0 && allAssets.Count < maxResults)
+        {
+            _logger.LogDebug("Tier 2 (Contextual+Action): {Keywords}", string.Join(", ", tier2Keywords));
+            var needed = maxResults - allAssets.Count;
+            allAssets.AddRange(await SearchBothSourcesAsync(tier2Keywords, needed, minDuration, maxDuration, cancellationToken));
+            
+            if (allAssets.Count >= maxResults)
+            {
+                _logger.LogInformation("Found {Count} results in Tier 2", allAssets.Count);
+                return DeduplicateAndLimit(allAssets, maxResults);
+            }
+        }
+
+        // TIER 3: Fallback keywords from KeywordSet
+        var tier3Keywords = ApplyFilters(keywordSet.GetTier(3));
+        if (tier3Keywords.Count > 0 && allAssets.Count < maxResults)
+        {
+            _logger.LogDebug("Tier 3 (Fallback): {Keywords}", string.Join(", ", tier3Keywords));
+            var needed = maxResults - allAssets.Count;
+            allAssets.AddRange(await SearchBothSourcesAsync(tier3Keywords, needed, minDuration, maxDuration, cancellationToken));
+            
+            if (allAssets.Count >= maxResults)
+            {
+                _logger.LogInformation("Found {Count} results in Tier 3", allAssets.Count);
+                return DeduplicateAndLimit(allAssets, maxResults);
+            }
+        }
+
+        // TIER 4: Universal fallback (guaranteed results)
+        if (allAssets.Count < maxResults)
+        {
+            _logger.LogDebug("Tier 4 (Universal Fallback)");
+            var fallbackKeywords = GetRandomFallbacks(3);
+            var stillNeeded = maxResults - allAssets.Count;
+            allAssets.AddRange(await SearchBothSourcesAsync(fallbackKeywords, stillNeeded, minDuration, maxDuration, cancellationToken));
+        }
+
+        var results = DeduplicateAndLimit(allAssets, maxResults);
+        _logger.LogInformation("Tiered search complete: {Count} results", results.Count);
+        
+        return results;
+    }
+
+    /// <summary>
+    /// Legacy search interface for backward compatibility.
+    /// </summary>
     public async Task<List<VideoAsset>> SearchVideosAsync(
         IEnumerable<string> keywords,
         int maxResults = 3,
@@ -50,12 +140,7 @@ public class CompositeAssetBroker : IAssetBroker
         var keywordList = keywords.ToList();
         
         // Apply Halal filter if enabled
-        if (_halalFilter.IsEnabled)
-        {
-            keywordList = _halalFilter.FilterKeywords(keywordList);
-            keywordList = _halalFilter.AddSafeModifiers(keywordList);
-            _logger.LogDebug("Halal filter applied. Keywords: {Keywords}", string.Join(", ", keywordList));
-        }
+        keywordList = ApplyFilters(keywordList);
         
         var allAssets = new List<VideoAsset>();
 
@@ -97,6 +182,20 @@ public class CompositeAssetBroker : IAssetBroker
         _logger.LogInformation("Composite search complete: {Count} results", results.Count);
         
         return results;
+    }
+
+    /// <summary>
+    /// Apply Halal filter and safe modifiers to keywords.
+    /// </summary>
+    private List<string> ApplyFilters(List<string> keywords)
+    {
+        if (!_halalFilter.IsEnabled)
+            return keywords;
+            
+        var filtered = _halalFilter.FilterKeywords(keywords);
+        filtered = _halalFilter.AddSafeModifiers(filtered);
+        _logger.LogDebug("Halal filter applied. Keywords: {Keywords}", string.Join(", ", filtered));
+        return filtered;
     }
 
     private async Task<List<VideoAsset>> SearchBothSourcesAsync(
@@ -160,3 +259,4 @@ public class CompositeAssetBroker : IAssetBroker
             .ToList();
     }
 }
+

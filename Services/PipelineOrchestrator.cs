@@ -78,22 +78,22 @@ public class PipelineOrchestrator : IPipelineOrchestrator
             
             job.Status = JobStatus.Processing;
 
-            // Step 2: BATCH EXTRACT KEYWORDS FOR ALL SENTENCES IN ONE AI CALL
+            // Step 2: BATCH EXTRACT LAYERED KEYWORDS FOR ALL SENTENCES IN ONE AI CALL
             var allSentences = job.Segments.SelectMany(s => s.Sentences).ToList();
-            RaiseJobProgress(job, $"Extracting keywords for {allSentences.Count} sentences (1 batch call)...");
+            RaiseJobProgress(job, $"Extracting layered keywords for {allSentences.Count} sentences (1 batch call)...");
 
             var sentencesToProcess = allSentences.Select(s => (s.Id, s.Text)).ToList();
-            var batchKeywords = await _intelligenceService.ExtractKeywordsBatchAsync(
+            var batchKeywordSets = await _intelligenceService.ExtractKeywordSetBatchAsync(
                 sentencesToProcess, 
                 job.Mood, 
                 cancellationToken);
 
-            // Apply keywords to all sentences
+            // Apply layered keywords to all sentences
             foreach (var sentence in allSentences)
             {
-                if (batchKeywords.TryGetValue(sentence.Id, out var keywords) && keywords.Count > 0)
+                if (batchKeywordSets.TryGetValue(sentence.Id, out var keywordSet) && keywordSet.TotalCount > 0)
                 {
-                    sentence.Keywords = keywords;
+                    sentence.KeywordSet = keywordSet;
                     sentence.Status = SentenceStatus.SearchingBRoll;
                 }
                 else
@@ -206,6 +206,7 @@ public class PipelineOrchestrator : IPipelineOrchestrator
 
     /// <summary>
     /// Search for video only (keywords already extracted)
+    /// Uses tier-based cascading search if KeywordSet is available.
     /// </summary>
     private async Task SearchVideoForSentenceAsync(
         ProcessingJob job, 
@@ -215,16 +216,33 @@ public class PipelineOrchestrator : IPipelineOrchestrator
     {
         try
         {
-            RaiseSentenceProgress(job, segment, sentence, $"Searching: {string.Join(", ", sentence.Keywords.Take(2))}...");
+            var keywordPreview = string.Join(", ", sentence.KeywordSet.Primary.Take(2).DefaultIfEmpty(sentence.Keywords.FirstOrDefault() ?? "..."));
+            var categoryInfo = sentence.KeywordSet.SuggestedCategory != null ? $" [{sentence.KeywordSet.SuggestedCategory}]" : "";
+            RaiseSentenceProgress(job, segment, sentence, $"Searching{categoryInfo}: {keywordPreview}...");
 
             var targetDuration = (int)Math.Ceiling(sentence.EstimatedDurationSeconds);
+            List<VideoAsset> assets;
             
-            var assets = await _assetBroker.SearchVideosAsync(
-                sentence.Keywords, 
-                maxResults: 6,
-                minDuration: Math.Max(3, targetDuration - 5),
-                maxDuration: targetDuration + 15,
-                cancellationToken: cancellationToken);
+            // Use tier-based search if broker supports KeywordSet
+            if (_assetBroker is IAssetBrokerV2 brokerV2 && sentence.KeywordSet.TotalCount > 0)
+            {
+                assets = await brokerV2.SearchVideosAsync(
+                    sentence.KeywordSet, 
+                    maxResults: 6,
+                    minDuration: Math.Max(3, targetDuration - 5),
+                    maxDuration: targetDuration + 15,
+                    cancellationToken: cancellationToken);
+            }
+            else
+            {
+                // Fallback to flat keyword search
+                assets = await _assetBroker.SearchVideosAsync(
+                    sentence.Keywords, 
+                    maxResults: 6,
+                    minDuration: Math.Max(3, targetDuration - 5),
+                    maxDuration: targetDuration + 15,
+                    cancellationToken: cancellationToken);
+            }
 
             if (assets.Count == 0)
             {
@@ -271,7 +289,7 @@ public class PipelineOrchestrator : IPipelineOrchestrator
         {
             _logger.LogDebug("Searching preview for sentence {Id}", sentence.Id);
             
-            // Step 1: Extract keywords
+            // Step 1: Extract layered keywords
             sentence.Status = SentenceStatus.ExtractingKeywords;
             RaiseSentenceProgress(job, segment, sentence, "Extracting keywords...");
 
@@ -280,14 +298,14 @@ public class PipelineOrchestrator : IPipelineOrchestrator
                 job.Mood, 
                 cancellationToken);
 
-            if (!keywordResult.Success || keywordResult.Keywords.Count == 0)
+            if (!keywordResult.Success || keywordResult.KeywordSet.TotalCount == 0)
             {
                 _logger.LogWarning("AI extraction failed for sentence {Id}, using fallback", sentence.Id);
                 sentence.Keywords = ExtractFallbackKeywords(sentence.Text);
             }
             else
             {
-                sentence.Keywords = keywordResult.Keywords;
+                sentence.KeywordSet = keywordResult.KeywordSet;
             }
 
             if (sentence.Keywords.Count == 0)
@@ -297,20 +315,39 @@ public class PipelineOrchestrator : IPipelineOrchestrator
                 return;
             }
 
-            _logger.LogDebug("Sentence {Id} keywords: {Keywords}", sentence.Id, string.Join(", ", sentence.Keywords));
+            _logger.LogDebug("Sentence {Id} keywords: {Keywords} (Category: {Category}, Mood: {Mood})", 
+                sentence.Id, 
+                string.Join(", ", sentence.KeywordSet.Primary),
+                sentence.KeywordSet.SuggestedCategory ?? "N/A",
+                sentence.KeywordSet.DetectedMood ?? "N/A");
 
             // Step 2: Search for videos (NO download)
             sentence.Status = SentenceStatus.SearchingBRoll;
-            RaiseSentenceProgress(job, segment, sentence, $"Searching: {string.Join(", ", sentence.Keywords.Take(2))}...");
+            var keywordPreview = string.Join(", ", sentence.KeywordSet.Primary.Take(2).DefaultIfEmpty(sentence.Keywords.FirstOrDefault() ?? "..."));
+            RaiseSentenceProgress(job, segment, sentence, $"Searching: {keywordPreview}...");
 
             var targetDuration = (int)Math.Ceiling(sentence.EstimatedDurationSeconds);
+            List<VideoAsset> assets;
             
-            var assets = await _assetBroker.SearchVideosAsync(
-                sentence.Keywords, 
-                maxResults: 6,  // Get more options for user to choose
-                minDuration: Math.Max(3, targetDuration - 5),
-                maxDuration: targetDuration + 15,
-                cancellationToken: cancellationToken);
+            // Use tier-based search if broker supports KeywordSet
+            if (_assetBroker is IAssetBrokerV2 brokerV2 && sentence.KeywordSet.TotalCount > 0)
+            {
+                assets = await brokerV2.SearchVideosAsync(
+                    sentence.KeywordSet, 
+                    maxResults: 6,
+                    minDuration: Math.Max(3, targetDuration - 5),
+                    maxDuration: targetDuration + 15,
+                    cancellationToken: cancellationToken);
+            }
+            else
+            {
+                assets = await _assetBroker.SearchVideosAsync(
+                    sentence.Keywords, 
+                    maxResults: 6,
+                    minDuration: Math.Max(3, targetDuration - 5),
+                    maxDuration: targetDuration + 15,
+                    cancellationToken: cancellationToken);
+            }
 
             if (assets.Count == 0)
             {

@@ -16,8 +16,18 @@ public interface IIntelligenceService
     
     /// <summary>
     /// Extract keywords for multiple sentences in a single AI call (much faster!)
+    /// Returns flat keyword lists for backward compatibility.
     /// </summary>
     Task<Dictionary<int, List<string>>> ExtractKeywordsBatchAsync(
+        IEnumerable<(int Id, string Text)> sentences, 
+        string? mood = null, 
+        CancellationToken cancellationToken = default);
+    
+    /// <summary>
+    /// Extract layered keyword sets for multiple sentences in a single AI call.
+    /// Returns KeywordSet with Primary, Mood, Contextual, Action, and Fallback layers.
+    /// </summary>
+    Task<Dictionary<int, KeywordSet>> ExtractKeywordSetBatchAsync(
         IEnumerable<(int Id, string Text)> sentences, 
         string? mood = null, 
         CancellationToken cancellationToken = default);
@@ -29,60 +39,96 @@ public class IntelligenceService : IIntelligenceService
     private readonly ILogger<IntelligenceService> _logger;
     private readonly GeminiSettings _settings;
 
-    private const string SystemPrompt = @"You are a CREATIVE B-Roll keyword extraction assistant for video editors. Your job is to convert video script sentences into CINEMATIC English search keywords for stock footage.
+    private const string SystemPrompt = @"You are a PROFESSIONAL B-Roll keyword extraction assistant for video editors. Your job is to analyze video scripts and generate LAYERED, OPTIMIZED English search keywords for stock footage platforms (Pexels/Pixabay).
 
-CRITICAL RULES:
-1. Output ONLY a valid JSON array of strings. No explanation, no markdown.
-2. Keywords must be in English (translate Indonesian).
-3. Generate 5-7 keywords for maximum search coverage.
-4. Be CREATIVE - think like a cinematographer.
-5. ALWAYS add CONTEXT to keywords - never use single generic words!
+=== ANALYSIS FRAMEWORK ===
+For each script segment, analyze across 4 dimensions:
+1. CONTEXT: Physical setting, location, time of day, environment
+2. EMOTION: Mood, feeling, tone, emotional intensity
+3. ACTION: Movement, activity, gestures, dynamics
+4. TOPIC: Main subject, theme, object
 
-IMPORTANT - KEYWORD SPECIFICITY:
-- NEVER use single words like ""ceiling"", ""room"", ""window"" alone
-- ALWAYS add context: ""bedroom ceiling"", ""dark room person"", ""rain window apartment""
-- WRONG: ""ceiling"", ""architecture"" (too generic, might return mosque/temple footage)
-- RIGHT: ""bedroom ceiling staring"", ""apartment room dark"", ""home interior night""
+=== OUTPUT FORMAT ===
+Respond with ONLY valid JSON (no markdown, no explanation):
+{
+  ""primaryKeywords"": [""exact visual match with context"", ""main subject + setting""],
+  ""moodKeywords"": [""emotion + visual representation"", ""atmospheric visual""],
+  ""contextualKeywords"": [""setting + modifier"", ""environment + time""],
+  ""actionKeywords"": [""movement + subject"", ""activity visual""],
+  ""fallbackKeywords"": [""safe generic visual"", ""universal stock footage""],
+  ""suggestedCategory"": ""People|Nature|Urban|Business|Abstract|Lifestyle"",
+  ""detectedMood"": ""melancholic|anxious|hopeful|calm|energetic|neutral""
+}
 
-AVOID KEYWORDS THAT MIGHT RETURN RELIGIOUS CONTENT:
-- Instead of ""ceiling"" → use ""bedroom ceiling"", ""apartment ceiling""
-- Instead of ""dome"" → use ""city skyline"", ""building architecture""
-- Instead of ""architecture"" → use ""modern building"", ""apartment interior""
-- Add context words: ""home"", ""apartment"", ""bedroom"", ""office"", ""city""
+=== KEYWORD RULES ===
+1. ALL keywords MUST be in English (translate Indonesian/other languages)
+2. Use 2-3 word combinations ONLY - never single words
+3. Add CONTEXT to every keyword: ""bedroom ceiling"" not ""ceiling""
+4. primaryKeywords: 2-3 exact visual matches with full context
+5. moodKeywords: 2 emotional visuals (emotion + setting/visual)
+6. contextualKeywords: 2 setting/atmosphere keywords
+7. actionKeywords: 1-2 movement/activity keywords
+8. fallbackKeywords: 2 safe, universal keywords that always return results
 
-KEYWORD STRATEGY (in order of priority):
-1. PRIMARY: Exact visual match WITH CONTEXT (""person lying bedroom"" not just ""lying"")
-2. MOOD: Emotional visuals with setting (""dark room anxiety"" not just ""anxiety"")
-3. CINEMATIC: Beautiful generic shots (""city skyline night"", ""nature landscape"")
-4. ABSTRACT: Safe symbolic visuals (""rain drops"", ""clock ticking"", ""clouds moving"")
+=== AVOID ===
+- Single generic words: ""ceiling"", ""room"", ""person""
+- Abstract concepts alone: ""sadness"", ""anxiety"", ""hope""
+- Religious/sensitive content triggers: use ""bedroom ceiling"" not ""ceiling"", ""city skyline"" not ""dome""
 
-MOOD-BASED CREATIVE KEYWORDS:
-- MELANCHOLIC: ""rain window apartment"", ""empty street night"", ""fog city morning"", ""lonely person silhouette""
-- STRESSFUL: ""overwhelmed person desk"", ""clock ticking stress"", ""messy room papers"", ""insomnia bedroom night""
-- HOPEFUL: ""sunrise city"", ""light through window"", ""person looking horizon nature""
-- CALM: ""calm lake nature"", ""candle flame dark room"", ""peaceful bedroom morning""
+=== MOOD → VISUAL MAPPING ===
+MELANCHOLIC: rain window apartment, empty street night, fog city morning, wilting flower
+ANXIOUS: clock ticking closeup, crowded subway, messy desk papers, insomnia bedroom
+HOPEFUL: sunrise city skyline, light through window, birds flying sky, spring flowers
+CALM: lake reflection sunset, candle dark room, coffee morning quiet, gentle waves
+ENERGETIC: fast traffic city, sports action, crowd cheering, dancing silhouette
 
-SAFE FALLBACK KEYWORDS (use 1-2 of these):
-- ""clouds timelapse"", ""rain window"", ""city lights night"", ""person silhouette window""
-- ""coffee morning mood"", ""dark room candle"", ""slow motion walking city""
+=== SAFE FALLBACK KEYWORDS ===
+Always include 2 from: clouds timelapse, city skyline night, nature landscape, ocean waves, person silhouette window, rain drops glass, sunset horizon, forest path
 
-HANDLING INDONESIAN BEDROOM/ROOM CONTEXT:
-- ""langit-langit kamar"" → ""bedroom ceiling staring"", ""person lying bed looking up"", ""insomnia ceiling thoughts""
-- ""kamar gelap"" → ""dark bedroom"", ""dim room night"", ""bedroom shadows""
+=== PLATFORM CATEGORIES ===
+Map script intent to: People, Nature, Urban, Business, Technology, Abstract, Lifestyle, Travel
+
+=== INDONESIAN CONTEXT HANDLING ===
+- ""langit-langit kamar"" → ""bedroom ceiling staring"", ""person lying bed looking up""
+- ""kamar gelap"" → ""dark bedroom night"", ""dim room shadows""
 - ""jendela kamar"" → ""bedroom window rain"", ""apartment window night""
+- ""sepi/sedih"" → ""lonely night window"", ""empty room solitude""
+- ""takut/cemas"" → ""anxiety dark room"", ""worried person thinking""
 
-EXAMPLES:
+=== EXAMPLES ===
+
 Input: ""Langit-langit kamar seolah menatap balik, mengingatkan pada daftar masalah.""
-Output: [""person lying bed staring ceiling"", ""bedroom ceiling insomnia"", ""dark room thoughts"", ""overwhelmed person bed"", ""dim bedroom night"", ""apartment room anxiety"", ""sleepless night bedroom""]
-
-Input: ""Kadang, membuka mata di pagi hari terasa sebagai beban terberat.""
-Output: [""tired waking up bed"", ""person lying bedroom morning"", ""gloomy room waking"", ""slow motion morning bedroom"", ""alarm clock tired"", ""reluctant morning person"", ""dim bedroom sunrise""]
+Output: {
+  ""primaryKeywords"": [""person lying bed staring ceiling"", ""bedroom ceiling insomnia""],
+  ""moodKeywords"": [""dark room anxiety thoughts"", ""overwhelmed person night""],
+  ""contextualKeywords"": [""dim bedroom evening"", ""apartment room shadows""],
+  ""actionKeywords"": [""lying still bed"", ""staring up ceiling""],
+  ""fallbackKeywords"": [""clouds timelapse"", ""rain window night""],
+  ""suggestedCategory"": ""People"",
+  ""detectedMood"": ""anxious""
+}
 
 Input: ""Di luar, dunia berputar tanpa henti. Orang-orang sibuk dengan urusan masing-masing.""
-Output: [""busy city crowd walking"", ""people timelapse street"", ""urban rush hour"", ""city skyline busy"", ""subway crowd commute"", ""fast motion city traffic"", ""office workers walking""]
+Output: {
+  ""primaryKeywords"": [""busy city crowd walking"", ""people timelapse street""],
+  ""moodKeywords"": [""urban rush disconnected"", ""city life overwhelm""],
+  ""contextualKeywords"": [""downtown pedestrians day"", ""subway station crowd""],
+  ""actionKeywords"": [""walking fast crowd"", ""commuters rushing""],
+  ""fallbackKeywords"": [""city skyline night"", ""traffic flow timelapse""],
+  ""suggestedCategory"": ""Urban"",
+  ""detectedMood"": ""energetic""
+}
 
-Input: ""Malam itu terasa sangat panjang dan sepi.""
-Output: [""lonely night bedroom"", ""empty street night city"", ""window rain night apartment"", ""insomnia person bed"", ""city lights night lonely"", ""candle dark room"", ""sleepless night window""]";
+Input: ""But then, a small light appeared. Maybe tomorrow will be different.""
+Output: {
+  ""primaryKeywords"": [""light through window morning"", ""sunrise bedroom curtains""],
+  ""moodKeywords"": [""hope new beginning dawn"", ""optimistic person window""],
+  ""contextualKeywords"": [""sun rays room golden"", ""morning light indoor""],
+  ""actionKeywords"": [""light breaking darkness"", ""opening curtains morning""],
+  ""fallbackKeywords"": [""sunrise timelapse"", ""clouds parting sun""],
+  ""suggestedCategory"": ""Nature"",
+  ""detectedMood"": ""hopeful""
+}";
 
     public IntelligenceService(
         HttpClient httpClient, 
@@ -114,7 +160,7 @@ Output: [""lonely night bedroom"", ""empty street night city"", ""window rain ni
                     new() { Role = "user", Content = userPrompt }
                 },
                 Temperature = 0.3,
-                MaxTokens = 200
+                MaxTokens = 500 // Increased for layered output
             };
 
             _logger.LogDebug("Sending request to Gemini: {Text}", text);
@@ -134,29 +180,48 @@ Output: [""lonely night bedroom"", ""empty street night city"", ""window rain ni
 
             if (!string.IsNullOrEmpty(rawContent))
             {
-                // Clean the response (remove markdown code blocks if present)
                 var cleanedJson = CleanJsonResponse(rawContent);
                 
                 _logger.LogDebug("Raw AI response: {Raw}", rawContent);
                 _logger.LogDebug("Cleaned JSON: {Cleaned}", cleanedJson);
                 
-                try
+                // Try parsing as new layered format first
+                result.KeywordSet = ParseKeywordResponse(cleanedJson);
+                result.Success = result.KeywordSet.TotalCount > 0;
+                
+                // If layered parsing failed, try legacy flat array format
+                if (!result.Success)
                 {
-                    var keywords = JsonSerializer.Deserialize<List<string>>(cleanedJson);
-                    result.Keywords = keywords ?? new List<string>();
-                    result.Success = result.Keywords.Count > 0;
-                }
-                catch (JsonException parseEx)
-                {
-                    _logger.LogWarning("JSON parse failed for: {Content}. Error: {Error}", cleanedJson, parseEx.Message);
-                    // Try to extract keywords from non-JSON response
-                    result.Keywords = ExtractKeywordsFromText(rawContent);
-                    result.Success = result.Keywords.Count > 0;
+                    try
+                    {
+                        var keywords = JsonSerializer.Deserialize<List<string>>(cleanedJson);
+                        if (keywords != null && keywords.Count > 0)
+                        {
+                            result.KeywordSet = KeywordSet.FromFlat(keywords);
+                            result.Success = true;
+                        }
+                    }
+                    catch (JsonException)
+                    {
+                        // Try text extraction as last resort
+                        var extractedKeywords = ExtractKeywordsFromText(rawContent);
+                        result.KeywordSet = KeywordSet.FromFlat(extractedKeywords);
+                        result.Success = result.KeywordSet.TotalCount > 0;
+                    }
                 }
             }
 
-            _logger.LogInformation("Extracted {Count} keywords for segment in {Ms}ms: [{Keywords}]", 
-                result.Keywords.Count, stopwatch.ElapsedMilliseconds, string.Join(", ", result.Keywords));
+            _logger.LogInformation(
+                "Extracted {Count} keywords (P:{Primary} M:{Mood} C:{Context} A:{Action} F:{Fallback}) for segment in {Ms}ms. Category: {Category}, Mood: {DetectedMood}", 
+                result.KeywordSet.TotalCount,
+                result.KeywordSet.Primary.Count,
+                result.KeywordSet.Mood.Count,
+                result.KeywordSet.Contextual.Count,
+                result.KeywordSet.Action.Count,
+                result.KeywordSet.Fallback.Count,
+                stopwatch.ElapsedMilliseconds,
+                result.SuggestedCategory ?? "N/A",
+                result.DetectedMood ?? "N/A");
         }
         catch (HttpRequestException ex)
         {
@@ -184,6 +249,33 @@ Output: [""lonely night bedroom"", ""empty street night city"", ""window rain ni
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Parse the AI response into a layered KeywordSet.
+    /// </summary>
+    private KeywordSet ParseKeywordResponse(string json)
+    {
+        try
+        {
+            var options = new JsonSerializerOptions 
+            { 
+                PropertyNameCaseInsensitive = true 
+            };
+            
+            var response = JsonSerializer.Deserialize<KeywordExtractionResponse>(json, options);
+            
+            if (response != null)
+            {
+                return response.ToKeywordSet();
+            }
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogDebug("Layered keyword parsing failed: {Error}", ex.Message);
+        }
+        
+        return KeywordSet.Empty;
     }
 
     private static string CleanJsonResponse(string raw)
@@ -340,6 +432,132 @@ Output: [""lonely night bedroom"", ""empty street night city"", ""window rain ni
             if (!results.ContainsKey(id))
             {
                 results[id] = new List<string>();
+            }
+        }
+
+        return results;
+    }
+
+    /// <summary>
+    /// Extract layered keyword sets for multiple sentences in a single AI call.
+    /// Returns KeywordSet with Primary, Mood, Contextual, Action, and Fallback layers.
+    /// </summary>
+    public async Task<Dictionary<int, KeywordSet>> ExtractKeywordSetBatchAsync(
+        IEnumerable<(int Id, string Text)> sentences,
+        string? mood = null,
+        CancellationToken cancellationToken = default)
+    {
+        var sentenceList = sentences.ToList();
+        var results = new Dictionary<int, KeywordSet>();
+
+        if (sentenceList.Count == 0)
+            return results;
+
+        var stopwatch = Stopwatch.StartNew();
+
+        try
+        {
+            // Build batch prompt for layered extraction
+            var batchPrompt = new System.Text.StringBuilder();
+            if (mood != null)
+            {
+                batchPrompt.AppendLine($"Mood/Style for ALL sentences: {mood}");
+                batchPrompt.AppendLine();
+            }
+
+            batchPrompt.AppendLine("Extract B-Roll keywords for each sentence below.");
+            batchPrompt.AppendLine("Return as JSON object where each key is the sentence ID.");
+            batchPrompt.AppendLine("Each value should have: primaryKeywords, moodKeywords, contextualKeywords, actionKeywords, fallbackKeywords arrays.");
+            batchPrompt.AppendLine("Also include suggestedCategory and detectedMood strings.");
+            batchPrompt.AppendLine();
+            batchPrompt.AppendLine("SENTENCES:");
+
+            foreach (var (id, text) in sentenceList)
+            {
+                batchPrompt.AppendLine($"[{id}]: {text}");
+            }
+
+            var request = new GeminiChatRequest
+            {
+                Model = _settings.Model,
+                Messages = new List<GeminiMessage>
+                {
+                    new() { Role = "system", Content = SystemPrompt },
+                    new() { Role = "user", Content = batchPrompt.ToString() }
+                },
+                Temperature = 0.3,
+                MaxTokens = Math.Min(sentenceList.Count * 300, 8000)
+            };
+
+            _logger.LogDebug("Batch extracting layered keywords for {Count} sentences", sentenceList.Count);
+
+            var response = await _httpClient.PostAsJsonAsync(
+                "v1/chat/completions",
+                request,
+                cancellationToken);
+
+            response.EnsureSuccessStatusCode();
+
+            var geminiResponse = await response.Content.ReadFromJsonAsync<GeminiChatResponse>(cancellationToken: cancellationToken);
+            var rawContent = geminiResponse?.Choices?.FirstOrDefault()?.Message?.Content;
+
+            if (!string.IsNullOrEmpty(rawContent))
+            {
+                var cleanedJson = CleanJsonResponse(rawContent);
+                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+
+                try
+                {
+                    var parsed = JsonSerializer.Deserialize<Dictionary<string, KeywordExtractionResponse>>(cleanedJson, options);
+                    if (parsed != null)
+                    {
+                        foreach (var (key, keywordResponse) in parsed)
+                        {
+                            if (int.TryParse(key, out var id) && keywordResponse != null)
+                            {
+                                results[id] = keywordResponse.ToKeywordSet();
+                            }
+                        }
+                    }
+                }
+                catch (JsonException)
+                {
+                    _logger.LogWarning("Layered batch parse failed, trying flat format");
+                    try
+                    {
+                        var flatParsed = JsonSerializer.Deserialize<Dictionary<string, List<string>>>(cleanedJson);
+                        if (flatParsed != null)
+                        {
+                            foreach (var (key, keywords) in flatParsed)
+                            {
+                                if (int.TryParse(key, out var id) && keywords != null)
+                                {
+                                    results[id] = KeywordSet.FromFlat(keywords);
+                                }
+                            }
+                        }
+                    }
+                    catch (JsonException ex2)
+                    {
+                        _logger.LogWarning("Both batch parse attempts failed: {Error}", ex2.Message);
+                    }
+                }
+            }
+
+            _logger.LogInformation("Batch extracted layered keywords for {Success}/{Total} sentences in {Ms}ms",
+                results.Count, sentenceList.Count, stopwatch.ElapsedMilliseconds);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Batch layered keyword extraction failed for {Count} sentences", sentenceList.Count);
+        }
+
+        // Fill in any missing results with empty KeywordSets
+        foreach (var (id, _) in sentenceList)
+        {
+            if (!results.ContainsKey(id))
+            {
+                results[id] = KeywordSet.Empty;
             }
         }
 

@@ -15,8 +15,15 @@ public class ScriptSentence
     public int WordCount => Text.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;
     public double EstimatedDurationSeconds => Math.Max(3, WordCount * 0.4); // Minimum 3 seconds
     
-    // AI-extracted keywords for this specific sentence
-    public List<string> Keywords { get; set; } = new();
+    // AI-extracted layered keywords for optimized search
+    public KeywordSet KeywordSet { get; set; } = new();
+    
+    // Flat keyword list (for backward compatibility - reads from KeywordSet)
+    public List<string> Keywords 
+    { 
+        get => KeywordSet.GetAllByPriority().ToList();
+        set => KeywordSet = KeywordSet.FromFlat(value);
+    }
     
     // Search results from Pexels/Pixabay (preview from CDN)
     public List<VideoAsset> SearchResults { get; set; } = new();
