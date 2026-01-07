@@ -5,6 +5,7 @@
 @inject IShortVideoComposer ShortVideoComposer
 @inject IHalalVideoFilter HalalFilter
 @inject IProjectService ProjectService
+@inject IIntelligenceService IntelligenceService
 @inject ILogger<Home> Logger
 @inject IJSRuntime JS
 @implements IDisposable
@@ -439,11 +440,32 @@
                                                 </div>
                                                 <p class="text-xl leading-relaxed text-foreground font-medium">@sentence.Text</p>
                                                 
-                                                <div class="flex flex-wrap gap-2">
+                                                <div class="flex flex-wrap gap-2 items-center">
                                                     @foreach (var kw in sentence.Keywords.Take(3))
                                                     {
                                                         <span class="inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary text-secondary-foreground">@kw</span>
                                                     }
+                                                    @if (!string.IsNullOrEmpty(sentence.KeywordSet?.SuggestedCategory))
+                                                    {
+                                                        <span class="inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-medium bg-primary/10 text-primary border border-primary/20">@sentence.KeywordSet.SuggestedCategory</span>
+                                                    }
+                                                    <button class="inline-flex items-center justify-center rounded-md text-[10px] font-medium h-5 px-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                                                            title="Regenerate keywords with AI"
+                                                            disabled="@(_isRegeneratingKeywords == sentence.Id)"
+                                                            @onclick="() => RegenerateKeywords(sentence)">
+                                                        @if (_isRegeneratingKeywords == sentence.Id)
+                                                        {
+                                                            <svg class="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                            </svg>
+                                                        }
+                                                        else
+                                                        {
+                                                            <svg class="h-3 w-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8L19 13M17.8 6.2L19 5M3 21l9-9M12.2 6.2L11 5"/></svg>
+                                                            <span class="ml-1">Regen</span>
+                                                        }
+                                                    </button>
                                                 </div>
                                             </div>
 
@@ -524,6 +546,7 @@
     private ProcessingJob? _currentJob;
     private CancellationTokenSource? _cts;
     private int? _researchingSentenceId;
+    private int? _isRegeneratingKeywords;
     private int _processedCount = 0;
     private int _totalCount = 0;
     [Parameter] public string? ProjectId { get; set; }
@@ -664,6 +687,55 @@
         StateHasChanged();
         await Orchestrator.ResearchSentenceAsync(_currentJob, sentence, null, _cts?.Token ?? default);
         StateHasChanged();
+    }
+
+    /// <summary>
+    /// Regenerate keywords using AI (not fallback) and then re-search for videos
+    /// </summary>
+    private async Task RegenerateKeywords(ScriptSentence sentence)
+    {
+        if (_currentJob == null) return;
+        _isRegeneratingKeywords = sentence.Id;
+        _statusMessage = $"Regenerating keywords for sentence #{sentence.Id}...";
+        StateHasChanged();
+        
+        try
+        {
+            // Call AI to extract fresh keywords
+            var keywordResult = await IntelligenceService.ExtractKeywordsAsync(
+                sentence.Text, 
+                _currentJob.Mood, 
+                _cts?.Token ?? default);
+            
+            if (keywordResult.Success && keywordResult.KeywordSet.TotalCount > 0)
+            {
+                // Apply new layered keywords
+                sentence.KeywordSet = keywordResult.KeywordSet;
+                _statusMessage = $"✓ Generated {sentence.KeywordSet.TotalCount} keywords ({sentence.KeywordSet.SuggestedCategory ?? "auto"})";
+                
+                // Now re-search with new keywords
+                _researchingSentenceId = sentence.Id;
+                StateHasChanged();
+                await Orchestrator.ResearchSentenceAsync(_currentJob, sentence, null, _cts?.Token ?? default);
+                
+                // Save the updated project
+                await SaveCurrentProject();
+            }
+            else
+            {
+                _statusMessage = $"⚠ AI extraction failed: {keywordResult.Error ?? "Unknown error"}";
+            }
+        }
+        catch (Exception ex)
+        {
+            _statusMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            _isRegeneratingKeywords = null;
+            _researchingSentenceId = null;
+            StateHasChanged();
+        }
     }
 
     private void SelectVideo(ScriptSentence sentence, VideoAsset video)
