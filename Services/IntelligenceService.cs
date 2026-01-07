@@ -285,7 +285,7 @@ Output: [""lonely night bedroom"", ""empty street night city"", ""window rain ni
                     new() { Role = "user", Content = batchPrompt.ToString() }
                 },
                 Temperature = 0.3,
-                MaxTokens = Math.Min(sentenceList.Count * 100, 2000) // Scale tokens with batch size
+                MaxTokens = Math.Min(sentenceList.Count * 100, 4000) // Scale tokens with batch size (up to 40 sentences)
             };
 
             _logger.LogDebug("Batch extracting keywords for {Count} sentences", sentenceList.Count);

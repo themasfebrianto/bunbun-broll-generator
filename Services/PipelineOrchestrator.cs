@@ -76,28 +76,61 @@ public class PipelineOrchestrator : IPipelineOrchestrator
             _logger.LogInformation("Created {Segments} segments with {Sentences} sentences", 
                 job.Segments.Count, job.TotalSentences);
             
-            RaiseJobProgress(job, $"Found {job.TotalSentences} sentences. Searching previews...");
-
-            // Step 2: Process each segment (search only, no download)
             job.Status = JobStatus.Processing;
-            
+
+            // Step 2: BATCH EXTRACT KEYWORDS FOR ALL SENTENCES IN ONE AI CALL
+            var allSentences = job.Segments.SelectMany(s => s.Sentences).ToList();
+            RaiseJobProgress(job, $"Extracting keywords for {allSentences.Count} sentences (1 batch call)...");
+
+            var sentencesToProcess = allSentences.Select(s => (s.Id, s.Text)).ToList();
+            var batchKeywords = await _intelligenceService.ExtractKeywordsBatchAsync(
+                sentencesToProcess, 
+                job.Mood, 
+                cancellationToken);
+
+            // Apply keywords to all sentences
+            foreach (var sentence in allSentences)
+            {
+                if (batchKeywords.TryGetValue(sentence.Id, out var keywords) && keywords.Count > 0)
+                {
+                    sentence.Keywords = keywords;
+                    sentence.Status = SentenceStatus.SearchingBRoll;
+                }
+                else
+                {
+                    sentence.Keywords = ExtractFallbackKeywords(sentence.Text);
+                    sentence.Status = SentenceStatus.SearchingBRoll;
+                }
+            }
+
+            RaiseJobProgress(job, $"Searching videos for {allSentences.Count} sentences ({MaxConcurrentSearches} parallel)...");
+
+            // Step 3: SEARCH VIDEOS IN PARALLEL FOR ALL SENTENCES
+            await Parallel.ForEachAsync(
+                allSentences,
+                new ParallelOptions 
+                { 
+                    MaxDegreeOfParallelism = MaxConcurrentSearches,
+                    CancellationToken = cancellationToken 
+                },
+                async (sentence, ct) =>
+                {
+                    var segment = job.Segments.First(s => s.Sentences.Contains(sentence));
+                    await SearchVideoForSentenceAsync(job, segment, sentence, ct);
+                });
+
+            // Mark all segments as completed
             foreach (var segment in job.Segments)
             {
-                if (cancellationToken.IsCancellationRequested)
-                {
-                    job.Status = JobStatus.Failed;
-                    job.ErrorMessage = "Job cancelled";
-                    break;
-                }
-
-                await SearchSegmentPreviewsAsync(job, segment, cancellationToken);
+                segment.Status = SegmentStatus.Completed;
+                segment.ProcessedAt = DateTime.UtcNow;
             }
 
             // Set to preview ready
             job.Status = JobStatus.PreviewReady;
             job.CompletedAt = DateTime.UtcNow;
             
-            var readyCount = job.Segments.SelectMany(s => s.Sentences).Count(s => s.Status == SentenceStatus.PreviewReady);
+            var readyCount = allSentences.Count(s => s.Status == SentenceStatus.PreviewReady);
             RaiseJobProgress(job, $"Preview ready: {readyCount}/{job.TotalSentences} sentences have results. Review and approve.");
 
             return job;
