@@ -52,13 +52,16 @@ public class ShortVideoComposer : IShortVideoComposer
         _logger = logger;
         _config = config;
         
-        // FFmpeg binaries directory
-        _ffmpegDirectory = config["FFmpeg:BinaryDirectory"] 
-            ?? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ffmpeg-binaries");
-        _tempDirectory = config["FFmpeg:TempDirectory"] 
-            ?? Path.Combine(Path.GetTempPath(), "bunbun_ffmpeg");
-        _outputDirectory = config["ShortVideo:OutputDirectory"] 
-            ?? "./output/shorts";
+        // FFmpeg binaries directory - use absolute paths
+        _ffmpegDirectory = Path.GetFullPath(config["FFmpeg:BinaryDirectory"] 
+            ?? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ffmpeg-binaries"));
+        _tempDirectory = Path.GetFullPath(config["FFmpeg:TempDirectory"] 
+            ?? Path.Combine(Path.GetTempPath(), "bunbun_ffmpeg"));
+        _outputDirectory = Path.GetFullPath(config["ShortVideo:OutputDirectory"] 
+            ?? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "output", "shorts"));
+
+        _logger.LogInformation("FFmpeg directories - Binaries: {Bin}, Temp: {Temp}, Output: {Out}", 
+            _ffmpegDirectory, _tempDirectory, _outputDirectory);
 
         // Ensure directories exist
         Directory.CreateDirectory(_ffmpegDirectory);
@@ -540,16 +543,27 @@ public class ShortVideoComposer : IShortVideoComposer
     {
         try
         {
-            // Create concat file list
+            // Create concat file list with absolute paths
             var concatListPath = Path.Combine(_tempDirectory, $"concat_{Guid.NewGuid():N}.txt");
-            var concatContent = string.Join("\n", clipPaths.Select(p => $"file '{p.Replace("\\", "/").Replace("'", "'\\''")}'"));
+            
+            // Ensure all paths are absolute
+            var absolutePaths = clipPaths.Select(p => Path.GetFullPath(p)).ToList();
+            
+            // Create concat content with properly escaped paths
+            var concatContent = string.Join("\n", absolutePaths.Select(p => 
+                $"file '{p.Replace("\\", "/").Replace("'", "'\\''")}'"));
+            
+            _logger.LogInformation("Concat file path: {Path}", concatListPath);
+            _logger.LogInformation("Concat content:\n{Content}", concatContent);
+            
             await File.WriteAllTextAsync(concatListPath, concatContent, cancellationToken);
 
             // Use concat demuxer for efficient concatenation
+            var absoluteOutputPath = Path.GetFullPath(outputPath);
             var conversion = FFmpeg.Conversions.New()
                 .AddParameter($"-f concat -safe 0 -i \"{concatListPath}\"")
                 .AddParameter("-c copy")
-                .SetOutput(outputPath)
+                .SetOutput(absoluteOutputPath)
                 .SetOverwriteOutput(true);
 
             await conversion.Start(cancellationToken);
@@ -560,7 +574,7 @@ public class ShortVideoComposer : IShortVideoComposer
                 File.Delete(concatListPath);
             }
 
-            _logger.LogInformation("Concatenated {Count} clips to: {Path}", clipPaths.Count, outputPath);
+            _logger.LogInformation("Concatenated {Count} clips to: {Path}", clipPaths.Count, absoluteOutputPath);
         }
         catch (Exception ex)
         {
