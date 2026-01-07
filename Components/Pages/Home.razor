@@ -14,20 +14,20 @@
     @if (_currentJob == null)
     {
         <!-- COMPOSER VIEW -->
-        <div class="max-w-[42rem] mx-auto py-16 px-4">
-            <div class="space-y-2 mb-8 text-center">
-                <h1 class="text-3xl font-bold tracking-tight">Create New Sequence</h1>
-                <p class="text-muted-foreground">Transform your script into a professional cinematic B-roll sequence.</p>
+        <div class="max-w-[42rem] mx-auto py-20 px-4">
+            <div class="space-y-3 mb-10 text-center">
+                <h1 class="text-4xl font-bold tracking-tight">Create New Sequence</h1>
+                <p class="text-muted-foreground text-lg">Transform your script into professional B-roll footage.</p>
             </div>
 
-            <div class="rounded-xl border bg-card text-card-foreground shadow p-8 space-y-6">
+            <div class="card p-8 space-y-6">
                 <!-- Project Name -->
                 <div class="space-y-2">
                     <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                         Project Title
                     </label>
                     <input type="text" 
-                           class="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                           class="input"
                            @bind="_projectName" 
                            placeholder="e.g. Morning Routine Intro" />
                 </div>
@@ -37,10 +37,10 @@
                     <label class="text-sm font-medium leading-none">
                         Script Body
                     </label>
-                    <textarea class="flex min-h-[160px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    <textarea class="input min-h-[160px] resize-none"
                               @bind="_scriptText" 
                               placeholder="Paste your script text here..."></textarea>
-                    <p class="text-[0.8rem] text-muted-foreground">Each sentence triggers a unique metadata-driven footage search.</p>
+                    <p class="text-xs text-muted-foreground">Each sentence generates a unique visual search query.</p>
                 </div>
 
                 <!-- Settings Row -->
@@ -50,39 +50,39 @@
                         <div class="flex gap-2">
                             <!-- Default -->
                             <button type="button" 
-                                    class="flex flex-col items-center justify-center w-full h-16 rounded-lg border-2 transition-all @(_selectedMood == "" ? "border-primary bg-primary/10" : "border-input hover:border-primary/50")"
+                                    class="flex flex-col items-center justify-center w-full h-14 rounded-lg border transition-colors duration-150 @(_selectedMood == "" ? "border-foreground bg-muted" : "border-border hover:border-foreground/30")"
                                     @onclick="SelectMoodAuto">
-                                <svg class="h-5 w-5 mb-1 @(_selectedMood == "" ? "text-primary" : "text-muted-foreground")" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <svg class="h-4 w-4 mb-1 @(_selectedMood == "" ? "text-foreground" : "text-muted-foreground")" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                     <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
                                 </svg>
-                                <span class="text-[10px] font-medium @(_selectedMood == "" ? "text-primary" : "text-muted-foreground")">Auto</span>
+                                <span class="text-[10px] font-medium @(_selectedMood == "" ? "text-foreground" : "text-muted-foreground")">Auto</span>
                             </button>
                             <!-- Cinematic -->
                             <button type="button" 
-                                    class="flex flex-col items-center justify-center w-full h-16 rounded-lg border-2 transition-all @(_selectedMood == "Cinematic" ? "border-primary bg-primary/10" : "border-input hover:border-primary/50")"
+                                    class="flex flex-col items-center justify-center w-full h-14 rounded-lg border transition-colors duration-150 @(_selectedMood == "Cinematic" ? "border-foreground bg-muted" : "border-border hover:border-foreground/30")"
                                     @onclick="SelectMoodCinematic">
-                                <svg class="h-5 w-5 mb-1 @(_selectedMood == "Cinematic" ? "text-primary" : "text-muted-foreground")" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <svg class="h-4 w-4 mb-1 @(_selectedMood == "Cinematic" ? "text-foreground" : "text-muted-foreground")" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                     <rect x="2" y="2" width="20" height="20" rx="2"/><path d="M7 2v20M17 2v20M2 12h20M2 7h5M2 17h5M17 7h5M17 17h5"/>
                                 </svg>
-                                <span class="text-[10px] font-medium @(_selectedMood == "Cinematic" ? "text-primary" : "text-muted-foreground")">Cinema</span>
+                                <span class="text-[10px] font-medium @(_selectedMood == "Cinematic" ? "text-foreground" : "text-muted-foreground")">Cinema</span>
                             </button>
                             <!-- Moody -->
                             <button type="button" 
-                                    class="flex flex-col items-center justify-center w-full h-16 rounded-lg border-2 transition-all @(_selectedMood == "Moody" ? "border-primary bg-primary/10" : "border-input hover:border-primary/50")"
+                                    class="flex flex-col items-center justify-center w-full h-14 rounded-lg border transition-colors duration-150 @(_selectedMood == "Moody" ? "border-foreground bg-muted" : "border-border hover:border-foreground/30")"
                                     @onclick="SelectMoodMoody">
-                                <svg class="h-5 w-5 mb-1 @(_selectedMood == "Moody" ? "text-primary" : "text-muted-foreground")" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <svg class="h-4 w-4 mb-1 @(_selectedMood == "Moody" ? "text-foreground" : "text-muted-foreground")" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                     <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
                                 </svg>
-                                <span class="text-[10px] font-medium @(_selectedMood == "Moody" ? "text-primary" : "text-muted-foreground")">Moody</span>
+                                <span class="text-[10px] font-medium @(_selectedMood == "Moody" ? "text-foreground" : "text-muted-foreground")">Moody</span>
                             </button>
                             <!-- Bright -->
                             <button type="button" 
-                                    class="flex flex-col items-center justify-center w-full h-16 rounded-lg border-2 transition-all @(_selectedMood == "Bright" ? "border-primary bg-primary/10" : "border-input hover:border-primary/50")"
+                                    class="flex flex-col items-center justify-center w-full h-14 rounded-lg border transition-colors duration-150 @(_selectedMood == "Bright" ? "border-foreground bg-muted" : "border-border hover:border-foreground/30")"
                                     @onclick="SelectMoodBright">
-                                <svg class="h-5 w-5 mb-1 @(_selectedMood == "Bright" ? "text-primary" : "text-muted-foreground")" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <svg class="h-4 w-4 mb-1 @(_selectedMood == "Bright" ? "text-foreground" : "text-muted-foreground")" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                     <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
                                 </svg>
-                                <span class="text-[10px] font-medium @(_selectedMood == "Bright" ? "text-primary" : "text-muted-foreground")">Bright</span>
+                                <span class="text-[10px] font-medium @(_selectedMood == "Bright" ? "text-foreground" : "text-muted-foreground")">Bright</span>
                             </button>
                         </div>
                     </div>
@@ -100,17 +100,17 @@
                 </div>
 
                 <!-- Action -->
-                <div class="pt-4 space-y-3">
-                    <button class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground shadow hover:bg-primary/90 h-11 px-8 w-full"
+                <div class="pt-6 space-y-4">
+                    <button class="btn-primary h-11 w-full"
                             @onclick="StartSearch" 
                             disabled="@(!CanGenerate || _isSearching)">
                         @if (_isSearching)
                         {
-                            <svg class="animate-spin -ml-1 mr-3 h-4 w-4 text-primary-foreground" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <svg class="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
-                            <span>Processing...</span>
+                            <span>Processing @_processedCount of @_totalCount</span>
                         }
                         else
                         {
@@ -118,16 +118,16 @@
                         }
                     </button>
                     
-                    @if (_isSearching && !string.IsNullOrEmpty(_statusMessage))
+                    @if (_isSearching)
                     {
-                        <div class="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border border-border/50">
-                            <div class="flex-shrink-0">
-                                <svg class="animate-spin h-4 w-4 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
+                        <div class="space-y-2">
+                            <div class="progress-container">
+                                <div class="progress-bar" style="width: @(_totalCount > 0 ? (_processedCount * 100 / _totalCount) : 0)%"></div>
                             </div>
-                            <span class="text-xs text-muted-foreground">@_statusMessage</span>
+                            @if (!string.IsNullOrEmpty(_statusMessage))
+                            {
+                                <p class="text-xs text-muted-foreground text-center">@_statusMessage</p>
+                            }
                         </div>
                     }
                 </div>
@@ -141,38 +141,37 @@
             <div class="flex flex-col lg:flex-row gap-12 items-start">
                 
                 <!-- Sticky Sidebar -->
-                <div class="lg:w-[260px] w-full shrink-0 lg:sticky lg:top-24 space-y-6">
-                    <button class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 w-full lg:w-auto"
-                            @onclick="ResetJob">
+                <div class="lg:w-[260px] w-full shrink-0 lg:sticky lg:top-20 space-y-4">
+                    <button class="btn-secondary h-9 w-full lg:w-auto" @onclick="ResetJob">
                         <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"></path></svg>
                         Back to Editor
                     </button>
 
-                    <div class="rounded-xl border bg-card text-card-foreground shadow p-6 space-y-4">
+                    <div class="card p-5 space-y-4">
                         <div class="space-y-1">
-                            <h3 class="text-sm font-semibold tracking-tight uppercase text-muted-foreground/60 text-[10px]">Project</h3>
-                            <p class="text-sm font-medium truncate">@_currentJob.ProjectName</p>
+                            <p class="text-xs text-muted-foreground">Project</p>
+                            <p class="font-medium truncate">@_currentJob.ProjectName</p>
                         </div>
                         
-                        <div class="grid grid-cols-2 gap-4">
-                            <div class="space-y-1">
-                                <h3 class="text-[10px] font-semibold tracking-tight uppercase text-muted-foreground/60">Ready</h3>
-                                <p class="text-lg font-bold">@_currentJob.PreviewReadySentences</p>
+                        <div class="grid grid-cols-2 gap-4 pt-2 border-t border-border">
+                            <div>
+                                <p class="text-xs text-muted-foreground mb-1">Ready</p>
+                                <p class="text-2xl font-bold font-mono">@_currentJob.PreviewReadySentences</p>
                             </div>
-                            <div class="space-y-1">
-                                <h3 class="text-[10px] font-semibold tracking-tight uppercase text-muted-foreground/60">Total</h3>
-                                <p class="text-lg font-bold">@_currentJob.TotalSentences</p>
+                            <div>
+                                <p class="text-xs text-muted-foreground mb-1">Total</p>
+                                <p class="text-2xl font-bold font-mono">@_currentJob.TotalSentences</p>
                             </div>
                         </div>
                     </div>
 
                     <!-- Download Buttons -->
-                    <button class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground shadow hover:bg-primary/90 h-11 px-8 w-full"
+                    <button class="btn-primary h-10 w-full"
                             @onclick="DownloadAsZip" 
                             disabled="@(_isDownloading || _currentJob.PreviewReadySentences == 0)">
                         @if (_isDownloading)
                         {
-                            <svg class="animate-spin -ml-1 mr-3 h-4 w-4 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <svg class="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
@@ -181,38 +180,37 @@
                         else
                         {
                             <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                            <span>Download ZIP (@_currentJob.PreviewReadySentences clips)</span>
+                            <span>Download ZIP (@_currentJob.PreviewReadySentences)</span>
                         }
                     </button>
                     
                     <!-- Secondary actions -->
                     <div class="grid grid-cols-2 gap-2">
-                        <button class="inline-flex items-center justify-center rounded-md text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-9 px-3"
+                        <button class="btn-secondary h-9 text-xs"
                                 @onclick="ExportDownloadLinks"
                                 disabled="@(_currentJob.PreviewReadySentences == 0)">
                             <svg class="mr-1.5 h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16c0 1.1.9 2 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/><path d="M14 3v5h5M16 13H8M16 17H8M10 9H8"/></svg>
-                            Export Links
+                            Export
                         </button>
                         
-                        <button class="inline-flex items-center justify-center rounded-md text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-9 px-3"
-                                @onclick="SaveCurrentProject">
+                        <button class="btn-secondary h-9 text-xs" @onclick="SaveCurrentProject">
                             <svg class="mr-1.5 h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v13a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-                            Save Project
+                            Save
                         </button>
                     </div>
 
                     @if (_isDownloading)
                     {
                         <div class="space-y-2">
-                            <div class="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                                <div class="h-full bg-primary rounded-full animate-pulse" style="width: 100%; animation: progress-indeterminate 1.5s ease-in-out infinite;"></div>
+                            <div class="progress-container">
+                                <div class="progress-bar-indeterminate"></div>
                             </div>
-                            <p class="text-center text-xs text-muted-foreground">📦 Creating ZIP in browser...</p>
+                            <p class="text-center text-xs text-muted-foreground">Creating ZIP in browser...</p>
                         </div>
                     }
                     else
                     {
-                        <p class="text-center text-[10px] text-muted-foreground">One-click ZIP download from CDN</p>
+                        <p class="text-center text-xs text-muted-foreground">Direct download from CDN</p>
                     }
                 </div>
 
@@ -335,6 +333,8 @@
     private ProcessingJob? _currentJob;
     private CancellationTokenSource? _cts;
     private int? _researchingSentenceId;
+    private int _processedCount = 0;
+    private int _totalCount = 0;
     [Parameter] public string? ProjectId { get; set; }
 
     private bool CanGenerate => !string.IsNullOrWhiteSpace(_projectName) && !string.IsNullOrWhiteSpace(_scriptText);
@@ -420,6 +420,8 @@
     {
         if (!CanGenerate) return;
         _isSearching = true;
+        _processedCount = 0;
+        _totalCount = 0;
         _cts = new CancellationTokenSource();
         _researchingSentenceId = null;
         
@@ -433,6 +435,8 @@
         await Orchestrator.SearchPreviewsAsync(_currentJob, _cts.Token);
         await SaveCurrentProject();
         _isSearching = false;
+        _processedCount = 0;
+        _totalCount = 0;
         StateHasChanged();
     }
 
@@ -664,13 +668,16 @@
 
     private void HandleProgress(object? sender, SentenceProgressEventArgs e)
     {
-        _statusMessage = $"Analyzing Script #{e.Sentence.Id}... {e.Message}";
+        _statusMessage = e.Message;
+        _processedCount = e.Sentence.Id;
+        _totalCount = e.Job.TotalSentences;
         InvokeAsync(StateHasChanged);
     }
 
     private void HandleJobProgress(object? sender, JobProgressEventArgs e)
     {
         _statusMessage = e.Message;
+        _totalCount = e.Job.TotalSentences;
         InvokeAsync(StateHasChanged);
     }
 

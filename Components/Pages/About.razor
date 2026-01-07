@@ -2,7 +2,7 @@
 
 <PageTitle>About - BunBun B-Roll Generator</PageTitle>
 
-<div class="animate-in max-w-4xl mx-auto py-12 px-4">
+<div class="animate-in max-w-4xl mx-auto py-16 px-4">
     <!-- Hero -->
     <div class="text-center space-y-4 mb-16">
         <h1 class="text-4xl font-bold tracking-tight">About BunBun B-Roll</h1>
@@ -13,103 +13,74 @@
     
     <!-- How It Works -->
     <section class="mb-16">
-        <h2 class="text-xl font-bold tracking-tight mb-8 flex items-center gap-2">
-            <span class="text-primary">●</span> How It Works
-        </h2>
+        <h2 class="text-xl font-semibold tracking-tight mb-8">How It Works</h2>
         
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div class="rounded-xl border bg-card p-6 space-y-4">
-                <div class="h-10 w-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm">1</div>
-                <h3 class="font-semibold">Script Input</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="card p-5 space-y-3">
+                <div class="h-8 w-8 rounded-full bg-foreground text-background flex items-center justify-center font-bold text-sm">1</div>
+                <h3 class="font-medium">Script Input</h3>
                 <p class="text-sm text-muted-foreground leading-relaxed">
-                    Paste your video script. The system automatically segments it into individual scenes based on sentences and paragraphs.
+                    Paste your video script. The system segments it into scenes based on sentences.
                 </p>
             </div>
             
-            <div class="rounded-xl border bg-card p-6 space-y-4">
-                <div class="h-10 w-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm">2</div>
-                <h3 class="font-semibold">AI Analysis</h3>
+            <div class="card p-5 space-y-3">
+                <div class="h-8 w-8 rounded-full bg-foreground text-background flex items-center justify-center font-bold text-sm">2</div>
+                <h3 class="font-medium">AI Analysis</h3>
                 <p class="text-sm text-muted-foreground leading-relaxed">
-                    Local Gemini 2.5 Flash extracts visual keywords from each segment, translating and optimizing for stock footage search.
+                    Gemini 2.5 Flash extracts visual keywords, optimizing for stock footage search.
                 </p>
             </div>
             
-            <div class="rounded-xl border bg-card p-6 space-y-4">
-                <div class="h-10 w-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm">3</div>
-                <h3 class="font-semibold">Asset Search</h3>
+            <div class="card p-5 space-y-3">
+                <div class="h-8 w-8 rounded-full bg-foreground text-background flex items-center justify-center font-bold text-sm">3</div>
+                <h3 class="font-medium">Asset Search</h3>
                 <p class="text-sm text-muted-foreground leading-relaxed">
-                    Keywords are used to search Pexels API with smart filters: landscape orientation, 5-30s duration, HD quality.
+                    Keywords search Pexels API with filters: landscape, 5-30s duration, HD quality.
                 </p>
             </div>
             
-            <div class="rounded-xl border bg-card p-6 space-y-4">
-                <div class="h-10 w-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-sm">4</div>
-                <h3 class="font-semibold">Download</h3>
+            <div class="card p-5 space-y-3">
+                <div class="h-8 w-8 rounded-full bg-foreground text-background flex items-center justify-center font-bold text-sm">4</div>
+                <h3 class="font-medium">Download</h3>
                 <p class="text-sm text-muted-foreground leading-relaxed">
-                    Selected videos are streamed to disk with organized naming: <code class="text-xs bg-muted px-1.5 py-0.5 rounded font-mono">/ProjectName/01_keyword.mp4</code>
+                    Videos organized with naming: <code class="text-xs bg-muted px-1.5 py-0.5 rounded font-mono">/Project/01_keyword.mp4</code>
                 </p>
             </div>
         </div>
     </section>
     
     <!-- Tech Stack -->
-    <section class="mb-16">
-        <h2 class="text-xl font-bold tracking-tight mb-8 flex items-center gap-2">
-            <span class="text-primary">●</span> Tech Stack
-        </h2>
+    <section>
+        <h2 class="text-xl font-semibold tracking-tight mb-8">Tech Stack</h2>
         
-        <div class="rounded-xl border bg-card p-6">
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div class="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                    <div class="h-9 w-9 rounded-md bg-blue-500/10 flex items-center justify-center">
-                        <svg class="h-5 w-5 text-blue-500" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        <div class="card p-5">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div class="flex items-center gap-3 p-3 rounded-lg bg-muted">
+                    <div class="h-8 w-8 rounded-md bg-background border border-border flex items-center justify-center">
+                        <svg class="h-4 w-4 text-foreground" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
                     </div>
                     <span class="text-sm font-medium">.NET 8 Blazor</span>
                 </div>
-                <div class="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                    <div class="h-9 w-9 rounded-md bg-purple-500/10 flex items-center justify-center">
-                        <svg class="h-5 w-5 text-purple-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10H12V2z"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
+                <div class="flex items-center gap-3 p-3 rounded-lg bg-muted">
+                    <div class="h-8 w-8 rounded-md bg-background border border-border flex items-center justify-center">
+                        <svg class="h-4 w-4 text-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10H12V2z"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
                     </div>
-                    <span class="text-sm font-medium">Gemini 2.5 Flash</span>
+                    <span class="text-sm font-medium">Gemini AI</span>
                 </div>
-                <div class="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                    <div class="h-9 w-9 rounded-md bg-green-500/10 flex items-center justify-center">
-                        <svg class="h-5 w-5 text-green-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
+                <div class="flex items-center gap-3 p-3 rounded-lg bg-muted">
+                    <div class="h-8 w-8 rounded-md bg-background border border-border flex items-center justify-center">
+                        <svg class="h-4 w-4 text-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
                     </div>
                     <span class="text-sm font-medium">Pexels API</span>
                 </div>
-                <div class="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                    <div class="h-9 w-9 rounded-md bg-orange-500/10 flex items-center justify-center">
-                        <svg class="h-5 w-5 text-orange-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+                <div class="flex items-center gap-3 p-3 rounded-lg bg-muted">
+                    <div class="h-8 w-8 rounded-md bg-background border border-border flex items-center justify-center">
+                        <svg class="h-4 w-4 text-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
                     </div>
                     <span class="text-sm font-medium">Polly Retry</span>
                 </div>
             </div>
-        </div>
-    </section>
-    
-    <!-- Configuration -->
-    <section>
-        <h2 class="text-xl font-bold tracking-tight mb-8 flex items-center gap-2">
-            <span class="text-primary">●</span> Configuration
-        </h2>
-        
-        <div class="rounded-xl border bg-card p-6 space-y-4">
-            <p class="text-sm text-muted-foreground">
-                Configure the app via <code class="text-xs bg-muted px-1.5 py-0.5 rounded font-mono">appsettings.json</code>:
-            </p>
-            <pre class="bg-muted/50 p-4 rounded-lg overflow-x-auto text-sm font-mono"><code class="text-foreground">{
-  "Gemini": {
-    "BaseUrl": "http://127.0.0.1:8317",
-    "Model": "gemini-2.5-flash"
-  },
-  "Pexels": {
-    "ApiKey": "YOUR_PEXELS_API_KEY"
-  },
-  "Downloader": {
-    "OutputDirectory": "Broll_Workspace"
-  }
-}</code></pre>
         </div>
     </section>
 </div>

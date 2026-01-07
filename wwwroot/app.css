@@ -1,4 +1,8 @@
-/* Minimal CSS reset */
+/* ================================================
+   BunBun B-Roll Generator - Vercel-Style CSS
+   ================================================ */
+
+/* Base Reset */
 * {
   box-sizing: border-box;
 }
@@ -7,34 +11,200 @@ html, body {
   height: 100%;
 }
 
-/* Fix for Blazor transition flashes */
+/* ================================================
+   Typography
+   ================================================ */
+
+/* Monospace styling for technical elements */
+.font-mono {
+  font-feature-settings: "ss01", "ss02";
+  letter-spacing: -0.02em;
+}
+
+/* ================================================
+   Animations - Fast & Subtle (Vercel-style)
+   ================================================ */
+
+/* Page enter animation */
 .animate-in {
-  animation: enter 0.2s ease-out;
+  animation: fadeIn 0.2s ease;
 }
 
-@keyframes enter {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
-/* Custom Scrollbar for modern look */
+/* Skeleton pulse - simple, no shimmer */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.skeleton {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+/* Spinner */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+/* Progress bar animation */
+@keyframes progress-indeterminate {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* ================================================
+   Custom Scrollbar - Minimal (Vercel-style)
+   ================================================ */
+
 ::-webkit-scrollbar {
   width: 8px;
+  height: 8px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
-  background: hsl(240 3.7% 15.9%);
+  background: hsl(0 0% 20%);
   border-radius: 4px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(240 5% 64.9%);
+  background: hsl(0 0% 35%);
 }
 
-/* Indeterminate progress animation */
-@keyframes progress-indeterminate {
-  0% { transform: translateX(-100%); }
-  50% { transform: translateX(0%); }
-  100% { transform: translateX(100%); }
+/* Light mode scrollbar */
+:root:not(.dark) ::-webkit-scrollbar-thumb {
+  background: hsl(0 0% 80%);
+}
+
+:root:not(.dark) ::-webkit-scrollbar-thumb:hover {
+  background: hsl(0 0% 65%);
+}
+
+/* ================================================
+   Focus States - High Contrast (Vercel-style)
+   ================================================ */
+
+:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+/* ================================================
+   Progress Bar Component
+   ================================================ */
+
+.progress-container {
+  position: relative;
+  height: 4px;
+  background: hsl(var(--muted));
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  background: hsl(var(--foreground));
+  border-radius: 9999px;
+  transition: width 0.3s ease;
+}
+
+.progress-bar-indeterminate {
+  width: 30%;
+  animation: progress-indeterminate 1.5s ease-in-out infinite;
+}
+
+/* ================================================
+   Video Player Enhancements
+   ================================================ */
+
+video {
+  border-radius: 6px;
+}
+
+/* Video card hover effect - border only, no shadow */
+.video-card {
+  transition: border-color 0.15s ease;
+}
+
+.video-card:hover {
+  border-color: hsl(var(--foreground) / 0.25);
+}
+
+/* ================================================
+   Toast Notifications
+   ================================================ */
+
+.toast-enter {
+  animation: slideInFromBottom 0.2s ease;
+}
+
+.toast-exit {
+  animation: fadeOut 0.15s ease forwards;
+}
+
+@keyframes slideInFromBottom {
+  from { 
+    opacity: 0; 
+    transform: translateY(8px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* ================================================
+   Modal Animations
+   ================================================ */
+
+.modal-enter {
+  animation: modalIn 0.2s ease;
+}
+
+@keyframes modalIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -48%) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+/* ================================================
+   Selection Color
+   ================================================ */
+
+::selection {
+  background: hsl(var(--foreground) / 0.15);
+}
+
+/* ================================================
+   Print Styles
+   ================================================ */
+
+@media print {
+  .app-header,
+  .app-footer,
+  .btn-primary,
+  .btn-secondary {
+    display: none !important;
+  }
 }

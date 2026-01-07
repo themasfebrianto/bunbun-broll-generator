@@ -1,7 +1,8 @@
 ﻿@inherits LayoutComponentBase
+@inject NavigationManager NavigationManager
 
 <AuthGuard>
-    <div class="app-container">
+    <div class="min-h-screen flex flex-col">
         <header class="app-header">
             <div class="header-content">
                 <a href="/" class="logo">
@@ -13,12 +14,12 @@
                 </a>
                 <div class="flex items-center gap-4">
                     <nav class="nav-links">
-                        <a href="/" class="nav-link">Generator</a>
-                        <a href="/projects" class="nav-link">History</a>
-                        <a href="/about" class="nav-link">About</a>
+                        <a href="/" class="nav-link @(IsActive("/") ? "active" : "")">Generator</a>
+                        <a href="/projects" class="nav-link @(IsActive("/projects") ? "active" : "")">History</a>
+                        <a href="/about" class="nav-link @(IsActive("/about") ? "active" : "")">About</a>
                     </nav>
-                    <div class="border-l h-4 mx-2"></div>
-                    <div class="flex items-center gap-2">
+                    <div class="border-l border-border h-5 mx-1"></div>
+                    <div class="flex items-center gap-1">
                         <ThemeToggle />
                         <SignOutButton />
                     </div>
@@ -26,14 +27,29 @@
             </div>
         </header>
         
-        <main class="app-main">
+        <main class="flex-1">
             @Body
         </main>
         
         <footer class="app-footer">
             <div class="footer-content">
-                <p class="text-sm text-muted-foreground">© 2026 Bunbun Intelligence. High-Fidelity Sequence Generation Pipeline.</p>
+                <p class="text-sm text-muted-foreground">© 2026 Bunbun Intelligence. B-Roll automation pipeline.</p>
             </div>
         </footer>
     </div>
 </AuthGuard>
+
+@code {
+    private bool IsActive(string href)
+    {
+        var relativePath = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+        
+        if (href == "/")
+        {
+            // Home is active only when path is empty or starts with /editor
+            return string.IsNullOrEmpty(relativePath) || relativePath.StartsWith("editor");
+        }
+        
+        return relativePath.StartsWith(href.TrimStart('/'), StringComparison.OrdinalIgnoreCase);
+    }
+}

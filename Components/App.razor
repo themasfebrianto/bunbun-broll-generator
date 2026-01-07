@@ -1,11 +1,21 @@
 ﻿<!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
+<script>
+// MUST run synchronously before any content to prevent flash
+(function(){try{var t=localStorage.getItem('theme');if(t==='light'){document.documentElement.classList.remove('dark');document.documentElement.style.colorScheme='light';}else{document.documentElement.style.colorScheme='dark';}}catch(e){}})();
+</script>
 
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
     <title>Bunbun B-Roll Generator</title>
+    
+    <!-- Tailwind CSS Play CDN -->
+    <!-- Google Fonts: Inter + Geist Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     
     <!-- Tailwind CSS Play CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -39,6 +49,10 @@
                 DEFAULT: "hsl(var(--destructive))",
                 foreground: "hsl(var(--destructive-foreground))",
               },
+              success: {
+                DEFAULT: "hsl(var(--success))",
+                foreground: "hsl(var(--success-foreground))",
+              },
               muted: {
                 DEFAULT: "hsl(var(--muted))",
                 foreground: "hsl(var(--muted-foreground))",
@@ -62,7 +76,8 @@
               sm: "calc(var(--radius) - 4px)",
             },
             fontFamily: {
-              sans: ["Inter", "ui-sans-serif", "system-ui"],
+              sans: ["Inter", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "sans-serif"],
+              mono: ["JetBrains Mono", "Fira Code", "monospace"],
             },
           },
         },
@@ -70,89 +85,196 @@
     </script>
     <style type="text/tailwindcss">
       @@layer base {
+        /* Vercel-Style Light Mode - Clean & Minimal */
         :root {
           --background: 0 0% 100%;
-          --foreground: 240 10% 3.9%;
+          --foreground: 0 0% 0%;
           --card: 0 0% 100%;
-          --card-foreground: 240 10% 3.9%;
+          --card-foreground: 0 0% 0%;
           --popover: 0 0% 100%;
-          --popover-foreground: 240 10% 3.9%;
-          --primary: 240 5.9% 10%;
-          --primary-foreground: 0 0% 98%;
-          --secondary: 240 4.8% 95.9%;
-          --secondary-foreground: 240 5.9% 10%;
-          --muted: 240 4.8% 95.9%;
-          --muted-foreground: 240 3.8% 46.1%;
-          --accent: 240 4.8% 95.9%;
-          --accent-foreground: 240 5.9% 10%;
-          --destructive: 0 84.2% 60.2%;
-          --destructive-foreground: 0 0% 98%;
-          --border: 240 5.9% 90%;
-          --input: 240 5.9% 90%;
-          --ring: 240 5.9% 10%;
+          --popover-foreground: 0 0% 0%;
+          --primary: 0 0% 9%;
+          --primary-foreground: 0 0% 100%;
+          --secondary: 0 0% 96%;
+          --secondary-foreground: 0 0% 9%;
+          --muted: 0 0% 96%;
+          --muted-foreground: 0 0% 45%;
+          --accent: 0 0% 96%;
+          --accent-foreground: 0 0% 9%;
+          --destructive: 0 84% 60%;
+          --destructive-foreground: 0 0% 100%;
+          --success: 142 76% 36%;
+          --success-foreground: 0 0% 100%;
+          --border: 0 0% 90%;
+          --input: 0 0% 90%;
+          --ring: 0 0% 9%;
           --radius: 0.5rem;
         }
+        
+        /* Vercel-Style Dark Mode - Pure Black */
         .dark {
-          --background: 240 6% 10%;
-          --foreground: 0 0% 98%;
-          --card: 240 6% 10%;
-          --card-foreground: 0 0% 98%;
-          --popover: 240 6% 10%;
-          --popover-foreground: 0 0% 98%;
-          --primary: 0 0% 98%;
-          --primary-foreground: 240 5.9% 10%;
-          --secondary: 240 3.7% 15.9%;
-          --secondary-foreground: 0 0% 98%;
-          --muted: 240 3.7% 15.9%;
-          --muted-foreground: 240 5% 64.9%;
-          --accent: 240 3.7% 15.9%;
-          --accent-foreground: 0 0% 98%;
-          --destructive: 0 62.8% 30.6%;
-          --destructive-foreground: 0 0% 98%;
-          --border: 240 3.7% 15.9%;
-          --input: 240 3.7% 15.9%;
-          --ring: 240 4.9% 83.9%;
+          --background: 0 0% 0%;
+          --foreground: 0 0% 100%;
+          --card: 0 0% 7%;
+          --card-foreground: 0 0% 100%;
+          --popover: 0 0% 7%;
+          --popover-foreground: 0 0% 100%;
+          --primary: 0 0% 100%;
+          --primary-foreground: 0 0% 0%;
+          --secondary: 0 0% 12%;
+          --secondary-foreground: 0 0% 100%;
+          --muted: 0 0% 12%;
+          --muted-foreground: 0 0% 65%;
+          --accent: 0 0% 12%;
+          --accent-foreground: 0 0% 100%;
+          --destructive: 0 62% 30%;
+          --destructive-foreground: 0 0% 100%;
+          --success: 142 70% 45%;
+          --success-foreground: 0 0% 100%;
+          --border: 0 0% 18%;
+          --input: 0 0% 18%;
+          --ring: 0 0% 83%;
         }
       }
 
       @@layer components {
+        /* Vercel-style header - solid bg, 1px border */
         .app-header {
-          @@apply sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60;
+          @@apply sticky top-0 z-50 w-full border-b border-border bg-background;
         }
         .header-content {
-          @@apply container flex h-14 items-center justify-between;
+          @@apply container flex h-16 items-center justify-between;
         }
         .logo {
-          @@apply flex items-center gap-2 font-bold tracking-tight text-foreground hover:opacity-90;
+          @@apply flex items-center gap-2 font-semibold tracking-tight text-foreground transition-opacity hover:opacity-70;
         }
         .nav-links {
-          @@apply flex items-center gap-6 text-sm font-medium;
+          @@apply flex items-center gap-6 text-sm;
         }
         .nav-link {
-          @@apply transition-colors hover:text-foreground/80 text-foreground/60;
+          @@apply text-muted-foreground transition-colors duration-150 hover:text-foreground;
+        }
+        .nav-link.active {
+          @@apply text-foreground font-medium;
         }
         .app-footer {
-          @@apply border-t py-6 md:px-8 md:py-0;
+          @@apply border-t border-border py-6 md:px-8 md:py-0;
         }
         .footer-content {
           @@apply container flex flex-col items-center justify-between gap-4 md:h-24 md:flex-row;
+        }
+        
+        /* Vercel-style buttons */
+        .btn-primary {
+          @@apply inline-flex items-center justify-center rounded-lg text-sm font-medium 
+                 bg-primary text-primary-foreground h-10 px-4
+                 transition-opacity duration-150 hover:opacity-90
+                 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2
+                 disabled:pointer-events-none disabled:opacity-50;
+        }
+        .btn-secondary {
+          @@apply inline-flex items-center justify-center rounded-lg text-sm font-medium 
+                 bg-transparent text-foreground border border-border h-10 px-4
+                 transition-colors duration-150 hover:bg-muted hover:border-foreground/20
+                 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2
+                 disabled:pointer-events-none disabled:opacity-50;
+        }
+        .btn-ghost {
+          @@apply inline-flex items-center justify-center rounded-lg text-sm font-medium 
+                 bg-transparent text-foreground h-10 px-4
+                 transition-colors duration-150 hover:bg-muted
+                 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2
+                 disabled:pointer-events-none disabled:opacity-50;
+        }
+        .btn-destructive {
+          @@apply inline-flex items-center justify-center rounded-lg text-sm font-medium 
+                 bg-destructive text-destructive-foreground h-10 px-4
+                 transition-opacity duration-150 hover:opacity-90
+                 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive focus-visible:ring-offset-2
+                 disabled:pointer-events-none disabled:opacity-50;
+        }
+        
+        /* Vercel-style cards - 1px border, no shadow */
+        .card {
+          @@apply rounded-lg border border-border bg-card text-card-foreground
+                 transition-colors duration-150;
+        }
+        .card-hover {
+          @@apply hover:border-foreground/20;
+        }
+        
+        /* Vercel-style inputs */
+        .input {
+          @@apply flex h-10 w-full rounded-lg border border-border bg-transparent px-3 py-2 text-sm
+                 transition-colors duration-150
+                 placeholder:text-muted-foreground
+                 hover:border-foreground/30
+                 focus:outline-none focus:border-foreground
+                 disabled:cursor-not-allowed disabled:opacity-50;
+        }
+        
+        /* Vercel-style badges */
+        .badge {
+          @@apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
+                 bg-muted text-muted-foreground;
+        }
+        .badge-mono {
+          @@apply font-mono text-[11px] tracking-tight;
+        }
+        
+        /* Toast container */
+        .toast-container {
+          @@apply fixed bottom-4 right-4 z-[100] flex flex-col gap-2;
+        }
+        .toast {
+          @@apply flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 text-sm shadow-lg
+                 animate-in slide-in-from-bottom-2;
+        }
+        .toast-success {
+          @@apply border-success/30 bg-success/10 text-success;
+        }
+        .toast-error {
+          @@apply border-destructive/30 bg-destructive/10 text-destructive;
+        }
+        
+        /* Modal/Dialog */
+        .modal-backdrop {
+          @@apply fixed inset-0 z-50 bg-background/80 backdrop-blur-sm;
+        }
+        .modal {
+          @@apply fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2
+                 rounded-lg border border-border bg-card p-6 shadow-lg;
+        }
+      }
+      
+      @@layer utilities {
+        /* Animations */
+        .animate-in {
+          animation: fadeIn 0.2s ease;
+        }
+        .slide-in-from-bottom-2 {
+          animation: slideInFromBottom 0.2s ease;
+        }
+        
+        @@keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @@keyframes slideInFromBottom {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
         }
       }
     </style>
     
     <script>
-        (function() {
-            const theme = localStorage.getItem('theme') || 'dark';
-            if (theme === 'dark') {
-                document.documentElement.classList.add('dark');
-            } else {
-                document.documentElement.classList.remove('dark');
-            }
-        })();
-
+        // Theme toggle and get functions (initialization happens inline in <html> tag)
         window.toggleTheme = () => {
             const isDark = document.documentElement.classList.toggle('dark');
-            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
+            try {
+                localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            } catch (e) {}
             return isDark;
         };
 
@@ -173,7 +295,32 @@
 <body class="bg-background text-foreground antialiased font-sans">
     <Routes />
     <script src="/app.js"></script>
-    <script src="_framework/blazor.web.js"></script>
+    <script src="_framework/blazor.web.js" autostart="false"></script>
+    <script>
+        // Custom Blazor connection handling - no loading spinner on disconnect
+        Blazor.start({
+            reconnectionOptions: {
+                maxRetries: 5,
+                retryIntervalMilliseconds: 2000
+            }
+        }).catch(err => {
+            // Server not available - don't show spinner, just fail silently
+            console.warn('Blazor connection failed:', err);
+        });
+
+        // Override the default reconnection UI
+        Blazor.defaultReconnectionHandler._reconnectionDisplay = {
+            show: () => {}, // Do nothing on show
+            hide: () => {}, // Do nothing on hide
+            failed: () => {
+                // Optionally show a minimal message on complete failure
+                console.log('Connection to server lost.');
+            },
+            update: (currentAttempt) => {
+                console.log(`Reconnection attempt ${currentAttempt}...`);
+            }
+        };
+    </script>
 </body>
 
 </html>
