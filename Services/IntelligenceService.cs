@@ -39,96 +39,27 @@ public class IntelligenceService : IIntelligenceService
     private readonly ILogger<IntelligenceService> _logger;
     private readonly GeminiSettings _settings;
 
-    private const string SystemPrompt = @"You are a PROFESSIONAL B-Roll keyword extraction assistant for video editors. Your job is to analyze video scripts and generate LAYERED, OPTIMIZED English search keywords for stock footage platforms (Pexels/Pixabay).
+    private const string SystemPrompt = @"B-Roll keyword extractor. Convert script to English stock footage keywords.
 
-=== ANALYSIS FRAMEWORK ===
-For each script segment, analyze across 4 dimensions:
-1. CONTEXT: Physical setting, location, time of day, environment
-2. EMOTION: Mood, feeling, tone, emotional intensity
-3. ACTION: Movement, activity, gestures, dynamics
-4. TOPIC: Main subject, theme, object
-
-=== OUTPUT FORMAT ===
-Respond with ONLY valid JSON (no markdown, no explanation):
+OUTPUT (JSON only, no markdown):
 {
-  ""primaryKeywords"": [""exact visual match with context"", ""main subject + setting""],
-  ""moodKeywords"": [""emotion + visual representation"", ""atmospheric visual""],
-  ""contextualKeywords"": [""setting + modifier"", ""environment + time""],
-  ""actionKeywords"": [""movement + subject"", ""activity visual""],
-  ""fallbackKeywords"": [""safe generic visual"", ""universal stock footage""],
-  ""suggestedCategory"": ""People|Nature|Urban|Business|Abstract|Lifestyle"",
-  ""detectedMood"": ""melancholic|anxious|hopeful|calm|energetic|neutral""
+  ""primaryKeywords"": [""2-3 word visual match"", ""subject + setting""],
+  ""moodKeywords"": [""emotion + visual""],
+  ""contextualKeywords"": [""setting + time""],
+  ""actionKeywords"": [""movement""],
+  ""fallbackKeywords"": [""clouds timelapse"", ""city skyline""],
+  ""suggestedCategory"": ""People|Nature|Urban|Business|Abstract"",
+  ""detectedMood"": ""melancholic|anxious|hopeful|calm|energetic""
 }
 
-=== KEYWORD RULES ===
-1. ALL keywords MUST be in English (translate Indonesian/other languages)
-2. Use 2-3 word combinations ONLY - never single words
-3. Add CONTEXT to every keyword: ""bedroom ceiling"" not ""ceiling""
-4. primaryKeywords: 2-3 exact visual matches with full context
-5. moodKeywords: 2 emotional visuals (emotion + setting/visual)
-6. contextualKeywords: 2 setting/atmosphere keywords
-7. actionKeywords: 1-2 movement/activity keywords
-8. fallbackKeywords: 2 safe, universal keywords that always return results
+RULES:
+- Translate ALL to English
+- 2-3 words per keyword (not single words)
+- Add context: ""bedroom ceiling"" not ""ceiling""
+- Avoid religious/sensitive triggers
+- fallbackKeywords: always include safe universals
 
-=== AVOID ===
-- Single generic words: ""ceiling"", ""room"", ""person""
-- Abstract concepts alone: ""sadness"", ""anxiety"", ""hope""
-- Religious/sensitive content triggers: use ""bedroom ceiling"" not ""ceiling"", ""city skyline"" not ""dome""
-
-=== MOOD → VISUAL MAPPING ===
-MELANCHOLIC: rain window apartment, empty street night, fog city morning, wilting flower
-ANXIOUS: clock ticking closeup, crowded subway, messy desk papers, insomnia bedroom
-HOPEFUL: sunrise city skyline, light through window, birds flying sky, spring flowers
-CALM: lake reflection sunset, candle dark room, coffee morning quiet, gentle waves
-ENERGETIC: fast traffic city, sports action, crowd cheering, dancing silhouette
-
-=== SAFE FALLBACK KEYWORDS ===
-Always include 2 from: clouds timelapse, city skyline night, nature landscape, ocean waves, person silhouette window, rain drops glass, sunset horizon, forest path
-
-=== PLATFORM CATEGORIES ===
-Map script intent to: People, Nature, Urban, Business, Technology, Abstract, Lifestyle, Travel
-
-=== INDONESIAN CONTEXT HANDLING ===
-- ""langit-langit kamar"" → ""bedroom ceiling staring"", ""person lying bed looking up""
-- ""kamar gelap"" → ""dark bedroom night"", ""dim room shadows""
-- ""jendela kamar"" → ""bedroom window rain"", ""apartment window night""
-- ""sepi/sedih"" → ""lonely night window"", ""empty room solitude""
-- ""takut/cemas"" → ""anxiety dark room"", ""worried person thinking""
-
-=== EXAMPLES ===
-
-Input: ""Langit-langit kamar seolah menatap balik, mengingatkan pada daftar masalah.""
-Output: {
-  ""primaryKeywords"": [""person lying bed staring ceiling"", ""bedroom ceiling insomnia""],
-  ""moodKeywords"": [""dark room anxiety thoughts"", ""overwhelmed person night""],
-  ""contextualKeywords"": [""dim bedroom evening"", ""apartment room shadows""],
-  ""actionKeywords"": [""lying still bed"", ""staring up ceiling""],
-  ""fallbackKeywords"": [""clouds timelapse"", ""rain window night""],
-  ""suggestedCategory"": ""People"",
-  ""detectedMood"": ""anxious""
-}
-
-Input: ""Di luar, dunia berputar tanpa henti. Orang-orang sibuk dengan urusan masing-masing.""
-Output: {
-  ""primaryKeywords"": [""busy city crowd walking"", ""people timelapse street""],
-  ""moodKeywords"": [""urban rush disconnected"", ""city life overwhelm""],
-  ""contextualKeywords"": [""downtown pedestrians day"", ""subway station crowd""],
-  ""actionKeywords"": [""walking fast crowd"", ""commuters rushing""],
-  ""fallbackKeywords"": [""city skyline night"", ""traffic flow timelapse""],
-  ""suggestedCategory"": ""Urban"",
-  ""detectedMood"": ""energetic""
-}
-
-Input: ""But then, a small light appeared. Maybe tomorrow will be different.""
-Output: {
-  ""primaryKeywords"": [""light through window morning"", ""sunrise bedroom curtains""],
-  ""moodKeywords"": [""hope new beginning dawn"", ""optimistic person window""],
-  ""contextualKeywords"": [""sun rays room golden"", ""morning light indoor""],
-  ""actionKeywords"": [""light breaking darkness"", ""opening curtains morning""],
-  ""fallbackKeywords"": [""sunrise timelapse"", ""clouds parting sun""],
-  ""suggestedCategory"": ""Nature"",
-  ""detectedMood"": ""hopeful""
-}";
+MOOD→VISUAL: melancholic=rain window, anxious=clock ticking, hopeful=sunrise, calm=lake reflection, energetic=city traffic";
 
     public IntelligenceService(
         HttpClient httpClient, 
@@ -160,7 +91,7 @@ Output: {
                     new() { Role = "user", Content = userPrompt }
                 },
                 Temperature = 0.3,
-                MaxTokens = 500 // Increased for layered output
+                MaxTokens = 300 // Optimized for balanced mode
             };
 
             _logger.LogDebug("Sending request to Gemini: {Text}", text);
@@ -486,7 +417,7 @@ Output: {
                     new() { Role = "user", Content = batchPrompt.ToString() }
                 },
                 Temperature = 0.3,
-                MaxTokens = Math.Min(sentenceList.Count * 300, 8000)
+                MaxTokens = Math.Min(sentenceList.Count * 200, 6000) // Optimized for balanced mode
             };
 
             _logger.LogDebug("Batch extracting layered keywords for {Count} sentences", sentenceList.Count);
