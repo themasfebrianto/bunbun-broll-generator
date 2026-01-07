@@ -13,6 +13,14 @@ namespace BunbunBroll.Services;
 public interface IIntelligenceService
 {
     Task<KeywordResult> ExtractKeywordsAsync(string text, string? mood = null, CancellationToken cancellationToken = default);
+    
+    /// <summary>
+    /// Extract keywords for multiple sentences in a single AI call (much faster!)
+    /// </summary>
+    Task<Dictionary<int, List<string>>> ExtractKeywordsBatchAsync(
+        IEnumerable<(int Id, string Text)> sentences, 
+        string? mood = null, 
+        CancellationToken cancellationToken = default);
 }
 
 public class IntelligenceService : IIntelligenceService
@@ -229,6 +237,113 @@ Output: [""lonely night bedroom"", ""empty street night city"", ""window rain ni
         }
 
         return keywords.Take(6).ToList();
+    }
+
+    /// <summary>
+    /// Extract keywords for multiple sentences in a single AI call.
+    /// This is MUCH faster than calling ExtractKeywordsAsync for each sentence.
+    /// </summary>
+    public async Task<Dictionary<int, List<string>>> ExtractKeywordsBatchAsync(
+        IEnumerable<(int Id, string Text)> sentences, 
+        string? mood = null, 
+        CancellationToken cancellationToken = default)
+    {
+        var sentenceList = sentences.ToList();
+        var results = new Dictionary<int, List<string>>();
+        
+        if (sentenceList.Count == 0)
+            return results;
+
+        var stopwatch = Stopwatch.StartNew();
+
+        try
+        {
+            // Build batch prompt
+            var batchPrompt = new System.Text.StringBuilder();
+            if (mood != null)
+            {
+                batchPrompt.AppendLine($"Mood/Style for ALL sentences: {mood}");
+                batchPrompt.AppendLine();
+            }
+            
+            batchPrompt.AppendLine("Extract B-Roll keywords for each sentence below. Return as JSON object with sentence IDs as keys and keyword arrays as values.");
+            batchPrompt.AppendLine("Example output: {\"1\": [\"keyword1\", \"keyword2\"], \"2\": [\"keyword3\", \"keyword4\"]}");
+            batchPrompt.AppendLine();
+            batchPrompt.AppendLine("SENTENCES:");
+            
+            foreach (var (id, text) in sentenceList)
+            {
+                batchPrompt.AppendLine($"[{id}]: {text}");
+            }
+
+            var request = new GeminiChatRequest
+            {
+                Model = _settings.Model,
+                Messages = new List<GeminiMessage>
+                {
+                    new() { Role = "system", Content = SystemPrompt },
+                    new() { Role = "user", Content = batchPrompt.ToString() }
+                },
+                Temperature = 0.3,
+                MaxTokens = Math.Min(sentenceList.Count * 100, 2000) // Scale tokens with batch size
+            };
+
+            _logger.LogDebug("Batch extracting keywords for {Count} sentences", sentenceList.Count);
+
+            var response = await _httpClient.PostAsJsonAsync(
+                "v1/chat/completions", 
+                request, 
+                cancellationToken);
+
+            response.EnsureSuccessStatusCode();
+
+            var geminiResponse = await response.Content.ReadFromJsonAsync<GeminiChatResponse>(cancellationToken: cancellationToken);
+            var rawContent = geminiResponse?.Choices?.FirstOrDefault()?.Message?.Content;
+
+            if (!string.IsNullOrEmpty(rawContent))
+            {
+                var cleanedJson = CleanJsonResponse(rawContent);
+                
+                try
+                {
+                    // Try to parse as {id: [keywords]} format
+                    var parsed = JsonSerializer.Deserialize<Dictionary<string, List<string>>>(cleanedJson);
+                    if (parsed != null)
+                    {
+                        foreach (var (key, keywords) in parsed)
+                        {
+                            if (int.TryParse(key, out var id))
+                            {
+                                results[id] = keywords;
+                            }
+                        }
+                    }
+                }
+                catch (JsonException)
+                {
+                    _logger.LogWarning("Batch parse failed, falling back to individual extraction");
+                    // If batch parsing fails, return empty and let caller fall back
+                }
+            }
+
+            _logger.LogInformation("Batch extracted keywords for {Success}/{Total} sentences in {Ms}ms", 
+                results.Count, sentenceList.Count, stopwatch.ElapsedMilliseconds);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Batch keyword extraction failed for {Count} sentences", sentenceList.Count);
+        }
+
+        // Fill in any missing results with empty lists
+        foreach (var (id, _) in sentenceList)
+        {
+            if (!results.ContainsKey(id))
+            {
+                results[id] = new List<string>();
+            }
+        }
+
+        return results;
     }
 }
 

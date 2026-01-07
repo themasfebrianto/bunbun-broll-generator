@@ -111,32 +111,122 @@ public class PipelineOrchestrator : IPipelineOrchestrator
         }
     }
 
-    // Max concurrent sentence processing (balance speed vs API rate limits)
-    private const int MaxConcurrentSentences = 4;
+    // Max concurrent video searches (balance speed vs API rate limits)
+    private const int MaxConcurrentSearches = 6;
+    
+    // Batch size for AI keyword extraction
+    private const int KeywordBatchSize = 10;
 
     private async Task SearchSegmentPreviewsAsync(ProcessingJob job, ScriptSegment segment, CancellationToken cancellationToken)
     {
         segment.Status = SegmentStatus.Processing;
-        RaiseSegmentProgress(job, segment, $"Searching segment: {segment.Title} ({segment.Sentences.Count} sentences, {MaxConcurrentSentences} parallel)");
+        var totalSentences = segment.Sentences.Count;
         
-        // Process sentences in PARALLEL batches for speed
+        RaiseSegmentProgress(job, segment, $"Extracting keywords for {totalSentences} sentences (batch mode)...");
+
+        // PHASE 1: Batch extract keywords for ALL sentences in segment (1 AI call instead of N)
+        var sentencesToProcess = segment.Sentences
+            .Select(s => (s.Id, s.Text))
+            .ToList();
+
+        var batchKeywords = await _intelligenceService.ExtractKeywordsBatchAsync(
+            sentencesToProcess, 
+            job.Mood, 
+            cancellationToken);
+
+        // Apply keywords to sentences
+        foreach (var sentence in segment.Sentences)
+        {
+            if (batchKeywords.TryGetValue(sentence.Id, out var keywords) && keywords.Count > 0)
+            {
+                sentence.Keywords = keywords;
+                sentence.Status = SentenceStatus.SearchingBRoll;
+            }
+            else
+            {
+                // Fallback for sentences that didn't get keywords
+                sentence.Keywords = ExtractFallbackKeywords(sentence.Text);
+                sentence.Status = SentenceStatus.SearchingBRoll;
+            }
+        }
+
+        RaiseSegmentProgress(job, segment, $"Searching videos for {totalSentences} sentences ({MaxConcurrentSearches} parallel)...");
+
+        // PHASE 2: Search videos in parallel (much faster now that keywords are ready)
         await Parallel.ForEachAsync(
             segment.Sentences,
             new ParallelOptions 
             { 
-                MaxDegreeOfParallelism = MaxConcurrentSentences,
+                MaxDegreeOfParallelism = MaxConcurrentSearches,
                 CancellationToken = cancellationToken 
             },
             async (sentence, ct) =>
             {
-                await SearchSentencePreviewAsync(job, segment, sentence, ct);
+                await SearchVideoForSentenceAsync(job, segment, sentence, ct);
             });
         
         segment.ProcessedAt = DateTime.UtcNow;
         segment.Status = SegmentStatus.Completed;
         
-        RaiseSegmentProgress(job, segment, $"Segment preview ready: {segment.Sentences.Count(s => s.HasSearchResults)}/{segment.Sentences.Count} have results");
+        RaiseSegmentProgress(job, segment, $"Segment ready: {segment.Sentences.Count(s => s.HasSearchResults)}/{totalSentences} have results");
     }
+
+    /// <summary>
+    /// Search for video only (keywords already extracted)
+    /// </summary>
+    private async Task SearchVideoForSentenceAsync(
+        ProcessingJob job, 
+        ScriptSegment segment, 
+        ScriptSentence sentence, 
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            RaiseSentenceProgress(job, segment, sentence, $"Searching: {string.Join(", ", sentence.Keywords.Take(2))}...");
+
+            var targetDuration = (int)Math.Ceiling(sentence.EstimatedDurationSeconds);
+            
+            var assets = await _assetBroker.SearchVideosAsync(
+                sentence.Keywords, 
+                maxResults: 6,
+                minDuration: Math.Max(3, targetDuration - 5),
+                maxDuration: targetDuration + 15,
+                cancellationToken: cancellationToken);
+
+            if (assets.Count == 0)
+            {
+                // Fallback: broader search without duration filter
+                assets = await _assetBroker.SearchVideosAsync(
+                    sentence.Keywords, 
+                    maxResults: 6,
+                    cancellationToken: cancellationToken);
+            }
+
+            if (assets.Count == 0)
+            {
+                sentence.Status = SentenceStatus.NoResults;
+                sentence.ErrorMessage = "No videos found";
+                RaiseSentenceProgress(job, segment, sentence, "No results - try custom keywords");
+                return;
+            }
+
+            sentence.SearchResults = assets;
+            sentence.SelectedVideo = assets
+                .OrderBy(a => Math.Abs(a.DurationSeconds - targetDuration))
+                .First();
+            
+            sentence.Status = SentenceStatus.PreviewReady;
+            RaiseSentenceProgress(job, segment, sentence, $"✓ {assets.Count} options ({sentence.SelectedVideo.DurationSeconds}s)");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Video search failed for sentence {Id}", sentence.Id);
+            sentence.Status = SentenceStatus.Failed;
+            sentence.ErrorMessage = ex.Message;
+            RaiseSentenceProgress(job, segment, sentence, $"Error: {ex.Message}");
+        }
+    }
+
 
     private async Task SearchSentencePreviewAsync(
         ProcessingJob job, 
