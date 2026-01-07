@@ -5,26 +5,64 @@
     <div class="min-h-screen flex flex-col">
         <header class="app-header">
             <div class="header-content">
-                <a href="/" class="logo">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
-                        <polyline points="14 2 14 8 20 8"/>
-                    </svg>
-                    <span>Bunbun</span>
-                </a>
                 <div class="flex items-center gap-4">
-                    <nav class="nav-links">
+                    <button class="md:hidden p-2 -ml-2 text-muted-foreground hover:text-foreground" 
+                            @onclick="ToggleMobileMenu">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            @if (_mobileMenuOpen)
+                            {
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            }
+                            else
+                            {
+                                <line x1="3" y1="12" x2="21" y2="12"></line>
+                                <line x1="3" y1="6" x2="21" y2="6"></line>
+                                <line x1="3" y1="18" x2="21" y2="18"></line>
+                            }
+                        </svg>
+                    </button>
+                    <a href="/" class="logo">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                        </svg>
+                        <span>Bunbun</span>
+                    </a>
+                </div>
+
+                <div class="flex items-center gap-2 md:gap-4">
+                    <nav class="hidden md:flex items-center gap-6 text-sm">
                         <a href="/" class="nav-link @(IsActive("/") ? "active" : "")">Generator</a>
                         <a href="/projects" class="nav-link @(IsActive("/projects") ? "active" : "")">History</a>
                         <a href="/about" class="nav-link @(IsActive("/about") ? "active" : "")">About</a>
                     </nav>
-                    <div class="border-l border-border h-5 mx-1"></div>
+                    <div class="hidden md:block border-l border-border h-5 mx-1"></div>
                     <div class="flex items-center gap-1">
                         <ThemeToggle />
                         <SignOutButton />
                     </div>
                 </div>
             </div>
+
+            <!-- Mobile Menu -->
+            @if (_mobileMenuOpen)
+            {
+                <div class="md:hidden border-t border-border bg-background animate-in slide-in-from-top-2">
+                    <nav class="flex flex-col p-4 gap-4 text-sm font-medium">
+                        <a href="/" class="flex items-center gap-2 px-2 py-1 @(IsActive("/") ? "text-foreground" : "text-muted-foreground")" @onclick="CloseMobileMenu">
+                            Generator
+                        </a>
+                        <a href="/projects" class="flex items-center gap-2 px-2 py-1 @(IsActive("/projects") ? "text-foreground" : "text-muted-foreground")" @onclick="CloseMobileMenu">
+                            History
+                        </a>
+                        <a href="/about" class="flex items-center gap-2 px-2 py-1 @(IsActive("/about") ? "text-foreground" : "text-muted-foreground")" @onclick="CloseMobileMenu">
+                            About
+                        </a>
+                    </nav>
+                </div>
+                <div class="md:hidden fixed inset-0 z-40 bg-black/20 top-[65px]" @onclick="CloseMobileMenu"></div>
+            }
         </header>
         
         <main class="flex-1">
@@ -40,6 +78,11 @@
 </AuthGuard>
 
 @code {
+    private bool _mobileMenuOpen = false;
+
+    private void ToggleMobileMenu() => _mobileMenuOpen = !_mobileMenuOpen;
+    private void CloseMobileMenu() => _mobileMenuOpen = false;
+
     private bool IsActive(string href)
     {
         var relativePath = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
