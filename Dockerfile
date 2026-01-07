@@ -14,6 +14,14 @@ RUN dotnet publish -c Release -o /app/publish
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 WORKDIR /app
 
+# Install FFmpeg for Short Video generation
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create directories for video processing
+RUN mkdir -p /app/output/shorts /app/temp/ffmpeg
+
 # Copy published output
 COPY --from=build /app/publish .
 

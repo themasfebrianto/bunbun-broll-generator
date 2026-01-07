@@ -126,21 +126,25 @@ public class ShortVideoComposer : IShortVideoComposer
 
     private async Task<string?> FindFFmpegAsync()
     {
+        var isWindows = OperatingSystem.IsWindows();
+        var ffmpegName = isWindows ? "ffmpeg.exe" : "ffmpeg";
+
         // Check in configured directory
-        var configuredPath = Path.Combine(_ffmpegDirectory, "ffmpeg.exe");
+        var configuredPath = Path.Combine(_ffmpegDirectory, ffmpegName);
         if (File.Exists(configuredPath))
         {
             return configuredPath;
         }
 
-        // Check if ffmpeg is in PATH
+        // Check if ffmpeg is in PATH using 'where' (Windows) or 'which' (Linux/Mac)
         try
         {
+            var whichCommand = isWindows ? "where" : "which";
             using var process = new Process
             {
                 StartInfo = new ProcessStartInfo
                 {
-                    FileName = "where",
+                    FileName = whichCommand,
                     Arguments = "ffmpeg",
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
@@ -167,14 +171,21 @@ public class ShortVideoComposer : IShortVideoComposer
             // Ignore - try other methods
         }
 
-        // Common installation paths on Windows
-        var commonPaths = new[]
-        {
-            @"C:\ffmpeg\bin\ffmpeg.exe",
-            @"C:\Program Files\ffmpeg\bin\ffmpeg.exe",
-            @"C:\Program Files (x86)\ffmpeg\bin\ffmpeg.exe",
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ffmpeg", "bin", "ffmpeg.exe")
-        };
+        // Platform-specific common paths
+        var commonPaths = isWindows 
+            ? new[]
+            {
+                @"C:\ffmpeg\bin\ffmpeg.exe",
+                @"C:\Program Files\ffmpeg\bin\ffmpeg.exe",
+                @"C:\Program Files (x86)\ffmpeg\bin\ffmpeg.exe",
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ffmpeg", "bin", "ffmpeg.exe")
+            }
+            : new[]
+            {
+                "/usr/bin/ffmpeg",
+                "/usr/local/bin/ffmpeg",
+                "/opt/ffmpeg/bin/ffmpeg"
+            };
 
         foreach (var path in commonPaths)
         {
