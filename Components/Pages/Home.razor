@@ -122,9 +122,9 @@
                         </div>
                     </div>
 
-                    <!-- Direct CDN Download Buttons -->
+                    <!-- Download Buttons -->
                     <button class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground shadow hover:bg-primary/90 h-11 px-8 w-full"
-                            @onclick="DownloadAllDirect" 
+                            @onclick="DownloadAsZip" 
                             disabled="@(_isDownloading || _currentJob.PreviewReadySentences == 0)">
                         @if (_isDownloading)
                         {
@@ -132,29 +132,32 @@
                               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
-                            <span>Downloading...</span>
+                            <span>@_statusMessage</span>
                         }
                         else
                         {
                             <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                            <span>Download All (@_currentJob.PreviewReadySentences)</span>
+                            <span>Download ZIP (@_currentJob.PreviewReadySentences clips)</span>
                         }
                     </button>
                     
-                    <button class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 w-full"
-                            @onclick="ExportDownloadLinks"
-                            disabled="@(_currentJob.PreviewReadySentences == 0)">
-                        <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16c0 1.1.9 2 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/><path d="M14 3v5h5M16 13H8M16 17H8M10 9H8"/></svg>
-                        Export Links (.txt)
-                    </button>
-                    
-                    <button class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 w-full"
-                            @onclick="SaveCurrentProject">
-                        <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v13a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-                        Save Project
-                    </button>
+                    <!-- Secondary actions -->
+                    <div class="grid grid-cols-2 gap-2">
+                        <button class="inline-flex items-center justify-center rounded-md text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-9 px-3"
+                                @onclick="ExportDownloadLinks"
+                                disabled="@(_currentJob.PreviewReadySentences == 0)">
+                            <svg class="mr-1.5 h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16c0 1.1.9 2 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/><path d="M14 3v5h5M16 13H8M16 17H8M10 9H8"/></svg>
+                            Export Links
+                        </button>
+                        
+                        <button class="inline-flex items-center justify-center rounded-md text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-9 px-3"
+                                @onclick="SaveCurrentProject">
+                            <svg class="mr-1.5 h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v13a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                            Save Project
+                        </button>
+                    </div>
 
-                    <p class="text-center text-[10px] text-muted-foreground">Downloads directly from CDN (fast!)</p>
+                    <p class="text-center text-[10px] text-muted-foreground">One-click ZIP download from CDN</p>
                 </div>
 
                 <!-- Feed Content -->
@@ -456,12 +459,13 @@
     }
 
     /// <summary>
-    /// Download all videos directly from CDN via browser
+    /// Download all videos as a single ZIP file (one-click!)
     /// </summary>
-    private async Task DownloadAllDirect()
+    private async Task DownloadAsZip()
     {
         if (_currentJob == null) return;
         _isDownloading = true;
+        _statusMessage = "Preparing download...";
         StateHasChanged();
 
         try
@@ -471,32 +475,68 @@
             if (downloads.Count == 0)
             {
                 _statusMessage = "No videos to download";
+                _isDownloading = false;
+                StateHasChanged();
                 return;
             }
 
-            _statusMessage = $"Starting {downloads.Count} downloads...";
+            var projectSlug = SanitizeForFilename(_currentJob.ProjectName);
+            var zipFilename = $"{projectSlug}_broll.zip";
+            
+            // Convert to JS-compatible format
+            var filesArray = downloads.Select(d => new { url = d.Url, filename = d.Filename }).ToArray();
+
+            _statusMessage = $"Fetching {downloads.Count} videos...";
             StateHasChanged();
 
-            // Trigger downloads with delay to avoid browser blocking
-            foreach (var (url, filename, index) in downloads)
-            {
-                await JS.InvokeVoidAsync("triggerDownload", url, filename);
-                await Task.Delay(500); // Small delay between downloads
-                _statusMessage = $"Downloading {index}/{downloads.Count}: {filename}";
-                StateHasChanged();
-            }
+            // Call JavaScript to create ZIP
+            var result = await JS.InvokeAsync<ZipResult>("downloadAsZip", zipFilename, filesArray, 
+                DotNetObjectReference.Create(new ProgressHandler(this)));
 
-            _statusMessage = $"✓ {downloads.Count} downloads started! Check your Downloads folder.";
+            if (result != null)
+            {
+                _statusMessage = $"✓ Downloaded {result.Success}/{result.Total} videos as {zipFilename}";
+                if (result.Failed > 0)
+                {
+                    _statusMessage += $" ({result.Failed} failed)";
+                }
+            }
+            else
+            {
+                _statusMessage = "✓ ZIP download started!";
+            }
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Download failed");
+            Logger.LogError(ex, "ZIP download failed");
             _statusMessage = $"Download error: {ex.Message}";
         }
         finally
         {
             _isDownloading = false;
             StateHasChanged();
+        }
+    }
+
+    // Helper class for JS interop result
+    private class ZipResult
+    {
+        public int Success { get; set; }
+        public int Failed { get; set; }
+        public int Total { get; set; }
+    }
+
+    // Progress handler for JS callback (not used in current implementation but available)
+    private class ProgressHandler
+    {
+        private readonly Home _home;
+        public ProgressHandler(Home home) => _home = home;
+
+        [JSInvokable]
+        public void UpdateProgress(int progress, string message)
+        {
+            _home._statusMessage = message;
+            _home.InvokeAsync(_home.StateHasChanged);
         }
     }
 
