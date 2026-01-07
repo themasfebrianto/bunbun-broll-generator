@@ -212,6 +212,24 @@
                  focus:outline-none focus:border-foreground
                  disabled:cursor-not-allowed disabled:opacity-50;
         }
+
+        select.input {
+          @@apply appearance-none bg-no-repeat pr-10 cursor-pointer;
+          background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+          background-position: right 0.5rem center;
+          background-size: 1.5em 1.5em;
+          color-scheme: light;
+        }
+
+        .dark select.input {
+          background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+          color-scheme: dark;
+        }
+
+        select.input option {
+          background-color: hsl(var(--card));
+          color: hsl(var(--foreground));
+        }
         
         /* Vercel-style badges */
         .badge {

@@ -2,7 +2,7 @@
 
 > **Status:** ✅ In Development (Core Implemented)  
 > **Target Platform:** TikTok / Instagram Reels / YouTube Shorts  
-> **Version:** MVP v1.1 (Aspect Ratio + Blur Background)  
+> **Version:** MVP v1.2 (Transitions + Meta Editing)  
 > **Created:** 2026-01-07  
 > **Last Updated:** 2026-01-07
 
@@ -295,7 +295,26 @@ When source video aspect ratio doesn't match target, we use the "blur background
 
 This creates a professional TikTok/Reels-style look where landscape videos are displayed with aesthetic blurred sides.
 
-### 4.5 Short Video Configuration
+### 4.5 Transition Support (NEW v1.2)
+
+```csharp
+// Models/TransitionType.cs
+
+public enum TransitionType
+{
+    Cut, Fade, FadeBlack, FadeWhite, WipeLeft, WipeRight, 
+    WipeUp, WipeDown, SlideLeft, SlideRight, ZoomIn, 
+    CircleOpen, CircleClose, Pixelize, DiagonalTL, DiagonalBR
+}
+```
+
+**Advanced Concatenation (Xfade):**
+Unlike simple concatenation, transitions require a complex filter graph to overlap clips:
+1. **Video:** Uses `xfade` filter with `offset` calculated based on cumulative clip durations.
+2. **Audio:** Uses `acrossfade` to prevent abrupt audio cuts.
+3. **Re-encoding:** Mandatory when using transitions to ensure frame-perfect timing.
+
+### 4.6 Short Video Configuration
 
 ```csharp
 // Models/ShortVideoConfig.cs
@@ -321,6 +340,8 @@ public record ShortVideoConfig
     public ContentCategory Category { get; init; } = ContentCategory.Islami;
     public bool AutoCut { get; init; } = true;
     public bool AddTransitions { get; init; } = true;
+    public TransitionType Transition { get; init; } = TransitionType.Fade;
+    public double TransitionDuration { get; init; } = 0.5; // in seconds
     public bool AddTextOverlay { get; init; } = true;
     public bool AddBackgroundMusic { get; init; } = false;
     public float MusicVolume { get; init; } = 0.3f;  // 30% volume
@@ -667,20 +688,22 @@ public record TemplateSection
 | Background music | ✅ Implemented | Opsional, volume 30% |
 | Portrait output (9:16) | ✅ Implemented | Standard short video |
 | 15-60 detik durasi | ✅ Implemented | Sesuai platform |
-| **Aspect Ratio Selector** | ✅ NEW v1.1 | 9:16, 1:1, 4:5, 16:9 |
-| **Blur Background Reframe** | ✅ NEW v1.1 | Professional TikTok-style look |
-| **Separated UI** | ✅ NEW v1.1 | B-Roll download vs Short Video |
+| **Aspect Ratio Selector** | ✅ Implemented (v1.1) | 9:16, 1:1, 4:5, 16:9 |
+| **Blur Background Reframe** | ✅ Implemented (v1.1) | Professional TikTok-style look |
+| **16 Meta Transitions** | ✅ NEW v1.2 | Xfade (Fade, Zoom, Wipe, etc.) |
+| **Separated UI** | ✅ Implemented (v1.1) | B-Roll download vs Short Video |
 
 ### 8.2 Apa yang BUKAN MVP (Future)
 
 | Feature | Status | Target |
 |---------|--------|--------|
-| Voice-over integration | ❌ Future | v1.2 |
-| Custom template builder | ❌ Future | v1.3 |
+| Voice-over integration | ❌ Future | v1.3 |
+| Custom template builder | ❌ Future | v1.4 |
+| ~~Meta Transitions~~ | ✅ Done | v1.2 (via Xfade filter) |
 | ~~Multiple output formats~~ | ✅ Done | v1.1 (via Aspect Ratio) |
 | A/B testing variants | ❌ Future | v2.0 |
 | Analytics integration | ❌ Future | v2.0 |
-| AI-suggested hooks | ❌ Future | v1.2 |
+| AI-suggested hooks | ❌ Future | v1.3 |
 
 ### 8.3 Known Limitations
 

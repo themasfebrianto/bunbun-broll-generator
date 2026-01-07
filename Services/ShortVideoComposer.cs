@@ -345,9 +345,9 @@ public class ShortVideoComposer : IShortVideoComposer
                 };
             }
 
-            // Step 5: Concatenate all processed clips
-            progress?.Report(new CompositionProgress { Stage = "Concatenating", Percent = 75, Message = "Joining clips..." });
-            await ConcatenateClipsAsync(processedClips, outputPath, cancellationToken);
+            // Step 5: Concatenate all processed clips with transitions
+            progress?.Report(new CompositionProgress { Stage = "Concatenating", Percent = 75, Message = "Joining clips with transitions..." });
+            await ConcatenateClipsWithTransitionsAsync(processedClips, outputPath, config, cancellationToken);
 
             // Step 6: Cleanup temp files
             progress?.Report(new CompositionProgress { Stage = "Cleanup", Percent = 90, Message = "Cleaning up..." });
@@ -648,6 +648,152 @@ public class ShortVideoComposer : IShortVideoComposer
         var configuredPath = Path.Combine(_ffmpegDirectory, ffmpegName);
         
         return File.Exists(configuredPath) ? configuredPath : null;
+    }
+
+    /// <summary>
+    /// Concatenate clips with transitions using FFmpeg xfade filter.
+    /// </summary>
+    private async Task ConcatenateClipsWithTransitionsAsync(
+        List<string> clipPaths,
+        string outputPath,
+        ShortVideoConfig config,
+        CancellationToken cancellationToken)
+    {
+        if (clipPaths.Count == 0)
+        {
+            _logger.LogWarning("No clips to concatenate");
+            return;
+        }
+
+        // If only one clip, just copy it
+        if (clipPaths.Count == 1)
+        {
+            _logger.LogInformation("Only one clip, copying directly to output");
+            File.Copy(clipPaths[0], outputPath, overwrite: true);
+            return;
+        }
+
+        // If transitions disabled or Cut type, use simple concatenation
+        if (!config.AddTransitions || config.Transition == TransitionType.Cut)
+        {
+            await ConcatenateClipsAsync(clipPaths, outputPath, cancellationToken);
+            return;
+        }
+
+        try
+        {
+            var ffmpegPath = await FindFFmpegExecutablePathAsync();
+            if (string.IsNullOrEmpty(ffmpegPath))
+            {
+                throw new InvalidOperationException("FFmpeg executable not found");
+            }
+
+            var absoluteOutputPath = Path.GetFullPath(outputPath);
+            var transitionName = config.Transition.GetFFmpegName();
+            var transitionDuration = config.TransitionDuration.ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
+
+            // Get durations of all clips
+            var clipDurations = new List<double>();
+            foreach (var clipPath in clipPaths)
+            {
+                var duration = await GetVideoDurationAsync(clipPath, cancellationToken);
+                clipDurations.Add(duration);
+            }
+
+            // Build xfade filter chain for multiple clips
+            // Format: [0:v][1:v]xfade=transition=fade:duration=0.5:offset=4.5[v01];[v01][2:v]xfade=...
+            var filterParts = new List<string>();
+            var inputArgs = new List<string>();
+            
+            // Add all input files
+            for (int i = 0; i < clipPaths.Count; i++)
+            {
+                var escapedPath = clipPaths[i].Replace("\\", "/");
+                inputArgs.Add($"-i \"{escapedPath}\"");
+            }
+
+            // Calculate offsets and build xfade chain
+            double cumulativeOffset = 0;
+            string lastVideoLabel = "[0:v]";
+            string lastAudioLabel = "[0:a]";
+            
+            for (int i = 1; i < clipPaths.Count; i++)
+            {
+                var prevDuration = clipDurations[i - 1];
+                var offset = cumulativeOffset + prevDuration - config.TransitionDuration;
+                var offsetStr = offset.ToString("F3", System.Globalization.CultureInfo.InvariantCulture);
+                
+                var outputVideoLabel = i == clipPaths.Count - 1 ? "[vout]" : $"[v{i - 1}{i}]";
+                var outputAudioLabel = i == clipPaths.Count - 1 ? "[aout]" : $"[a{i - 1}{i}]";
+                
+                // Video transition using xfade
+                filterParts.Add($"{lastVideoLabel}[{i}:v]xfade=transition={transitionName}:duration={transitionDuration}:offset={offsetStr}{outputVideoLabel}");
+                
+                // Audio crossfade using acrossfade
+                filterParts.Add($"{lastAudioLabel}[{i}:a]acrossfade=d={transitionDuration}:c1=tri:c2=tri{outputAudioLabel}");
+                
+                lastVideoLabel = outputVideoLabel;
+                lastAudioLabel = outputAudioLabel;
+                cumulativeOffset = offset;
+            }
+
+            var filterComplex = string.Join(";", filterParts);
+            
+            _logger.LogInformation("Concatenating {Count} clips with {Transition} transition ({Duration}s)", 
+                clipPaths.Count, config.Transition.GetDisplayName(), config.TransitionDuration);
+            _logger.LogDebug("Transition filter: {Filter}", filterComplex);
+
+            var arguments = $"{string.Join(" ", inputArgs)} " +
+                           $"-filter_complex \"{filterComplex}\" " +
+                           $"-map \"[vout]\" -map \"[aout]\" " +
+                           $"-c:v libx264 -preset fast -crf 23 " +
+                           $"-c:a aac -b:a 128k " +
+                           $"-movflags +faststart " +
+                           $"-y \"{absoluteOutputPath}\"";
+
+            _logger.LogDebug("FFmpeg transition command: {Cmd}", arguments);
+
+            using var process = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = ffmpegPath,
+                    Arguments = arguments,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                }
+            };
+
+            process.Start();
+            var stderr = await process.StandardError.ReadToEndAsync();
+            await process.WaitForExitAsync(cancellationToken);
+
+            if (process.ExitCode != 0)
+            {
+                _logger.LogWarning("FFmpeg xfade failed (Exit: {Code}), falling back to simple concatenation. Error: {Error}", 
+                    process.ExitCode, stderr.Length > 500 ? stderr[..500] : stderr);
+                
+                // Fallback to simple concatenation without transitions
+                await ConcatenateClipsAsync(clipPaths, outputPath, cancellationToken);
+                return;
+            }
+
+            if (!File.Exists(absoluteOutputPath))
+            {
+                throw new InvalidOperationException("Output file was not created after transition concatenation");
+            }
+
+            var fileInfo = new FileInfo(absoluteOutputPath);
+            _logger.LogInformation("Successfully concatenated {Count} clips with transitions to: {Path} ({Size} bytes)", 
+                clipPaths.Count, absoluteOutputPath, fileInfo.Length);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to concatenate clips with transitions, falling back to simple concat");
+            await ConcatenateClipsAsync(clipPaths, outputPath, cancellationToken);
+        }
     }
 
     private async Task ConcatenateClipsAsync(

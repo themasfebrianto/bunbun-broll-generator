@@ -55,6 +55,16 @@ public record ShortVideoConfig
     public bool AddTransitions { get; init; } = true;
 
     /// <summary>
+    /// Type of transition to use between clips.
+    /// </summary>
+    public TransitionType Transition { get; init; } = TransitionType.Fade;
+
+    /// <summary>
+    /// Transition duration in seconds (0.3 - 1.0 recommended).
+    /// </summary>
+    public double TransitionDuration { get; init; } = 0.5;
+
+    /// <summary>
     /// Add text overlay (hook text at beginning).
     /// </summary>
     public bool AddTextOverlay { get; init; } = true;

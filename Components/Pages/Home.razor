@@ -288,6 +288,18 @@
                                        class="w-full h-1.5 bg-muted rounded-full appearance-none cursor-pointer accent-primary" />
                             </div>
 
+                            <!-- Transition Selector -->
+                            <div class="space-y-2">
+                                <label class="text-xs font-medium text-muted-foreground">Transition</label>
+                                <select class="input h-9 text-xs w-full"
+                                        @bind="_selectedTransition">
+                                    @foreach (var transition in Enum.GetValues<TransitionType>())
+                                    {
+                                        <option value="@transition">@transition.GetDisplayName()</option>
+                                    }
+                                </select>
+                            </div>
+
                             <!-- Hook Text (Collapsible) -->
                             <details class="group">
                                 <summary class="text-xs text-muted-foreground cursor-pointer hover:text-foreground flex items-center gap-1">
@@ -496,6 +508,7 @@
     private bool _ffmpegAvailable = false;
     private ContentCategory _selectedCategory = ContentCategory.Islami;
     private AspectRatio _selectedRatio = AspectRatio.Portrait_9x16;
+    private TransitionType _selectedTransition = TransitionType.Fade;
     private int _targetDuration = 30;
     private bool _autoCut = true;
     private bool _addTransitions = true;
@@ -916,6 +929,7 @@
             {
                 Ratio = _selectedRatio,
                 Category = _selectedCategory,
+                Transition = _selectedTransition,
                 TargetDurationSeconds = _targetDuration,
                 AutoCut = _autoCut,
                 AddTransitions = _addTransitions,
