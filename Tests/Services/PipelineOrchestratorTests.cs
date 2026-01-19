@@ -19,8 +19,8 @@ public class DurationSelectionTests
         };
 
         var best = videos
-            .OrderBy(v => v.CalculateDurationMatchScore(targetDuration))
-            .Last(); // Highest score wins
+            .OrderByDescending(v => v.CalculateDurationMatchScore(targetDuration))
+            .First();
 
         Assert.Equal("1", best.Id); // 8 seconds = perfect match
     }

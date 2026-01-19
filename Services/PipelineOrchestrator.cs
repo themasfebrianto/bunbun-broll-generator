@@ -380,7 +380,11 @@ public class PipelineOrchestrator : IPipelineOrchestrator
             sentence.SelectedVideo = assets
                 .OrderByDescending(a => a.CalculateDurationMatchScore(targetDuration))
                 .First();
-            
+
+            var selectedScore = sentence.SelectedVideo.CalculateDurationMatchScore(targetDuration);
+            _logger.LogDebug("Selected video with duration score: {Score}/100 (video: {VideoDuration}s, target: {TargetDuration}s)",
+                selectedScore, sentence.SelectedVideo.DurationSeconds, targetDuration);
+
             sentence.Status = SentenceStatus.PreviewReady;
             RaiseSentenceProgress(job, segment, sentence, $"✓ {assets.Count} options found ({sentence.SelectedVideo.DurationSeconds}s selected)");
         }
@@ -435,6 +439,10 @@ public class PipelineOrchestrator : IPipelineOrchestrator
         sentence.SelectedVideo = assets
             .OrderByDescending(a => a.CalculateDurationMatchScore(targetDuration))
             .First();
+
+        var selectedScore = sentence.SelectedVideo.CalculateDurationMatchScore(targetDuration);
+        _logger.LogDebug("Selected video with duration score: {Score}/100 (video: {VideoDuration}s, target: {TargetDuration}s)",
+            selectedScore, sentence.SelectedVideo.DurationSeconds, targetDuration);
 
         sentence.Status = SentenceStatus.PreviewReady;
         RaiseSentenceProgress(job, segment, sentence, $"✓ {assets.Count} new options found");
