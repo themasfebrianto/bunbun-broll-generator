@@ -258,5 +258,35 @@ public class CompositeAssetBroker : IAssetBrokerV2
             .Take(maxResults)
             .ToList();
     }
+
+    /// <summary>
+    /// Calculate adaptive min/max duration range based on target sentence length.
+    /// Short sentences get tight range (more precise matching).
+    /// Long sentences get wider range (more flexibility).
+    /// </summary>
+    public static (int minDuration, int maxDuration) CalculateAdaptiveDurationRange(int targetDuration)
+    {
+        // Minimum 3 seconds always
+        if (targetDuration < 3)
+            return (3, 10);
+
+        // Short sentences (3-10 seconds): Tight range
+        if (targetDuration <= 10)
+        {
+            // Allow up to 5 seconds excess, but minimum target duration
+            return (targetDuration, targetDuration + 5);
+        }
+
+        // Medium sentences (11-20 seconds): Moderate range
+        if (targetDuration <= 20)
+        {
+            // Allow 3 seconds short, up to 10 seconds long
+            return (Math.Max(3, targetDuration - 3), targetDuration + 10);
+        }
+
+        // Long sentences (21+ seconds): Wide range
+        // Allow 5 seconds short, up to 15 seconds long
+        return (targetDuration - 5, targetDuration + 15);
+    }
 }
 

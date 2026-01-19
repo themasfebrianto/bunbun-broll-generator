@@ -221,35 +221,44 @@ public class PipelineOrchestrator : IPipelineOrchestrator
             RaiseSentenceProgress(job, segment, sentence, $"Searching{categoryInfo}: {keywordPreview}...");
 
             var targetDuration = (int)Math.Ceiling(sentence.EstimatedDurationSeconds);
+            var (minDuration, maxDuration) = CompositeAssetBroker.CalculateAdaptiveDurationRange(targetDuration);
+
             List<VideoAsset> assets;
-            
+
             // Use tier-based search if broker supports KeywordSet
             if (_assetBroker is IAssetBrokerV2 brokerV2 && sentence.KeywordSet.TotalCount > 0)
             {
+                _logger.LogDebug("Adaptive duration range: {Min}-{Max}s (target: {Target}s)",
+                    minDuration, maxDuration, targetDuration);
+
                 assets = await brokerV2.SearchVideosAsync(
-                    sentence.KeywordSet, 
+                    sentence.KeywordSet,
                     maxResults: 6,
-                    minDuration: Math.Max(3, targetDuration - 5),
-                    maxDuration: targetDuration + 15,
+                    minDuration: minDuration,
+                    maxDuration: maxDuration,
                     cancellationToken: cancellationToken);
             }
             else
             {
                 // Fallback to flat keyword search
                 assets = await _assetBroker.SearchVideosAsync(
-                    sentence.Keywords, 
+                    sentence.Keywords,
                     maxResults: 6,
-                    minDuration: Math.Max(3, targetDuration - 5),
-                    maxDuration: targetDuration + 15,
+                    minDuration: minDuration,
+                    maxDuration: maxDuration,
                     cancellationToken: cancellationToken);
             }
 
             if (assets.Count == 0)
             {
-                // Fallback: broader search without duration filter
+                _logger.LogDebug("No results with adaptive range, trying wider fallback");
+
+                // Fallback: Use very wide range
                 assets = await _assetBroker.SearchVideosAsync(
-                    sentence.Keywords, 
+                    sentence.Keywords,
                     maxResults: 6,
+                    minDuration: Math.Max(3, targetDuration - 10),
+                    maxDuration: targetDuration + 30,
                     cancellationToken: cancellationToken);
             }
 
@@ -334,34 +343,43 @@ public class PipelineOrchestrator : IPipelineOrchestrator
             RaiseSentenceProgress(job, segment, sentence, $"Searching: {keywordPreview}...");
 
             var targetDuration = (int)Math.Ceiling(sentence.EstimatedDurationSeconds);
+            var (minDuration, maxDuration) = CompositeAssetBroker.CalculateAdaptiveDurationRange(targetDuration);
+
             List<VideoAsset> assets;
-            
+
             // Use tier-based search if broker supports KeywordSet
             if (_assetBroker is IAssetBrokerV2 brokerV2 && sentence.KeywordSet.TotalCount > 0)
             {
+                _logger.LogDebug("Adaptive duration range: {Min}-{Max}s (target: {Target}s)",
+                    minDuration, maxDuration, targetDuration);
+
                 assets = await brokerV2.SearchVideosAsync(
-                    sentence.KeywordSet, 
+                    sentence.KeywordSet,
                     maxResults: 6,
-                    minDuration: Math.Max(3, targetDuration - 5),
-                    maxDuration: targetDuration + 15,
+                    minDuration: minDuration,
+                    maxDuration: maxDuration,
                     cancellationToken: cancellationToken);
             }
             else
             {
                 assets = await _assetBroker.SearchVideosAsync(
-                    sentence.Keywords, 
+                    sentence.Keywords,
                     maxResults: 6,
-                    minDuration: Math.Max(3, targetDuration - 5),
-                    maxDuration: targetDuration + 15,
+                    minDuration: minDuration,
+                    maxDuration: maxDuration,
                     cancellationToken: cancellationToken);
             }
 
             if (assets.Count == 0)
             {
-                // Fallback: broader search
+                _logger.LogDebug("No results with adaptive range, trying wider fallback");
+
+                // Fallback: Use very wide range
                 assets = await _assetBroker.SearchVideosAsync(
-                    sentence.Keywords, 
+                    sentence.Keywords,
                     maxResults: 6,
+                    minDuration: Math.Max(3, targetDuration - 10),
+                    maxDuration: targetDuration + 30,
                     cancellationToken: cancellationToken);
             }
 
