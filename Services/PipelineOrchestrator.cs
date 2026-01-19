@@ -262,10 +262,17 @@ public class PipelineOrchestrator : IPipelineOrchestrator
             }
 
             sentence.SearchResults = assets;
+
+            // Select best video using DurationMatchScore
+            // Prefer videos that cover the sentence, not just closest duration
             sentence.SelectedVideo = assets
-                .OrderBy(a => Math.Abs(a.DurationSeconds - targetDuration))
+                .OrderByDescending(a => a.CalculateDurationMatchScore(targetDuration))
                 .First();
-            
+
+            var selectedScore = sentence.SelectedVideo.CalculateDurationMatchScore(targetDuration);
+            _logger.LogDebug("Selected video with duration score: {Score}/100 (video: {VideoDuration}s, target: {TargetDuration}s)",
+                selectedScore, sentence.SelectedVideo.DurationSeconds, targetDuration);
+
             sentence.Status = SentenceStatus.PreviewReady;
             RaiseSentenceProgress(job, segment, sentence, $"✓ {assets.Count} options ({sentence.SelectedVideo.DurationSeconds}s)");
         }
@@ -368,10 +375,10 @@ public class PipelineOrchestrator : IPipelineOrchestrator
 
             // Store all results for user to choose
             sentence.SearchResults = assets;
-            
-            // Auto-select best match (user can change)
+
+            // Auto-select best match using DurationMatchScore
             sentence.SelectedVideo = assets
-                .OrderBy(a => Math.Abs(a.DurationSeconds - targetDuration))
+                .OrderByDescending(a => a.CalculateDurationMatchScore(targetDuration))
                 .First();
             
             sentence.Status = SentenceStatus.PreviewReady;
@@ -426,9 +433,9 @@ public class PipelineOrchestrator : IPipelineOrchestrator
 
         sentence.SearchResults = assets;
         sentence.SelectedVideo = assets
-            .OrderBy(a => Math.Abs(a.DurationSeconds - targetDuration))
+            .OrderByDescending(a => a.CalculateDurationMatchScore(targetDuration))
             .First();
-        
+
         sentence.Status = SentenceStatus.PreviewReady;
         RaiseSentenceProgress(job, segment, sentence, $"✓ {assets.Count} new options found");
     }
