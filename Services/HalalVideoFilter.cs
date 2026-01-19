@@ -21,36 +21,53 @@ public class HalalVideoFilter : IHalalVideoFilter
     
     public bool IsEnabled { get; set; } = false;
 
+    // Indonesian to English translations for filtering
+    private static readonly Dictionary<string, string> IndonesianTranslations = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["wanita"] = "woman",
+        ["perempuan"] = "woman",
+        ["cewek"] = "girl",
+        ["gadis"] = "girl",
+        ["ibu"] = "mother",
+        ["bunda"] = "mother"
+    };
+
     // Keywords to completely BLOCK
     private static readonly HashSet<string> BlockedKeywords = new(StringComparer.OrdinalIgnoreCase)
     {
-        // Beach/swimwear
+        // Beach/swimwear (existing + expanded)
         "bikini", "swimsuit", "swimwear", "beach party", "pool party",
         "swimming pool", "bathing suit", "beach body", "sunbathing",
-        
-        // Nightlife/party
+        "beach bikini", "pool bikini", "summer beach",
+
+        // Nightlife/party (existing + expanded)
         "nightclub", "club party", "bar party", "disco", "rave",
         "drinking party", "alcohol", "beer", "wine", "cocktail",
-        "pub", "bartender",
-        
-        // Revealing/sensual
+        "pub", "bartender", "nightclub dancing", "party club",
+
+        // Revealing/sensual (existing + expanded)
         "sexy", "sensual", "seductive", "revealing", "lingerie",
         "underwear", "bra", "cleavage", "low cut", "mini skirt",
         "short dress", "tight dress", "bodycon", "crop top",
         "tank top", "sleeveless", "strapless", "backless",
-        "shorts", "hot pants",
-        
-        // Dance with revealing content
+        "shorts", "hot pants", "midriff", "see through",
+
+        // Dance with revealing content (existing)
         "pole dance", "strip", "twerk", "belly dance", "latin dance",
-        
-        // Romance/intimate
+
+        // Romance/intimate (existing + expanded)
         "kissing", "romantic kiss", "couple bed", "intimate",
         "love scene", "passion", "making out", "embrace romantic",
-        
-        // Avoid non-modest female depictions
+        "honeymoon", "bedroom couple",
+
+        // Avoid non-modest female depictions (existing + expanded)
         "model female", "fashion model", "beauty model",
         "woman hair flowing", "woman hair wind", "brunette", "blonde woman",
-        "redhead woman", "long hair woman", "curly hair woman"
+        "redhead woman", "long hair woman", "curly hair woman",
+        "makeup tutorial", "beauty salon", "spa treatment",
+
+        // NEW: Music/concert (often revealing)
+        "concert crowd", "music festival", "rave festival"
     };
 
     // Female-related keywords to REPLACE with safer alternatives
@@ -90,6 +107,21 @@ public class HalalVideoFilter : IHalalVideoFilter
         ["woman praying"] = "muslim woman praying hijab"
     };
 
+    // Cinematic fallback keywords for when everything is filtered
+    private static readonly string[] CinematicFallbacks = new[]
+    {
+        "city skyline night",
+        "nature landscape cinematic",
+        "clouds timelapse",
+        "ocean waves sunset",
+        "forest morning light",
+        "mountain sunrise",
+        "abstract light bokeh",
+        "rain window mood",
+        "aerial view city",
+        "stars night sky"
+    };
+
     // Preferred SAFE categories (no people or modest only)
     private static readonly string[] SafeCategories = new[]
     {
@@ -97,15 +129,15 @@ public class HalalVideoFilter : IHalalVideoFilter
         "nature landscape", "clouds timelapse", "ocean waves", "forest trees",
         "mountains sunrise", "rain drops", "sunset sky", "fog morning",
         "flowers garden", "leaves falling", "river flowing", "snow falling",
-        
+
         // Urban (no people focus)
         "city skyline", "aerial city night", "street lights", "empty street",
         "building architecture modern", "traffic lights", "train passing",
-        
+
         // Objects/abstract
         "coffee steam cup", "book pages", "clock ticking", "candle flame",
         "water ripples", "light bokeh", "smoke motion", "writing pen paper",
-        
+
         // Modest human content
         "hands praying", "hands typing keyboard", "silhouette person window",
         "person back view walking", "feet walking", "shadow person"
@@ -125,10 +157,12 @@ public class HalalVideoFilter : IHalalVideoFilter
 
         foreach (var keyword in keywords)
         {
-            var lowerKeyword = keyword.ToLowerInvariant();
-            
+            // Translate Indonesian first
+            var translatedKeyword = TranslateIndonesian(keyword);
+            var lowerKeyword = translatedKeyword.ToLowerInvariant();
+
             // Check if keyword contains any blocked words
-            var isBlocked = BlockedKeywords.Any(blocked => 
+            var isBlocked = BlockedKeywords.Any(blocked =>
                 lowerKeyword.Contains(blocked) || blocked.Contains(lowerKeyword));
 
             if (isBlocked)
@@ -138,8 +172,8 @@ public class HalalVideoFilter : IHalalVideoFilter
             }
 
             // Check if keyword needs replacement
-            var replaced = TryReplaceFemaleKeyword(keyword);
-            if (replaced != keyword)
+            var replaced = TryReplaceFemaleKeyword(translatedKeyword);
+            if (replaced != translatedKeyword)
             {
                 _logger.LogDebug("Halal filter: Replaced '{Original}' -> '{Replaced}'", keyword, replaced);
                 filtered.Add(replaced);
@@ -150,17 +184,17 @@ public class HalalVideoFilter : IHalalVideoFilter
             }
         }
 
-        // If too many keywords were filtered, add safe alternatives
+        // If too many keywords were filtered, add CINEMATIC fallbacks
         if (filtered.Count < 3)
         {
-            _logger.LogDebug("Halal filter: Adding safe fallback keywords");
-            var safeToAdd = SafeCategories
+            _logger.LogDebug("Halal filter: Adding cinematic fallback keywords");
+            var cinematicToAdd = CinematicFallbacks
                 .OrderBy(_ => Random.Shared.Next())
                 .Take(4 - filtered.Count);
-            filtered.AddRange(safeToAdd);
+            filtered.AddRange(cinematicToAdd);
         }
 
-        _logger.LogInformation("Halal filter: {Original} keywords -> {Filtered} filtered", 
+        _logger.LogInformation("Halal filter: {Original} keywords -> {Filtered} filtered",
             keywords.Count, filtered.Count);
 
         return filtered.Distinct().ToList();
@@ -226,6 +260,19 @@ public class HalalVideoFilter : IHalalVideoFilter
                 .Replace("female", "person", StringComparison.OrdinalIgnoreCase);
         }
 
+        return keyword;
+    }
+
+    private static string TranslateIndonesian(string keyword)
+    {
+        var lower = keyword.ToLowerInvariant();
+        foreach (var (indo, english) in IndonesianTranslations)
+        {
+            if (lower.Contains(indo))
+            {
+                return keyword.Replace(indo, english, StringComparison.OrdinalIgnoreCase);
+            }
+        }
         return keyword;
     }
 
