@@ -23,7 +23,8 @@ public class VideoAsset
     /// Calculate how well this video's duration matches the target sentence duration.
     /// Score 0-100 where 100 is perfect match.
     /// Heavily penalizes videos shorter than target (can't cover full sentence).
-    /// Moderately penalizes videos 2x+ longer than target (boring).
+    /// Moderately penalizes videos more than 2x longer than target (boring).
+    /// Videos up to 2x target duration are acceptable (50-100 score range).
     /// </summary>
     public int CalculateDurationMatchScore(int? targetDurationSeconds)
     {

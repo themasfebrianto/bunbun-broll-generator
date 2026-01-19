@@ -80,4 +80,18 @@ public class VideoAssetTests
 
         Assert.Equal(100, score);
     }
+
+    [Fact]
+    public void DurationMatchScore_Exactly2x_Returns69()
+    {
+        var asset = new VideoAsset
+        {
+            DurationSeconds = 20, // Exactly 2x
+            DownloadUrl = "https://example.com/video.mp4"
+        };
+
+        var score = asset.CalculateDurationMatchScore(targetDurationSeconds: 10);
+
+        Assert.Equal(69, score); // At exactly 10 seconds excess: 90 - ((10-3) * 3) = 69
+    }
 }
