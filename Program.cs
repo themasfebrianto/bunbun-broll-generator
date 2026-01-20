@@ -36,6 +36,9 @@ builder.Services.AddScoped<IPipelineOrchestrator, PipelineOrchestrator>();
 builder.Services.AddScoped<IProjectService, ProjectService>();
 builder.Services.AddScoped<IShortVideoComposer, ShortVideoComposer>();
 
+// Toast notification service
+builder.Services.AddScoped<BunbunBroll.Services.ToastService>();
+
 // Configure HttpClient for Gemini (Local LLM) - Uses IOptions pattern for env var support
 builder.Services.AddHttpClient<IIntelligenceService, IntelligenceService>()
 .ConfigureHttpClient((sp, client) =>

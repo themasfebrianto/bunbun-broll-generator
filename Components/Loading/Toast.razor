@@ -1,0 +1,64 @@
+@inject BunbunBroll.Services.ToastService ToastService
+@implements IDisposable
+
+@code {
+    private List<ToastMessage> _toasts = new();
+    private const int MAX_TOASTS = 3;
+
+    protected override void OnInitialized()
+    {
+        ToastService.OnToast += ShowToast;
+    }
+
+    private void ShowToast(ToastMessage message)
+    {
+        _toasts.Add(message);
+        if (_toasts.Count > MAX_TOASTS)
+        {
+            _toasts.RemoveAt(0);
+        }
+        StateHasChanged();
+
+        // Auto-dismiss after 5 seconds
+        Task.Delay(5000).ContinueWith(_ =>
+        {
+            _toasts.Remove(message);
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    private string GetToastClass(ToastType type) => type switch
+    {
+        ToastType.Success => "toast-success",
+        ToastType.Error => "toast-error",
+        _ => ""
+    };
+
+    private string GetIcon(ToastType type) => type switch
+    {
+        ToastType.Success => "✓",
+        ToastType.Error => "❌",
+        ToastType.Warning => "⚠️",
+        _ => "💡"
+    };
+
+    public void Dispose()
+    {
+        ToastService.OnToast -= ShowToast;
+    }
+}
+
+@* Only render container when there are toasts to show *@
+@if (_toasts.Count > 0)
+{
+    <!-- Fixed position at bottom-right, only renders when toasts exist -->
+    <div id="toast-container" class="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 max-w-sm w-full">
+        @foreach (var toast in _toasts)
+        {
+            <div class="toast @GetToastClass(toast.Type)">
+                <span>@GetIcon(toast.Type)</span>
+                <span>@toast.Message</span>
+            </div>
+        }
+    </div>
+}

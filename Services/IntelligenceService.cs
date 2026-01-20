@@ -59,7 +59,16 @@ RULES:
 - Avoid religious/sensitive triggers
 - fallbackKeywords: always include safe universals
 
-MOOD→VISUAL: melancholic=rain window, anxious=clock ticking, hopeful=sunrise, calm=lake reflection, energetic=city traffic";
+VISUAL STYLE GUIDELINES (apply to ALL keyword layers when style is specified):
+- Cinematic: Use keywords like ""cinematic lighting"", ""film grain"", ""dramatic shadows"", ""slow motion"", ""wide shot"", ""depth of field"", ""golden hour"", ""lens flare"", ""movie scene""
+- Moody: Use keywords like ""dark atmosphere"", ""low key lighting"", ""shadows"", ""moody colors"", ""dim lighting"", ""dramatic contrast"", ""night scene"", ""film noir""
+- Bright: Use keywords like ""bright lighting"", ""vibrant colors"", ""sunny day"", ""high key"", ""natural light"", ""clean background"", ""cheerful"", ""daylight""
+- Auto: No specific style modifiers, let content dictate
+
+EMOTIONAL MOOD DETECTION (separate from visual style):
+melancholic=rain window, anxious=clock ticking, hopeful=sunrise, calm=lake reflection, energetic=city traffic
+
+IMPORTANT: When user specifies a Visual Style, weave those terms into PRIMARY, MOOD, and CONTEXTUAL keywords. Example for Cinematic: ""person walking cinematic lighting"" not just ""person walking"".";
 
     public IntelligenceService(
         HttpClient httpClient, 
@@ -143,7 +152,7 @@ MOOD→VISUAL: melancholic=rain window, anxious=clock ticking, hopeful=sunrise, 
             }
 
             _logger.LogInformation(
-                "Extracted {Count} keywords (P:{Primary} M:{Mood} C:{Context} A:{Action} F:{Fallback}) for segment in {Ms}ms. Category: {Category}, Mood: {DetectedMood}", 
+                "Extracted {Count} keywords (P:{Primary} M:{Mood} C:{Context} A:{Action} F:{Fallback}) for segment in {Ms}ms. Category: {Category}, Mood: {DetectedMood}. STYLE: {Style}",
                 result.KeywordSet.TotalCount,
                 result.KeywordSet.Primary.Count,
                 result.KeywordSet.Mood.Count,
@@ -152,7 +161,13 @@ MOOD→VISUAL: melancholic=rain window, anxious=clock ticking, hopeful=sunrise, 
                 result.KeywordSet.Fallback.Count,
                 stopwatch.ElapsedMilliseconds,
                 result.SuggestedCategory ?? "N/A",
-                result.DetectedMood ?? "N/A");
+                result.DetectedMood ?? "N/A",
+                mood ?? "Auto");
+
+            // Log actual keywords for debugging
+            _logger.LogDebug("PRIMARY: {Keywords}", string.Join(", ", result.KeywordSet.Primary));
+            _logger.LogDebug("MOOD: {Keywords}", string.Join(", ", result.KeywordSet.Mood));
+            _logger.LogDebug("CONTEXTUAL: {Keywords}", string.Join(", ", result.KeywordSet.Contextual));
         }
         catch (HttpRequestException ex)
         {

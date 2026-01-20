@@ -1,0 +1,25 @@
+@code {
+    [Parameter] public int ProcessedCount { get; set; }
+    [Parameter] public int TotalCount { get; set; }
+    [Parameter] public bool IsDone { get; set; }
+    private int Percent => TotalCount > 0 ? (int)(ProcessedCount * 100.0 / TotalCount) : 0;
+}
+
+@if (!IsDone)
+{
+    <div class="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur border-t border-border p-3">
+        <div class="flex items-center gap-3 text-sm">
+            <span class="shrink-0">🔄 @Percent%</span>
+            <div class="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                <div class="h-full bg-primary transition-all duration-300" style="width: @Percent%"></div>
+            </div>
+            <span class="shrink-0 text-muted-foreground text-xs">@ProcessedCount/@TotalCount kelar</span>
+        </div>
+    </div>
+}
+else
+{
+    <div class="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-primary text-primary-foreground p-3 text-center text-sm font-medium">
+        ✓ Selesai! Lihat hasil →
+    </div>
+}

@@ -1,0 +1,38 @@
+@code {
+    [Parameter] public int ProcessedCount { get; set; }
+    [Parameter] public int TotalCount { get; set; }
+    [Parameter] public string EtaText { get; set; } = "";
+    [Parameter] public int CurrentStage { get; set; }
+    [Parameter] public string StageMessage { get; set; } = "Lagi proses script kamu...";
+}
+
+<div class="fixed inset-0 z-[60] bg-background flex items-center justify-center p-4 animate-in">
+    <div class="max-w-md w-full space-y-6 text-center">
+        <!-- Bunny Loader -->
+        <div class="flex justify-center">
+            <svg class="w-16 h-16 text-primary spinner" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                <path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+        </div>
+
+        <!-- Main Message -->
+        <h2 class="text-xl font-semibold">@StageMessage</h2>
+
+        <!-- Progress Bar Component -->
+        <ProgressBar
+            ProcessedCount="@ProcessedCount"
+            TotalCount="@TotalCount"
+            EtaText="@EtaText"
+            StatusText="Lagi proses ya..." />
+
+        <!-- Stage Indicator -->
+        <StageIndicator CurrentStage="@CurrentStage" />
+
+        <!-- Tips Section -->
+        <div class="bg-muted/50 rounded-lg p-4 text-left">
+            <p class="text-xs font-medium text-muted-foreground mb-2">💡 Tips sambil nunggu:</p>
+            <p class="text-sm">Semakin detail script, makin akurat videonya!</p>
+        </div>
+    </div>
+</div>

@@ -8,6 +8,7 @@
 @inject IIntelligenceService IntelligenceService
 @inject ILogger<Home> Logger
 @inject IJSRuntime JS
+@inject BunbunBroll.Services.ToastService ToastService
 @implements IDisposable
 
 <PageTitle>Sequence Generator</PageTitle>
@@ -18,37 +19,37 @@
         <!-- COMPOSER VIEW -->
         <div class="max-w-[42rem] mx-auto py-20 px-4">
             <div class="space-y-3 mb-10 text-center">
-                <h1 class="text-4xl font-bold tracking-tight">Create New Sequence</h1>
-                <p class="text-muted-foreground text-lg">Transform your script into professional B-roll footage.</p>
+                <h1 class="text-4xl font-bold tracking-tight">Buat Sequence Baru</h1>
+                <p class="text-muted-foreground text-lg">Ubah script jadi B-Roll otomatis.</p>
             </div>
 
             <div class="card p-8 space-y-6">
                 <!-- Project Name -->
                 <div class="space-y-2">
                     <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                        Project Title
+                        Judul Project
                     </label>
-                    <input type="text" 
+                    <input type="text"
                            class="input"
-                           @bind="_projectName" 
-                           placeholder="e.g. Morning Routine Intro" />
+                           @bind="_projectName"
+                           placeholder="Contoh : sabar dalam ikhtiar" />
                 </div>
 
                 <!-- Script Body -->
                 <div class="space-y-2">
                     <label class="text-sm font-medium leading-none">
-                        Script Body
+                        Isi Script
                     </label>
                     <textarea class="input min-h-[160px] resize-none"
-                              @bind="_scriptText" 
-                              placeholder="Paste your script text here..."></textarea>
-                    <p class="text-xs text-muted-foreground">Each sentence generates a unique visual search query.</p>
+                              @bind="_scriptText"
+                              placeholder="Tempel script kamu di sini..."></textarea>
+                    <p class="text-xs text-muted-foreground">Setiap kalimat bikin satu pencarian video.</p>
                 </div>
 
                 <!-- Settings Row -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
                     <div class="space-y-3">
-                        <label class="text-sm font-medium leading-none">Visual Mood</label>
+                        <label class="text-sm font-medium leading-none">Mood Visual</label>
                         <div class="flex gap-2">
                             <!-- Default -->
                             <button type="button" 
@@ -104,7 +105,7 @@
                 <!-- Action -->
                 <div class="pt-6 space-y-4">
                     <button class="btn-primary h-11 w-full"
-                            @onclick="StartSearch" 
+                            @onclick="StartSearch"
                             disabled="@(!CanGenerate || _isSearching)">
                         @if (_isSearching)
                         {
@@ -112,11 +113,11 @@
                               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
-                            <span>Processing @_processedCount of @_totalCount</span>
+                            <span>Lagi proses ya... @_processedCount dari @_totalCount</span>
                         }
                         else
                         {
-                            <span>Generate</span>
+                            <span>Cari B-Roll</span>
                         }
                     </button>
                     
@@ -138,6 +139,20 @@
     }
     else
     {
+        <!-- Full Page Loading Overlay -->
+        @if (_showFullPageLoading)
+        {
+            <FullPageLoading
+                ProcessedCount="@_processedCount"
+                TotalCount="@_totalCount"
+                EtaText="@GetEtaText()"
+                CurrentStage="@_currentStage"
+                StageMessage="@_statusMessage" />
+        }
+    }
+
+    @if (_currentJob != null && !_showFullPageLoading)
+    {
         <!-- RESULTS VIEW -->
         <div class="max-w-[1200px] mx-auto py-8 lg:px-8 px-4">
             <div class="flex flex-col lg:flex-row gap-12 items-start">
@@ -146,7 +161,7 @@
                 <div class="lg:w-[260px] w-full shrink-0 lg:sticky lg:top-20 space-y-4">
                     <button class="btn-secondary h-9 w-full lg:w-auto" @onclick="ResetJob">
                         <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"></path></svg>
-                        Back to Editor
+                        Balik ke Editor
                     </button>
 
                     <div class="card p-5 space-y-4">
@@ -154,7 +169,19 @@
                             <p class="text-xs text-muted-foreground">Project</p>
                             <p class="font-medium truncate">@_currentJob.ProjectName</p>
                         </div>
-                        
+
+                        @if (!string.IsNullOrEmpty(_currentJob.Mood))
+                        {
+                            <div class="space-y-1">
+                                <p class="text-xs text-muted-foreground">Visual Style</p>
+                                <div class="flex items-center gap-2">
+                                    <span class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                                        @_currentJob.Mood
+                                    </span>
+                                </div>
+                            </div>
+                        }
+
                         <div class="grid grid-cols-2 gap-4 pt-2 border-t border-border">
                             <div>
                                 <p class="text-xs text-muted-foreground mb-1">Ready</p>
@@ -192,7 +219,7 @@
                             else
                             {
                                 <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                                <span>Download ZIP (@_currentJob.PreviewReadySentences clips)</span>
+                                <span>Download Semua (@_currentJob.PreviewReadySentences klip)</span>
                             }
                         </button>
                         
@@ -202,12 +229,12 @@
                                     @onclick="ExportDownloadLinks"
                                     disabled="@(_currentJob.PreviewReadySentences == 0)">
                                 <svg class="mr-1.5 h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16c0 1.1.9 2 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/><path d="M14 3v5h5M16 13H8M16 17H8M10 9H8"/></svg>
-                                Export Links
+                                Ekspor Link
                             </button>
-                            
+
                             <button class="btn-secondary h-9 text-xs" @onclick="SaveCurrentProject">
                                 <svg class="mr-1.5 h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v13a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-                                Save Project
+                                Simpen Project
                             </button>
                         </div>
 
@@ -215,9 +242,9 @@
                     </div>
 
                     <!-- ============================================ -->
-                    <!-- SECTION 2: Auto Short Video Generator -->
+                    <!-- SECTION 2: Auto Short Video Generator (HIDDEN FOR NOW) -->
                     <!-- ============================================ -->
-                    @if (_ffmpegAvailable)
+                    @if (false && _ffmpegAvailable)
                     {
                         <div class="card p-4 space-y-4">
                             <div class="flex items-center gap-2">
@@ -392,7 +419,7 @@
                             }
                         </div>
                     }
-                    else
+                    else if (false)
                     {
                         <div class="card p-4">
                             <div class="flex items-center gap-2 text-muted-foreground">
@@ -441,6 +468,12 @@
                                                 <p class="text-xl leading-relaxed text-foreground font-medium">@sentence.Text</p>
                                                 
                                                 <div class="flex flex-wrap gap-2 items-center">
+                                                    @if (!string.IsNullOrEmpty(_currentJob?.Mood) && _currentJob.Mood != "")
+                                                    {
+                                                        <span class="inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-medium bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                                                            @_currentJob.Mood
+                                                        </span>
+                                                    }
                                                     @foreach (var kw in sentence.Keywords.Take(3))
                                                     {
                                                         <span class="inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary text-secondary-foreground">@kw</span>
@@ -450,7 +483,7 @@
                                                         <span class="inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-medium bg-primary/10 text-primary border border-primary/20">@sentence.KeywordSet.SuggestedCategory</span>
                                                     }
                                                     <button class="inline-flex items-center justify-center rounded-md text-[10px] font-medium h-5 px-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                                                            title="Regenerate keywords with AI"
+                                                            title="Cari Keyword Lagi"
                                                             disabled="@(_isRegeneratingKeywords == sentence.Id)"
                                                             @onclick="() => RegenerateKeywords(sentence)">
                                                         @if (_isRegeneratingKeywords == sentence.Id)
@@ -485,7 +518,7 @@
                                                         </div>
                                                         <button class="inline-flex items-center justify-center rounded-md text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground shadow hover:bg-primary/90 h-8 px-3 w-full"
                                                                 @onclick="() => ConfirmSelection(sentence)">
-                                                            Confirm Choice
+                                                            Pilih Video Ini
                                                         </button>
                                                     </div>
                                                 }
@@ -529,8 +562,8 @@
                                                 else if (sentence.Status == SentenceStatus.NoResults)
                                                 {
                                                     <div class="aspect-video rounded-xl border border-dashed flex flex-col items-center justify-center space-y-2 bg-muted/20">
-                                                        <span class="text-[10px] text-muted-foreground font-medium uppercase tracking-tighter">No visual match</span>
-                                                        <button class="inline-flex items-center justify-center rounded-md text-[10px] font-semibold h-7 px-3 border border-input shadow-sm hover:bg-accent" @onclick="() => ResearchSentence(sentence)">Retry</button>
+                                                        <span class="text-[10px] text-muted-foreground font-medium uppercase tracking-tighter">Gak ada video yang cocok</span>
+                                                        <button class="inline-flex items-center justify-center rounded-md text-[10px] font-semibold h-7 px-3 border border-input shadow-sm hover:bg-accent" @onclick="() => ResearchSentence(sentence)">Cari Lagi</button>
                                                     </div>
                                                 }
                                                 else
@@ -547,6 +580,12 @@
                 </div>
             </div>
         </div>
+
+        <!-- Mobile Sticky Progress -->
+        <StickyProgress
+            ProcessedCount="@_processedCount"
+            TotalCount="@_totalCount"
+            IsDone="@(_currentJob?.Status == JobStatus.PreviewReady)" />
     }
 </div>
 
@@ -588,6 +627,14 @@
     private System.Diagnostics.Stopwatch? _generateStopwatch;
     private System.Threading.Timer? _elapsedTimer;
     private int _elapsedSeconds = 0;
+
+    // === Loading Feedback State ===
+    private DateTime _processStartTime;
+    private int _currentStage = 0; // 0=None, 1=Keywords, 2=Search, 3=Done
+    private bool _showFullPageLoading = false;
+    private const int STAGE_KEYWORDS = 1;
+    private const int STAGE_SEARCH = 2;
+    private const int STAGE_DONE = 3;
 
     private bool CanGenerate => !string.IsNullOrWhiteSpace(_projectName) && !string.IsNullOrWhiteSpace(_scriptText);
 
@@ -676,24 +723,32 @@
     private async Task StartSearch()
     {
         if (!CanGenerate) return;
+        _processStartTime = DateTime.Now;
+        _showFullPageLoading = true;
         _isSearching = true;
         _processedCount = 0;
         _totalCount = 0;
+        _currentStage = STAGE_KEYWORDS;
         _cts = new CancellationTokenSource();
         _researchingSentenceId = null;
-        
+
+        ToastService.Show("Mulai nyari B-Roll...");
+
         _currentJob = new ProcessingJob {
             ProjectName = _projectName.Trim(),
             RawScript = _scriptText.Trim(),
             Mood = string.IsNullOrEmpty(_selectedMood) ? null : _selectedMood
         };
-        
+
         StateHasChanged();
         await Orchestrator.SearchPreviewsAsync(_currentJob, _cts.Token);
         await SaveCurrentProject();
+        _showFullPageLoading = false;
         _isSearching = false;
         _processedCount = 0;
         _totalCount = 0;
+        _currentStage = STAGE_DONE;
+        ToastService.Show("✓ Selesai! Cek hasilnya ↓", ToastType.Success);
         StateHasChanged();
     }
 
@@ -977,6 +1032,16 @@
         _statusMessage = e.Message;
         _processedCount = e.Sentence.Id;
         _totalCount = e.Job.TotalSentences;
+
+        // Detect stage from job status
+        _currentStage = e.Job.Status switch
+        {
+            JobStatus.Segmenting => STAGE_KEYWORDS,
+            JobStatus.Processing => STAGE_KEYWORDS,
+            >= JobStatus.PreviewReady => STAGE_SEARCH,
+            _ => _currentStage
+        };
+
         InvokeAsync(StateHasChanged);
     }
 
@@ -985,6 +1050,22 @@
         _statusMessage = e.Message;
         _totalCount = e.Job.TotalSentences;
         InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>
+    /// Calculate estimated time remaining for the process
+    /// </summary>
+    private string GetEtaText()
+    {
+        if (_totalCount == 0 || _processedCount == 0) return "Hitung waktu...";
+
+        var elapsed = (DateTime.Now - _processStartTime).TotalSeconds;
+        var percentComplete = (double)_processedCount / _totalCount;
+        var etaSeconds = (elapsed / percentComplete) * (1 - percentComplete);
+
+        return etaSeconds < 60
+            ? $"Kurang lebih {(int)etaSeconds} detik lagi"
+            : $"Kurang lebih {(int)(etaSeconds / 60)} menit lagi";
     }
 
     public void Dispose()

@@ -1,0 +1,59 @@
+@code {
+    [Parameter] public int CurrentStage { get; set; }
+    private const int STAGE_KEYWORDS = 1;
+    private const int STAGE_SEARCH = 2;
+    private const int STAGE_DONE = 3;
+
+    private (string text, bool active, bool done) GetStageInfo(int stage) => stage switch
+    {
+        STAGE_KEYWORDS => (
+            CurrentStage == STAGE_KEYWORDS ? "Lagi mikirin keyword..." : "Keyword udah ketemu ✓",
+            CurrentStage == STAGE_KEYWORDS,
+            CurrentStage > STAGE_KEYWORDS
+        ),
+        STAGE_SEARCH => (
+            CurrentStage == STAGE_SEARCH ? "Nyari video yang cocok..." : "Video ketemu semua ✓",
+            CurrentStage == STAGE_SEARCH,
+            CurrentStage > STAGE_SEARCH
+        ),
+        STAGE_DONE => (
+            "Selesai! ✓",
+            CurrentStage == STAGE_DONE,
+            CurrentStage > STAGE_DONE
+        ),
+        _ => ("", false, false)
+    };
+}
+
+<!-- Desktop version -->
+<div class="hidden md:flex items-center gap-3 text-sm overflow-x-auto pb-2">
+    @for (int i = 1; i <= 3; i++)
+    {
+        var (text, active, done) = GetStageInfo(i);
+        var isLast = i == 3;
+
+        <div class="flex items-center gap-2 shrink-0">
+            <span class="@(active ? "text-primary font-medium animate-pulse" : done ? "text-green-600" : "text-muted-foreground")">
+                @(done ? "✓" : active ? "🔄" : "⏸")
+            </span>
+            <span class="@(active ? "text-foreground font-medium" : done ? "text-foreground" : "text-muted-foreground")">
+                @text
+            </span>
+        </div>
+
+        @if (!isLast)
+        {
+            <span class="text-muted-foreground">→</span>
+        }
+    }
+</div>
+
+<!-- Compact mobile version -->
+<div class="md:hidden flex items-center gap-2 text-xs mt-2">
+    <span class="@(CurrentStage > STAGE_KEYWORDS ? "text-green-600" : "text-muted-foreground")">[✓]</span>
+    <span>→</span>
+    <span class="@(CurrentStage > STAGE_SEARCH ? "text-green-600" : CurrentStage == STAGE_SEARCH ? "text-primary" : "text-muted-foreground")">[@(CurrentStage == STAGE_SEARCH ? "🔄" : CurrentStage > STAGE_SEARCH ? "✓" : "⏸")]</span>
+    <span>→</span>
+    <span class="@(CurrentStage == STAGE_DONE ? "text-green-600" : "text-muted-foreground")">[⏸]</span>
+    <span class="ml-2 text-muted-foreground">🧠 🔍 ✓</span>
+</div>

@@ -1,23 +1,12 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
 @inject NavigationManager NavigationManager
-@inject IJSRuntime JSRuntime
 
 <AuthGuard>
     <div class="min-h-screen flex flex-col">
         <header class="app-header">
             <div class="header-content flex items-center justify-between">
-                <!-- Left section: Logo + Hamburger -->
-                <div class="flex items-center gap-2 flex-1">
-                    <button id="hamburger-button"
-                            class="md:hidden flex items-center justify-center w-10 h-10 -ml-2 text-muted-foreground hover:text-foreground active:scale-95 transition-transform"
-                            type="button"
-                            aria-label="Toggle menu">
-                        <svg id="hamburger-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <line class="hamburger-line" x1="3" y1="12" x2="21" y2="12"></line>
-                            <line class="hamburger-line" x1="3" y1="6" x2="21" y2="6"></line>
-                            <line class="hamburger-line" x1="3" y1="18" x2="21" y2="18"></line>
-                        </svg>
-                    </button>
+                <!-- Logo -->
+                <div class="flex items-center gap-2">
                     <a href="/" class="logo">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
@@ -28,37 +17,28 @@
                 </div>
 
                 <!-- Right section: Nav + Actions -->
-                <div class="flex items-center gap-2 md:gap-4">
+                <div class="flex items-center gap-2 md:gap-3">
                     <nav class="hidden md:flex items-center gap-6 text-sm">
                         <a href="/" class="nav-link @(IsActive("/") ? "active" : "")">Generator</a>
-                        <a href="/projects" class="nav-link @(IsActive("/projects") ? "active" : "")">History</a>
                         <a href="/about" class="nav-link @(IsActive("/about") ? "active" : "")">About</a>
                     </nav>
                     <div class="hidden md:block border-l border-border h-5 mx-1"></div>
                     <div class="flex items-center gap-1">
+                        <!-- History Icon Button (visible on all screens) -->
+                        <a href="/projects"
+                           class="relative group flex items-center justify-center w-9 h-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                           title="History">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/>
+                            </svg>
+                            <!-- Tooltip (desktop only) -->
+                            <span class="hidden md:absolute md:-bottom-8 md:left-1/2 md:-translate-x-1/2 px-2 py-1 text-xs bg-foreground text-background rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                                History
+                            </span>
+                        </a>
                         <ThemeToggle />
                         <SignOutButton />
                     </div>
-                </div>
-            </div>
-
-            <!-- Mobile Menu (hidden by default, toggled via JS) -->
-            <div id="mobile-menu" class="md:hidden hidden">
-                <!-- Backdrop overlay -->
-                <div id="mobile-menu-backdrop" class="fixed inset-0 z-40 bg-black/20 top-[65px]"></div>
-                <!-- Menu content -->
-                <div class="relative z-50 border-t border-border bg-background">
-                    <nav class="flex flex-col p-4 gap-4 text-sm font-medium">
-                        <a href="/" class="flex items-center gap-2 px-2 py-1 @(IsActive("/") ? "text-foreground" : "text-muted-foreground") mobile-menu-link">
-                            Generator
-                        </a>
-                        <a href="/projects" class="flex items-center gap-2 px-2 py-1 @(IsActive("/projects") ? "text-foreground" : "text-muted-foreground") mobile-menu-link">
-                            History
-                        </a>
-                        <a href="/about" class="flex items-center gap-2 px-2 py-1 @(IsActive("/about") ? "text-foreground" : "text-muted-foreground") mobile-menu-link">
-                            About
-                        </a>
-                    </nav>
                 </div>
             </div>
         </header>
@@ -72,24 +52,13 @@
                 <p class="text-sm text-muted-foreground">© 2026 Bunbun Intelligence. B-Roll automation pipeline.</p>
             </div>
         </footer>
+
+        <!-- Toast Notifications -->
+        <Toast />
     </div>
 </AuthGuard>
 
 @code {
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender)
-        {
-            // Initialize mobile menu after first render
-            await JSRuntime.InvokeVoidAsync("eval", @"
-                if (document.getElementById('hamburger-button') && !window.bunbunMobileMenuInitialized) {
-                    console.log('Initializing mobile menu from Blazor...');
-                    window.bunbunMobileMenuInitialized = true;
-                }
-            ");
-        }
-    }
-
     private bool IsActive(string href)
     {
         var relativePath = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);

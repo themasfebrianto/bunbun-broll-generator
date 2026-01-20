@@ -1,0 +1,22 @@
+@code {
+    [Parameter] public int ProcessedCount { get; set; }
+    [Parameter] public int TotalCount { get; set; }
+    [Parameter] public string EtaText { get; set; } = "";
+    [Parameter] public string StatusText { get; set; } = "Lagi proses ya...";
+
+    private int Percent => TotalCount > 0 ? (int)(ProcessedCount * 100.0 / TotalCount) : 0;
+}
+
+<div class="space-y-3">
+    <p class="text-sm font-medium">@StatusText</p>
+    <div class="progress-container h-2">
+        <div class="progress-bar" style="width: @Percent%"></div>
+    </div>
+    <div class="flex items-center justify-between text-xs text-muted-foreground">
+        <span>@ProcessedCount dari @TotalCount kalimat udah kelar</span>
+        <span class="flex items-center gap-1">
+            <span>⏱️</span>
+            <span>@EtaText</span>
+        </span>
+    </div>
+</div>
