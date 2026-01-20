@@ -62,30 +62,30 @@ public class PipelineOrchestrator : IPipelineOrchestrator
         {
             // Step 1: Segmentation
             job.Status = JobStatus.Segmenting;
-            RaiseJobProgress(job, "Segmenting script into sentences...");
-            
+            RaiseJobProgress(job, "Lagi pecah script jadi kalimat...");
+
             job.Segments = _scriptProcessor.SegmentScript(job.RawScript);
-            
+
             if (job.Segments.Count == 0)
             {
                 job.Status = JobStatus.Failed;
-                job.ErrorMessage = "No segments found in script";
+                job.ErrorMessage = "Gak ada segmen yang ketemu";
                 return job;
             }
 
-            _logger.LogInformation("Created {Segments} segments with {Sentences} sentences", 
+            _logger.LogInformation("Created {Segments} segments with {Sentences} sentences",
                 job.Segments.Count, job.TotalSentences);
-            
+
             job.Status = JobStatus.Processing;
 
             // Step 2: BATCH EXTRACT LAYERED KEYWORDS FOR ALL SENTENCES IN ONE AI CALL
             var allSentences = job.Segments.SelectMany(s => s.Sentences).ToList();
-            RaiseJobProgress(job, $"Extracting layered keywords for {allSentences.Count} sentences (1 batch call)...");
+            RaiseJobProgress(job, $"Lagi analisa keywords untuk {allSentences.Count} kalimat...");
 
             var sentencesToProcess = allSentences.Select(s => (s.Id, s.Text)).ToList();
             var batchKeywordSets = await _intelligenceService.ExtractKeywordSetBatchAsync(
-                sentencesToProcess, 
-                job.Mood, 
+                sentencesToProcess,
+                job.Mood,
                 cancellationToken);
 
             // Apply layered keywords to all sentences
@@ -103,15 +103,15 @@ public class PipelineOrchestrator : IPipelineOrchestrator
                 }
             }
 
-            RaiseJobProgress(job, $"Searching videos for {allSentences.Count} sentences ({MaxConcurrentSearches} parallel)...");
+            RaiseJobProgress(job, $"Lagi cari video untuk {allSentences.Count} kalimat...");
 
             // Step 3: SEARCH VIDEOS IN PARALLEL FOR ALL SENTENCES
             await Parallel.ForEachAsync(
                 allSentences,
-                new ParallelOptions 
-                { 
+                new ParallelOptions
+                {
                     MaxDegreeOfParallelism = MaxConcurrentSearches,
-                    CancellationToken = cancellationToken 
+                    CancellationToken = cancellationToken
                 },
                 async (sentence, ct) =>
                 {
@@ -129,9 +129,9 @@ public class PipelineOrchestrator : IPipelineOrchestrator
             // Set to preview ready
             job.Status = JobStatus.PreviewReady;
             job.CompletedAt = DateTime.UtcNow;
-            
+
             var readyCount = allSentences.Count(s => s.Status == SentenceStatus.PreviewReady);
-            RaiseJobProgress(job, $"Preview ready: {readyCount}/{job.TotalSentences} sentences have results. Review and approve.");
+            RaiseJobProgress(job, $"Selesai! {readyCount} dari {job.TotalSentences} kalimat ada videonya.");
 
             return job;
         }
@@ -154,8 +154,8 @@ public class PipelineOrchestrator : IPipelineOrchestrator
     {
         segment.Status = SegmentStatus.Processing;
         var totalSentences = segment.Sentences.Count;
-        
-        RaiseSegmentProgress(job, segment, $"Extracting keywords for {totalSentences} sentences (batch mode)...");
+
+        RaiseSegmentProgress(job, segment, $"Lagi analisa keywords untuk {totalSentences} kalimat...");
 
         // PHASE 1: Batch extract keywords for ALL sentences in segment (1 AI call instead of N)
         var sentencesToProcess = segment.Sentences
@@ -183,7 +183,7 @@ public class PipelineOrchestrator : IPipelineOrchestrator
             }
         }
 
-        RaiseSegmentProgress(job, segment, $"Searching videos for {totalSentences} sentences ({MaxConcurrentSearches} parallel)...");
+        RaiseSegmentProgress(job, segment, $"Lagi cari video untuk {totalSentences} kalimat...");
 
         // PHASE 2: Search videos in parallel (much faster now that keywords are ready)
         await Parallel.ForEachAsync(
@@ -201,7 +201,7 @@ public class PipelineOrchestrator : IPipelineOrchestrator
         segment.ProcessedAt = DateTime.UtcNow;
         segment.Status = SegmentStatus.Completed;
         
-        RaiseSegmentProgress(job, segment, $"Segment ready: {segment.Sentences.Count(s => s.HasSearchResults)}/{totalSentences} have results");
+        RaiseSegmentProgress(job, segment, $"Segment selesai: {segment.Sentences.Count(s => s.HasSearchResults)}/{totalSentences} ada videonya");
     }
 
     /// <summary>
@@ -218,7 +218,7 @@ public class PipelineOrchestrator : IPipelineOrchestrator
         {
             var keywordPreview = string.Join(", ", sentence.KeywordSet.Primary.Take(2).DefaultIfEmpty(sentence.Keywords.FirstOrDefault() ?? "..."));
             var categoryInfo = sentence.KeywordSet.SuggestedCategory != null ? $" [{sentence.KeywordSet.SuggestedCategory}]" : "";
-            RaiseSentenceProgress(job, segment, sentence, $"Searching{categoryInfo}: {keywordPreview}...");
+            RaiseSentenceProgress(job, segment, sentence, $"Lagi cari{categoryInfo}: {keywordPreview}...");
 
             var targetDuration = (int)Math.Ceiling(sentence.EstimatedDurationSeconds);
             var (minDuration, maxDuration) = CompositeAssetBroker.CalculateAdaptiveDurationRange(targetDuration);
@@ -266,7 +266,7 @@ public class PipelineOrchestrator : IPipelineOrchestrator
             {
                 sentence.Status = SentenceStatus.NoResults;
                 sentence.ErrorMessage = "No videos found";
-                RaiseSentenceProgress(job, segment, sentence, "No results - try custom keywords");
+                RaiseSentenceProgress(job, segment, sentence, "Gak ada video, coba keyword lain");
                 return;
             }
 
@@ -283,7 +283,7 @@ public class PipelineOrchestrator : IPipelineOrchestrator
                 selectedScore, sentence.SelectedVideo.DurationSeconds, targetDuration);
 
             sentence.Status = SentenceStatus.PreviewReady;
-            RaiseSentenceProgress(job, segment, sentence, $"✓ {assets.Count} options ({sentence.SelectedVideo.DurationSeconds}s)");
+            RaiseSentenceProgress(job, segment, sentence, $"✓ {assets.Count} pilihan ({sentence.SelectedVideo.DurationSeconds}detik)");
         }
         catch (Exception ex)
         {
@@ -307,7 +307,7 @@ public class PipelineOrchestrator : IPipelineOrchestrator
             
             // Step 1: Extract layered keywords
             sentence.Status = SentenceStatus.ExtractingKeywords;
-            RaiseSentenceProgress(job, segment, sentence, "Extracting keywords...");
+            RaiseSentenceProgress(job, segment, sentence, "Lagi analisa keywords...");
 
             var keywordResult = await _intelligenceService.ExtractKeywordsAsync(
                 sentence.Text, 
@@ -340,7 +340,7 @@ public class PipelineOrchestrator : IPipelineOrchestrator
             // Step 2: Search for videos (NO download)
             sentence.Status = SentenceStatus.SearchingBRoll;
             var keywordPreview = string.Join(", ", sentence.KeywordSet.Primary.Take(2).DefaultIfEmpty(sentence.Keywords.FirstOrDefault() ?? "..."));
-            RaiseSentenceProgress(job, segment, sentence, $"Searching: {keywordPreview}...");
+            RaiseSentenceProgress(job, segment, sentence, $"Lagi cari: {keywordPreview}...");
 
             var targetDuration = (int)Math.Ceiling(sentence.EstimatedDurationSeconds);
             var (minDuration, maxDuration) = CompositeAssetBroker.CalculateAdaptiveDurationRange(targetDuration);
@@ -387,7 +387,7 @@ public class PipelineOrchestrator : IPipelineOrchestrator
             {
                 sentence.Status = SentenceStatus.NoResults;
                 sentence.ErrorMessage = "No videos found";
-                RaiseSentenceProgress(job, segment, sentence, "No results - try custom keywords");
+                RaiseSentenceProgress(job, segment, sentence, "Gak ada video, coba keyword lain");
                 return;
             }
 
@@ -404,7 +404,7 @@ public class PipelineOrchestrator : IPipelineOrchestrator
                 selectedScore, sentence.SelectedVideo.DurationSeconds, targetDuration);
 
             sentence.Status = SentenceStatus.PreviewReady;
-            RaiseSentenceProgress(job, segment, sentence, $"✓ {assets.Count} options found ({sentence.SelectedVideo.DurationSeconds}s selected)");
+            RaiseSentenceProgress(job, segment, sentence, $"✓ {assets.Count} pilihan video ({sentence.SelectedVideo.DurationSeconds}detik)");
         }
         catch (Exception ex)
         {
@@ -436,7 +436,7 @@ public class PipelineOrchestrator : IPipelineOrchestrator
         sentence.SearchResults.Clear();
         sentence.SelectedVideo = null;
         
-        RaiseSentenceProgress(job, segment, sentence, $"Re-searching: {string.Join(", ", sentence.Keywords.Take(2))}...");
+        RaiseSentenceProgress(job, segment, sentence, $"Lagi cari lagi: {string.Join(", ", sentence.Keywords.Take(2))}...");
 
         var targetDuration = (int)Math.Ceiling(sentence.EstimatedDurationSeconds);
         var (minDuration, maxDuration) = CompositeAssetBroker.CalculateAdaptiveDurationRange(targetDuration);
@@ -467,8 +467,8 @@ public class PipelineOrchestrator : IPipelineOrchestrator
         if (assets.Count == 0)
         {
             sentence.Status = SentenceStatus.NoResults;
-            sentence.ErrorMessage = "No videos found";
-            RaiseSentenceProgress(job, segment, sentence, "No results found");
+            sentence.ErrorMessage = "Gak ada video yang ketemu";
+            RaiseSentenceProgress(job, segment, sentence, "Gak ada video");
             return;
         }
 
@@ -482,7 +482,7 @@ public class PipelineOrchestrator : IPipelineOrchestrator
             selectedScore, sentence.SelectedVideo.DurationSeconds, targetDuration);
 
         sentence.Status = SentenceStatus.PreviewReady;
-        RaiseSentenceProgress(job, segment, sentence, $"✓ {assets.Count} new options found");
+        RaiseSentenceProgress(job, segment, sentence, $"✓ {assets.Count} pilihan baru");
     }
 
     /// <summary>
@@ -497,12 +497,12 @@ public class PipelineOrchestrator : IPipelineOrchestrator
 
         if (approvedSentences.Count == 0)
         {
-            RaiseJobProgress(job, "No approved sentences to download");
+            RaiseJobProgress(job, "Gak ada video yang mau didownload");
             return;
         }
 
         job.Status = JobStatus.Downloading;
-        RaiseJobProgress(job, $"Downloading {approvedSentences.Count} approved videos...");
+        RaiseJobProgress(job, $"Lagi download {approvedSentences.Count} video...");
 
         foreach (var sentence in approvedSentences)
         {
@@ -514,7 +514,7 @@ public class PipelineOrchestrator : IPipelineOrchestrator
 
         job.Status = JobStatus.Completed;
         var downloaded = approvedSentences.Count(s => s.IsDownloaded);
-        RaiseJobProgress(job, $"Download complete: {downloaded}/{approvedSentences.Count} videos saved");
+        RaiseJobProgress(job, $"Selesai! {downloaded} dari {approvedSentences.Count} video udah kesimpan");
     }
 
     /// <summary>
@@ -529,9 +529,9 @@ public class PipelineOrchestrator : IPipelineOrchestrator
         }
 
         var segment = job.Segments.First(s => s.Sentences.Contains(sentence));
-        
+
         sentence.Status = SentenceStatus.Downloading;
-        RaiseSentenceProgress(job, segment, sentence, $"Downloading {sentence.SelectedVideo.DurationSeconds}s video...");
+        RaiseSentenceProgress(job, segment, sentence, $"Lagi download video {sentence.SelectedVideo.DurationSeconds}detik...");
 
         try
         {
@@ -551,13 +551,13 @@ public class PipelineOrchestrator : IPipelineOrchestrator
                 sentence.DownloadedVideo = sentence.SelectedVideo;
                 sentence.DownloadedVideo.LocalPath = localPath;
                 sentence.Status = SentenceStatus.Completed;
-                RaiseSentenceProgress(job, segment, sentence, $"✓ Downloaded: {Path.GetFileName(localPath)}");
+                RaiseSentenceProgress(job, segment, sentence, $"✓ Kesimpan: {Path.GetFileName(localPath)}");
             }
             else
             {
                 sentence.Status = SentenceStatus.Failed;
-                sentence.ErrorMessage = "Download failed";
-                RaiseSentenceProgress(job, segment, sentence, "Download failed");
+                sentence.ErrorMessage = "Download gagal";
+                RaiseSentenceProgress(job, segment, sentence, "Download gagal");
             }
         }
         catch (Exception ex)

@@ -130,6 +130,24 @@ using (var scope = app.Services.CreateScope())
             Console.WriteLine("Added keyword persistence columns to existing database.");
         }
 
+        // Check if VideoDuration column exists (for % match accuracy)
+        command.CommandText = @"
+            SELECT COUNT(*) FROM pragma_table_info('Sentences') WHERE name='VideoDuration'
+        ";
+        result = await command.ExecuteScalarAsync();
+        columnExists = Convert.ToInt32(result) > 0;
+
+        if (!columnExists)
+        {
+            // Add VideoDuration column
+            using var alterCommand = connection.CreateCommand();
+            alterCommand.CommandText = @"
+                ALTER TABLE Sentences ADD COLUMN VideoDuration INTEGER DEFAULT 0;
+            ";
+            await alterCommand.ExecuteNonQueryAsync();
+            Console.WriteLine("Added VideoDuration column to existing database.");
+        }
+
         await connection.CloseAsync();
     }
     catch (Exception ex)

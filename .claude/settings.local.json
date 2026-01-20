@@ -23,7 +23,10 @@
       "Bash(fi:*)",
       "Skill(superpowers:finishing-a-development-branch)",
       "WebSearch",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(docker build:*)",
+      "Bash(docker system prune:*)",
+      "Bash(docker builder prune:*)"
     ]
   }
 }

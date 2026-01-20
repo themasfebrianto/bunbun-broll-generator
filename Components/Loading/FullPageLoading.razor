@@ -3,7 +3,7 @@
     [Parameter] public int TotalCount { get; set; }
     [Parameter] public string EtaText { get; set; } = "";
     [Parameter] public int CurrentStage { get; set; }
-    [Parameter] public string StageMessage { get; set; } = "Lagi proses script kamu...";
+    [Parameter] public string StageMessage { get; set; } = "Lagi analisa script kamu...";
 }
 
 <div class="fixed inset-0 z-[60] bg-background flex items-center justify-center p-4 animate-in">
@@ -24,7 +24,7 @@
             ProcessedCount="@ProcessedCount"
             TotalCount="@TotalCount"
             EtaText="@EtaText"
-            StatusText="Lagi proses ya..." />
+            StatusText="Bentar lagi ya, lagi diproses..." />
 
         <!-- Stage Indicator -->
         <StageIndicator CurrentStage="@CurrentStage" />

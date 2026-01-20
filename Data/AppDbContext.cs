@@ -71,6 +71,9 @@ public class ProjectSentence
     public string? SuggestedCategory { get; set; }
     public string? DetectedMood { get; set; }
 
+    // CRITICAL: Duration of selected video for accurate % match calculation on load
+    public int VideoDuration { get; set; }
+
     public ProjectSegment Segment { get; set; } = null!;
 
     /// <summary>

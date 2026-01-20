@@ -87,7 +87,9 @@ public class ProjectService(AppDbContext db) : IProjectService
                     VideoProvider = jobSentence.SelectedVideo?.Provider,
                     VideoUrl = jobSentence.SelectedVideo?.DownloadUrl,
                     VideoPreviewUrl = jobSentence.SelectedVideo?.PreviewUrl,
-                    VideoThumbUrl = jobSentence.SelectedVideo?.ThumbnailUrl
+                    VideoThumbUrl = jobSentence.SelectedVideo?.ThumbnailUrl,
+                    // CRITICAL: Duration for accurate % match calculation
+                    VideoDuration = jobSentence.SelectedVideo?.DurationSeconds ?? 0
                 });
             }
         }
