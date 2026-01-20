@@ -33,7 +33,6 @@ public class KeywordPersistenceTests
         {
             Id = 1,
             Title = "Test Segment",
-            Order = 0,
             Sentences = new List<ScriptSentence>
             {
                 new ScriptSentence
