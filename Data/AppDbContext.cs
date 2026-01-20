@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json;
+using BunbunBroll.Models;
 
 namespace BunbunBroll.Data;
 
@@ -56,13 +58,37 @@ public class ProjectSentence
     public int SegmentId { get; set; }
     public int Order { get; set; }
     public string Text { get; set; } = string.Empty;
-    
+
     // Saving the video links
     public string? VideoId { get; set; }
     public string? VideoProvider { get; set; }
     public string? VideoUrl { get; set; }
     public string? VideoPreviewUrl { get; set; }
     public string? VideoThumbUrl { get; set; }
-    
+
+    // NEW: Persist KeywordSet as JSON
+    public string? KeywordsJson { get; set; }
+    public string? SuggestedCategory { get; set; }
+    public string? DetectedMood { get; set; }
+
     public ProjectSegment Segment { get; set; } = null!;
+
+    /// <summary>
+    /// Deserializes KeywordsJson back to KeywordSet object.
+    /// Returns empty KeywordSet if JSON is null or empty.
+    /// </summary>
+    public KeywordSet GetKeywordSet()
+    {
+        if (string.IsNullOrWhiteSpace(KeywordsJson))
+            return new KeywordSet();
+
+        try
+        {
+            return JsonSerializer.Deserialize<KeywordSet>(KeywordsJson) ?? new KeywordSet();
+        }
+        catch
+        {
+            return new KeywordSet();
+        }
+    }
 }
