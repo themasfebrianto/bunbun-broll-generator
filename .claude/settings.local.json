@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(superpowers:brainstorming)",
+      "Skill(superpowers:writing-plans)",
+      "Skill(superpowers:subagent-driven-development)",
+      "Bash(dotnet test:*)",
+      "Bash(dotnet restore:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Skill(superpowers:requesting-code-review)",
+      "Bash(dotnet run:*)",
+      "Bash(dotnet build:*)",
+      "Bash(taskkill:*)",
+      "Bash(git show:*)",
+      "Bash(echo:*)",
+      "Bash(Select-String:*)",
+      "Bash(Select-Object:*)",
+      "Bash(timeout:*)",
+      "Bash(pkill:*)",
+      "Bash(if:*)",
+      "Bash(then mkdir -p Tests/Integration)",
+      "Bash(fi:*)",
+      "Skill(superpowers:finishing-a-development-branch)",
+      "WebSearch",
+      "Bash(git push:*)"
+    ]
+  }
+}

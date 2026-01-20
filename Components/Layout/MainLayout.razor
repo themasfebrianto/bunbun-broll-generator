@@ -1,7 +1,6 @@
 ﻿@inherits LayoutComponentBase
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
-@implements IAsyncDisposable
 
 <AuthGuard>
     <div class="min-h-screen flex flex-col">
@@ -76,101 +75,20 @@
     </div>
 </AuthGuard>
 
-<script>
-    // Mobile menu functionality with pure JavaScript
-    (function() {
-        let hamburgerButton = null;
-        let mobileMenu = null;
-        let mobileMenuBackdrop = null;
-        let hamburgerIcon = null;
-        let mobileMenuLinks = null;
-        let isMenuOpen = false;
-
-        function toggleMenu() {
-            isMenuOpen = !isMenuOpen;
-
-            if (isMenuOpen) {
-                // Show menu
-                mobileMenu.classList.remove('hidden');
-                // Update icon to X
-                hamburgerIcon.innerHTML = `
-                    <line x1="18" y1="6" x2="6" y2="18"></line>
-                    <line x1="6" y1="6" x2="18" y2="18"></line>
-                `;
-            } else {
-                // Hide menu
-                mobileMenu.classList.add('hidden');
-                // Update icon to hamburger
-                hamburgerIcon.innerHTML = `
-                    <line class="hamburger-line" x1="3" y1="12" x2="21" y2="12"></line>
-                    <line class="hamburger-line" x1="3" y1="6" x2="21" y2="6"></line>
-                    <line class="hamburger-line" x1="3" y1="18" x2="21" y2="18"></line>
-                `;
-            }
-        }
-
-        function closeMenu() {
-            if (isMenuOpen) {
-                isMenuOpen = false;
-                mobileMenu.classList.add('hidden');
-                // Reset icon to hamburger
-                hamburgerIcon.innerHTML = `
-                    <line class="hamburger-line" x1="3" y1="12" x2="21" y2="12"></line>
-                    <line class="hamburger-line" x1="3" y1="6" x2="21" y2="6"></line>
-                    <line class="hamburger-line" x1="3" y1="18" x2="21" y2="18"></line>
-                `;
-            }
-        }
-
-        function init() {
-            hamburgerButton = document.getElementById('hamburger-button');
-            mobileMenu = document.getElementById('mobile-menu');
-            mobileMenuBackdrop = document.getElementById('mobile-menu-backdrop');
-            hamburgerIcon = document.getElementById('hamburger-icon');
-            mobileMenuLinks = document.querySelectorAll('.mobile-menu-link');
-
-            if (hamburgerButton) {
-                hamburgerButton.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    console.log('Hamburger clicked!');
-                    toggleMenu();
-                });
-            }
-
-            if (mobileMenuBackdrop) {
-                mobileMenuBackdrop.addEventListener('click', closeMenu);
-            }
-
-            // Close menu when clicking on links
-            mobileMenuLinks.forEach(function(link) {
-                link.addEventListener('click', closeMenu);
-            });
-
-            console.log('Mobile menu initialized');
-        }
-
-        // Initialize on DOM ready
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', init);
-        } else {
-            init();
-        }
-
-        // Store cleanup function for Blazor disposal
-        window.bunbunMobileMenuCleanup = function() {
-            if (hamburgerButton) {
-                hamburgerButton.removeEventListener('click', toggleMenu);
-            }
-            if (mobileMenuBackdrop) {
-                mobileMenuBackdrop.removeEventListener('click', closeMenu);
-            }
-        };
-    })();
-</script>
-
 @code {
-    private bool _mobileMenuOpen = false;
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Initialize mobile menu after first render
+            await JSRuntime.InvokeVoidAsync("eval", @"
+                if (document.getElementById('hamburger-button') && !window.bunbunMobileMenuInitialized) {
+                    console.log('Initializing mobile menu from Blazor...');
+                    window.bunbunMobileMenuInitialized = true;
+                }
+            ");
+        }
+    }
 
     private bool IsActive(string href)
     {
@@ -183,11 +101,5 @@
         }
 
         return relativePath.StartsWith(href.TrimStart('/'), StringComparison.OrdinalIgnoreCase);
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        // Clean up JavaScript event listeners
-        await JSRuntime.InvokeVoidAsync("eval", "if (window.bunbunMobileMenuCleanup) { window.bunbunMobileMenuCleanup(); }");
     }
 }
