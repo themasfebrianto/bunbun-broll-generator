@@ -94,22 +94,44 @@ app.UseAntiforgery();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
-// For development: recreate database to add new columns
-if (app.Environment.IsDevelopment())
+// Initialize database with automatic migration for new columns
+using (var scope = app.Services.CreateScope())
 {
-    using (var scope = app.Services.CreateScope())
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    db.Database.EnsureCreated();
+
+    // Add new columns if they don't exist (for existing databases)
+    try
     {
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        db.Database.EnsureDeleted();
-        db.Database.EnsureCreated();
+        var connection = db.Database.GetDbConnection();
+        await connection.OpenAsync();
+
+        // Check if KeywordsJson column exists
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+            SELECT COUNT(*) FROM pragma_table_info('Sentences') WHERE name='KeywordsJson'
+        ";
+        var result = await command.ExecuteScalarAsync();
+        var columnExists = Convert.ToInt32(result) > 0;
+
+        if (!columnExists)
+        {
+            // Add new columns for keyword persistence
+            using var alterCommand = connection.CreateCommand();
+            alterCommand.CommandText = @"
+                ALTER TABLE Sentences ADD COLUMN KeywordsJson TEXT;
+                ALTER TABLE Sentences ADD COLUMN SuggestedCategory TEXT;
+                ALTER TABLE Sentences ADD COLUMN DetectedMood TEXT;
+            ";
+            await alterCommand.ExecuteNonQueryAsync();
+            Console.WriteLine("Added keyword persistence columns to existing database.");
+        }
+
+        await connection.CloseAsync();
     }
-}
-else
-{
-    using (var scope = app.Services.CreateScope())
+    catch (Exception ex)
     {
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        db.Database.EnsureCreated();
+        Console.WriteLine($"Note: Database migration info: {ex.Message}");
     }
 }
 
