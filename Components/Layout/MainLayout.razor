@@ -1,5 +1,7 @@
 ﻿@inherits LayoutComponentBase
 @inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@implements IAsyncDisposable
 
 <AuthGuard>
     <div class="min-h-screen flex flex-col">
@@ -7,23 +9,14 @@
             <div class="header-content flex items-center justify-between">
                 <!-- Left section: Logo + Hamburger -->
                 <div class="flex items-center gap-2 flex-1">
-                    <button class="md:hidden flex items-center justify-center w-10 h-10 -ml-2 text-muted-foreground hover:text-foreground active:scale-95 transition-transform"
-                            @onclick="ToggleMobileMenu"
-                            @onclick:stopPropagation
+                    <button id="hamburger-button"
+                            class="md:hidden flex items-center justify-center w-10 h-10 -ml-2 text-muted-foreground hover:text-foreground active:scale-95 transition-transform"
                             type="button"
                             aria-label="Toggle menu">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            @if (_mobileMenuOpen)
-                            {
-                                <line x1="18" y1="6" x2="6" y2="18"></line>
-                                <line x1="6" y1="6" x2="18" y2="18"></line>
-                            }
-                            else
-                            {
-                                <line x1="3" y1="12" x2="21" y2="12"></line>
-                                <line x1="3" y1="6" x2="21" y2="6"></line>
-                                <line x1="3" y1="18" x2="21" y2="18"></line>
-                            }
+                        <svg id="hamburger-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line class="hamburger-line" x1="3" y1="12" x2="21" y2="12"></line>
+                            <line class="hamburger-line" x1="3" y1="6" x2="21" y2="6"></line>
+                            <line class="hamburger-line" x1="3" y1="18" x2="21" y2="18"></line>
                         </svg>
                     </button>
                     <a href="/" class="logo">
@@ -50,32 +43,31 @@
                 </div>
             </div>
 
-            <!-- Mobile Menu -->
-            @if (_mobileMenuOpen)
-            {
-                <!-- Backdrop overlay (rendered first, behind menu) -->
-                <div class="md:hidden fixed inset-0 z-40 bg-black/20 top-[65px]" @onclick="CloseMobileMenu"></div>
-                <!-- Menu content (rendered second, above backdrop with z-50) -->
-                <div class="md:hidden relative z-50 border-t border-border bg-background animate-in slide-in-from-top-2">
+            <!-- Mobile Menu (hidden by default, toggled via JS) -->
+            <div id="mobile-menu" class="md:hidden hidden">
+                <!-- Backdrop overlay -->
+                <div id="mobile-menu-backdrop" class="fixed inset-0 z-40 bg-black/20 top-[65px]"></div>
+                <!-- Menu content -->
+                <div class="relative z-50 border-t border-border bg-background">
                     <nav class="flex flex-col p-4 gap-4 text-sm font-medium">
-                        <a href="/" class="flex items-center gap-2 px-2 py-1 @(IsActive("/") ? "text-foreground" : "text-muted-foreground")" @onclick="CloseMobileMenu">
+                        <a href="/" class="flex items-center gap-2 px-2 py-1 @(IsActive("/") ? "text-foreground" : "text-muted-foreground") mobile-menu-link">
                             Generator
                         </a>
-                        <a href="/projects" class="flex items-center gap-2 px-2 py-1 @(IsActive("/projects") ? "text-foreground" : "text-muted-foreground")" @onclick="CloseMobileMenu">
+                        <a href="/projects" class="flex items-center gap-2 px-2 py-1 @(IsActive("/projects") ? "text-foreground" : "text-muted-foreground") mobile-menu-link">
                             History
                         </a>
-                        <a href="/about" class="flex items-center gap-2 px-2 py-1 @(IsActive("/about") ? "text-foreground" : "text-muted-foreground")" @onclick="CloseMobileMenu">
+                        <a href="/about" class="flex items-center gap-2 px-2 py-1 @(IsActive("/about") ? "text-foreground" : "text-muted-foreground") mobile-menu-link">
                             About
                         </a>
                     </nav>
                 </div>
-            }
+            </div>
         </header>
-        
+
         <main class="flex-1">
             @Body
         </main>
-        
+
         <footer class="app-footer">
             <div class="footer-content">
                 <p class="text-sm text-muted-foreground">© 2026 Bunbun Intelligence. B-Roll automation pipeline.</p>
@@ -84,22 +76,118 @@
     </div>
 </AuthGuard>
 
+<script>
+    // Mobile menu functionality with pure JavaScript
+    (function() {
+        let hamburgerButton = null;
+        let mobileMenu = null;
+        let mobileMenuBackdrop = null;
+        let hamburgerIcon = null;
+        let mobileMenuLinks = null;
+        let isMenuOpen = false;
+
+        function toggleMenu() {
+            isMenuOpen = !isMenuOpen;
+
+            if (isMenuOpen) {
+                // Show menu
+                mobileMenu.classList.remove('hidden');
+                // Update icon to X
+                hamburgerIcon.innerHTML = `
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                `;
+            } else {
+                // Hide menu
+                mobileMenu.classList.add('hidden');
+                // Update icon to hamburger
+                hamburgerIcon.innerHTML = `
+                    <line class="hamburger-line" x1="3" y1="12" x2="21" y2="12"></line>
+                    <line class="hamburger-line" x1="3" y1="6" x2="21" y2="6"></line>
+                    <line class="hamburger-line" x1="3" y1="18" x2="21" y2="18"></line>
+                `;
+            }
+        }
+
+        function closeMenu() {
+            if (isMenuOpen) {
+                isMenuOpen = false;
+                mobileMenu.classList.add('hidden');
+                // Reset icon to hamburger
+                hamburgerIcon.innerHTML = `
+                    <line class="hamburger-line" x1="3" y1="12" x2="21" y2="12"></line>
+                    <line class="hamburger-line" x1="3" y1="6" x2="21" y2="6"></line>
+                    <line class="hamburger-line" x1="3" y1="18" x2="21" y2="18"></line>
+                `;
+            }
+        }
+
+        function init() {
+            hamburgerButton = document.getElementById('hamburger-button');
+            mobileMenu = document.getElementById('mobile-menu');
+            mobileMenuBackdrop = document.getElementById('mobile-menu-backdrop');
+            hamburgerIcon = document.getElementById('hamburger-icon');
+            mobileMenuLinks = document.querySelectorAll('.mobile-menu-link');
+
+            if (hamburgerButton) {
+                hamburgerButton.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Hamburger clicked!');
+                    toggleMenu();
+                });
+            }
+
+            if (mobileMenuBackdrop) {
+                mobileMenuBackdrop.addEventListener('click', closeMenu);
+            }
+
+            // Close menu when clicking on links
+            mobileMenuLinks.forEach(function(link) {
+                link.addEventListener('click', closeMenu);
+            });
+
+            console.log('Mobile menu initialized');
+        }
+
+        // Initialize on DOM ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
+
+        // Store cleanup function for Blazor disposal
+        window.bunbunMobileMenuCleanup = function() {
+            if (hamburgerButton) {
+                hamburgerButton.removeEventListener('click', toggleMenu);
+            }
+            if (mobileMenuBackdrop) {
+                mobileMenuBackdrop.removeEventListener('click', closeMenu);
+            }
+        };
+    })();
+</script>
+
 @code {
     private bool _mobileMenuOpen = false;
-
-    private void ToggleMobileMenu() => _mobileMenuOpen = !_mobileMenuOpen;
-    private void CloseMobileMenu() => _mobileMenuOpen = false;
 
     private bool IsActive(string href)
     {
         var relativePath = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
-        
+
         if (href == "/")
         {
             // Home is active only when path is empty or starts with /editor
             return string.IsNullOrEmpty(relativePath) || relativePath.StartsWith("editor");
         }
-        
+
         return relativePath.StartsWith(href.TrimStart('/'), StringComparison.OrdinalIgnoreCase);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        // Clean up JavaScript event listeners
+        await JSRuntime.InvokeVoidAsync("eval", "if (window.bunbunMobileMenuCleanup) { window.bunbunMobileMenuCleanup(); }");
     }
 }
