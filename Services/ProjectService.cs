@@ -1,6 +1,7 @@
 using BunbunBroll.Data;
 using BunbunBroll.Models;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 
 namespace BunbunBroll.Services;
 
@@ -72,10 +73,16 @@ public class ProjectService(AppDbContext db) : IProjectService
             int sentenceOrder = 0;
             foreach (var jobSentence in jobSegment.Sentences)
             {
+                var keywordSet = jobSentence.KeywordSet;
                 segment.Sentences.Add(new ProjectSentence
                 {
                     Order = sentenceOrder++,
                     Text = jobSentence.Text,
+                    // Serialize KeywordSet to JSON
+                    KeywordsJson = JsonSerializer.Serialize(keywordSet),
+                    SuggestedCategory = keywordSet.SuggestedCategory,
+                    DetectedMood = keywordSet.DetectedMood,
+                    // Video properties
                     VideoId = jobSentence.SelectedVideo?.Id,
                     VideoProvider = jobSentence.SelectedVideo?.Provider,
                     VideoUrl = jobSentence.SelectedVideo?.DownloadUrl,
