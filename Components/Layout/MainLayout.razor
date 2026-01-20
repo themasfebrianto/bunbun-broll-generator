@@ -48,7 +48,10 @@
             <!-- Mobile Menu -->
             @if (_mobileMenuOpen)
             {
-                <div class="md:hidden border-t border-border bg-background animate-in slide-in-from-top-2">
+                <!-- Backdrop overlay (rendered first, behind menu) -->
+                <div class="md:hidden fixed inset-0 z-40 bg-black/20 top-[65px]" @onclick="CloseMobileMenu"></div>
+                <!-- Menu content (rendered second, above backdrop with z-50) -->
+                <div class="md:hidden relative z-50 border-t border-border bg-background animate-in slide-in-from-top-2">
                     <nav class="flex flex-col p-4 gap-4 text-sm font-medium">
                         <a href="/" class="flex items-center gap-2 px-2 py-1 @(IsActive("/") ? "text-foreground" : "text-muted-foreground")" @onclick="CloseMobileMenu">
                             Generator
@@ -61,7 +64,6 @@
                         </a>
                     </nav>
                 </div>
-                <div class="md:hidden fixed inset-0 z-40 bg-black/20 top-[65px]" @onclick="CloseMobileMenu"></div>
             }
         </header>
         

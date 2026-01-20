@@ -19,7 +19,7 @@ public class HalalVideoFilter : IHalalVideoFilter
 {
     private readonly ILogger<HalalVideoFilter> _logger;
     
-    public bool IsEnabled { get; set; } = false;
+    public bool IsEnabled { get; set; } = true;
 
     // Indonesian to English translations for filtering
     private static readonly Dictionary<string, string> IndonesianTranslations = new(StringComparer.OrdinalIgnoreCase)

@@ -322,29 +322,192 @@
     <script src="/app.js"></script>
     <script src="_framework/blazor.web.js" autostart="false"></script>
     <script>
-        // Custom Blazor connection handling - no loading spinner on disconnect
-        Blazor.start({
-            reconnectionOptions: {
-                maxRetries: 5,
-                retryIntervalMilliseconds: 2000
-            }
-        }).catch(err => {
-            // Server not available - don't show spinner, just fail silently
-            console.warn('Blazor connection failed:', err);
-        });
+        // Robust Blazor Server reconnection handling for mobile
+        (function() {
+            let reconnectAttempts = 0;
+            const maxReconnectAttempts = 30;
+            let isReconnecting = false;
+            let reconnectTimer = null;
 
-        // Override the default reconnection UI
-        Blazor.defaultReconnectionHandler._reconnectionDisplay = {
-            show: () => {}, // Do nothing on show
-            hide: () => {}, // Do nothing on hide
-            failed: () => {
-                // Optionally show a minimal message on complete failure
-                console.log('Connection to server lost.');
-            },
-            update: (currentAttempt) => {
-                console.log(`Reconnection attempt ${currentAttempt}...`);
+            // Calculate backoff delay: starts at 1s, maxes at 30s
+            function getBackoffDelay(attempt) {
+                return Math.min(1000 * Math.pow(1.5, attempt), 30000);
             }
-        };
+
+            // Show subtle reconnecting indicator
+            function showReconnectingUI() {
+                let indicator = document.getElementById('reconnect-indicator');
+                if (!indicator) {
+                    indicator = document.createElement('div');
+                    indicator.id = 'reconnect-indicator';
+                    indicator.innerHTML = `
+                        <div style="position:fixed;bottom:16px;left:50%;transform:translateX(-50%);
+                                    background:hsl(0 0% 10%);color:white;padding:8px 16px;
+                                    border-radius:8px;font-size:12px;z-index:9999;
+                                    display:flex;align-items:center;gap:8px;
+                                    box-shadow:0 4px 12px rgba(0,0,0,0.3);">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" 
+                                 stroke-width="2" style="animation:spin 1s linear infinite">
+                                <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.85.99 6.57 2.57L21 8"/>
+                                <path d="M21 3v5h-5"/>
+                            </svg>
+                            <span>Reconnecting...</span>
+                        </div>
+                        <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+                    `;
+                    document.body.appendChild(indicator);
+                }
+                indicator.style.display = 'block';
+            }
+
+            function hideReconnectingUI() {
+                const indicator = document.getElementById('reconnect-indicator');
+                if (indicator) indicator.style.display = 'none';
+            }
+
+            // Force page reload
+            function forceReload() {
+                console.log('Blazor: Forcing page reload...');
+                hideReconnectingUI();
+                window.location.reload();
+            }
+
+            // Start Blazor with custom reconnection handling
+            Blazor.start({
+                reconnectionOptions: {
+                    maxRetries: maxReconnectAttempts,
+                    retryIntervalMilliseconds: 2000
+                }
+            }).then(() => {
+                console.log('Blazor: Connected successfully');
+                hideReconnectingUI();
+                reconnectAttempts = 0;
+            }).catch(err => {
+                console.warn('Blazor: Initial connection failed:', err);
+                // Try to reload after a delay
+                setTimeout(forceReload, 3000);
+            });
+
+            // Override the default reconnection handler
+            Blazor.defaultReconnectionHandler._reconnectionDisplay = {
+                show: () => {
+                    isReconnecting = true;
+                    showReconnectingUI();
+                    console.log('Blazor: Connection lost, attempting to reconnect...');
+                },
+                hide: () => {
+                    isReconnecting = false;
+                    hideReconnectingUI();
+                    reconnectAttempts = 0;
+                    console.log('Blazor: Reconnected successfully');
+                },
+                failed: () => {
+                    console.log('Blazor: Reconnection failed after all attempts');
+                    hideReconnectingUI();
+                    // Show reload button or auto-reload
+                    showReloadPrompt();
+                },
+                update: (currentAttempt) => {
+                    reconnectAttempts = currentAttempt;
+                    console.log(`Blazor: Reconnection attempt ${currentAttempt}/${maxReconnectAttempts}`);
+                }
+            };
+
+            // Show reload prompt with auto-reload countdown
+            function showReloadPrompt() {
+                let prompt = document.getElementById('reload-prompt');
+                if (!prompt) {
+                    prompt = document.createElement('div');
+                    prompt.id = 'reload-prompt';
+                    prompt.innerHTML = `
+                        <div style="position:fixed;inset:0;background:rgba(0,0,0,0.8);
+                                    display:flex;align-items:center;justify-content:center;z-index:9999;">
+                            <div style="background:hsl(0 0% 7%);border:1px solid hsl(0 0% 18%);
+                                        padding:24px;border-radius:12px;text-align:center;max-width:300px;">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" 
+                                     stroke-width="1.5" style="margin:0 auto 16px;color:#fbbf24">
+                                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                                    <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                                </svg>
+                                <h3 style="color:white;margin:0 0 8px;font-size:16px;font-weight:600;">Connection Lost</h3>
+                                <p style="color:#a1a1aa;margin:0 0 16px;font-size:13px;">
+                                    Auto-reload in <span id="reload-countdown">5</span>s
+                                </p>
+                                <button onclick="window.location.reload()" 
+                                        style="background:white;color:black;border:none;padding:10px 24px;
+                                               border-radius:6px;font-size:14px;font-weight:500;cursor:pointer;">
+                                    Reload Now
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    document.body.appendChild(prompt);
+                    
+                    // Auto-reload countdown
+                    let countdown = 5;
+                    const countdownEl = document.getElementById('reload-countdown');
+                    const countdownInterval = setInterval(() => {
+                        countdown--;
+                        if (countdownEl) countdownEl.textContent = countdown;
+                        if (countdown <= 0) {
+                            clearInterval(countdownInterval);
+                            forceReload();
+                        }
+                    }, 1000);
+                }
+            }
+
+            // Handle visibility change (user returns to tab/app)
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible') {
+                    console.log('Blazor: Tab became visible, checking connection...');
+                    
+                    // Clear any pending reconnect timer
+                    if (reconnectTimer) {
+                        clearTimeout(reconnectTimer);
+                        reconnectTimer = null;
+                    }
+
+                    // If we're in a reconnecting state, try to speed things up
+                    if (isReconnecting) {
+                        console.log('Blazor: Forcing immediate reconnection attempt...');
+                        // The Blazor reconnection handler will continue automatically
+                    }
+                    
+                    // Check if the circuit is still alive by looking for Blazor's internal state
+                    // If not reconnecting but connection seems dead, reload
+                    reconnectTimer = setTimeout(() => {
+                        // If still showing reconnect UI after 5 seconds, force reload
+                        if (document.getElementById('reconnect-indicator')?.style.display === 'block') {
+                            console.log('Blazor: Connection appears dead, forcing reload...');
+                            forceReload();
+                        }
+                    }, 5000);
+                }
+            });
+
+            // Handle online/offline events
+            window.addEventListener('online', () => {
+                console.log('Blazor: Network is back online');
+                if (isReconnecting) {
+                    // Will automatically continue reconnection attempts
+                } else if (document.getElementById('reload-prompt')) {
+                    forceReload();
+                }
+            });
+
+            window.addEventListener('offline', () => {
+                console.log('Blazor: Network went offline');
+            });
+
+            // Handle page show event (for back/forward cache)
+            window.addEventListener('pageshow', (event) => {
+                if (event.persisted) {
+                    console.log('Blazor: Page restored from bfcache, reloading...');
+                    forceReload();
+                }
+            });
+        })();
     </script>
 </body>
 
