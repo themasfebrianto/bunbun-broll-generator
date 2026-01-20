@@ -639,6 +639,8 @@
                     {
                         Id = sent.Id,
                         Text = sent.Text,
+                        // Restore KeywordSet from database
+                        KeywordSet = sent.GetKeywordSet(),
                         Status = SentenceStatus.PreviewReady
                     };
                     if (!string.IsNullOrEmpty(sent.VideoUrl))
