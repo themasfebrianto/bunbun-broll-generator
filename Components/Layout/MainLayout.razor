@@ -4,12 +4,15 @@
 <AuthGuard>
     <div class="min-h-screen flex flex-col">
         <header class="app-header">
-            <div class="header-content">
-                <div class="flex items-center gap-4">
-                    <button class="md:hidden relative z-50 flex items-center justify-center p-2 -ml-2 text-muted-foreground hover:text-foreground cursor-pointer"
+            <div class="header-content flex items-center justify-between">
+                <!-- Left section: Logo + Hamburger -->
+                <div class="flex items-center gap-2 flex-1">
+                    <button class="md:hidden flex items-center justify-center w-10 h-10 -ml-2 text-muted-foreground hover:text-foreground active:scale-95 transition-transform"
                             @onclick="ToggleMobileMenu"
-                            type="button">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            @onclick:stopPropagation
+                            type="button"
+                            aria-label="Toggle menu">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             @if (_mobileMenuOpen)
                             {
                                 <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -32,6 +35,7 @@
                     </a>
                 </div>
 
+                <!-- Right section: Nav + Actions -->
                 <div class="flex items-center gap-2 md:gap-4">
                     <nav class="hidden md:flex items-center gap-6 text-sm">
                         <a href="/" class="nav-link @(IsActive("/") ? "active" : "")">Generator</a>
