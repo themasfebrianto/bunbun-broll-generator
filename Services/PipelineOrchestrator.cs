@@ -439,11 +439,30 @@ public class PipelineOrchestrator : IPipelineOrchestrator
         RaiseSentenceProgress(job, segment, sentence, $"Re-searching: {string.Join(", ", sentence.Keywords.Take(2))}...");
 
         var targetDuration = (int)Math.Ceiling(sentence.EstimatedDurationSeconds);
-        
+        var (minDuration, maxDuration) = CompositeAssetBroker.CalculateAdaptiveDurationRange(targetDuration);
+
+        _logger.LogDebug("Adaptive duration range: {Min}-{Max}s (target: {Target}s)",
+            minDuration, maxDuration, targetDuration);
+
         var assets = await _assetBroker.SearchVideosAsync(
-            sentence.Keywords, 
+            sentence.Keywords,
             maxResults: 6,
+            minDuration: minDuration,
+            maxDuration: maxDuration,
             cancellationToken: cancellationToken);
+
+        if (assets.Count == 0)
+        {
+            _logger.LogDebug("No results with adaptive range, trying wider fallback");
+
+            // Fallback: Use very wide range
+            assets = await _assetBroker.SearchVideosAsync(
+                sentence.Keywords,
+                maxResults: 6,
+                minDuration: Math.Max(3, targetDuration - 10),
+                maxDuration: targetDuration + 30,
+                cancellationToken: cancellationToken);
+        }
 
         if (assets.Count == 0)
         {
