@@ -157,6 +157,10 @@ public class PromptBuilder
         {
             parts.Add($"\nNOTE: Saat memulai script ini (karena ini Fase 1), WAJIB menyapa pemirsa dengan menyebutkan nama channel \"{context.Config.ChannelName}\".");
         }
+        else if (!phase.IsFirstPhase)
+        {
+            parts.Add("\n⛔ DILARANG: JANGAN ulangi salam pembuka (Assalamualaikum/Bismillah) atau menyebutkan nama channel lagi di fase ini. Salam pembuka sudah ada di fase pertama. Langsung mulai dengan kalimat jembatan/transisi ke konten baru.");
+        }
 
         if (phase.IsFinalPhase)
         {

@@ -1754,7 +1754,12 @@
             }
 
             _brollPromptItems = await IntelligenceService.ClassifyAndGeneratePromptsAsync(
-                segments, _resultSession.Topic);
+                segments, _resultSession.Topic,
+                onBatchComplete: batchResults =>
+                {
+                    _brollPromptItems = batchResults.OrderBy(r => r.Index).ToList();
+                    InvokeAsync(StateHasChanged);
+                });
         }
         catch (Exception ex)
         {

@@ -745,6 +745,9 @@ RULES:
                         _logger.LogWarning("ClassifyBroll batch {Batch} JSON parse failed: {Error}", batchIdx + 1, ex.Message);
                     }
                 }
+
+                // Notify caller with current results so far
+                onBatchComplete?.Invoke(results);
             }
             catch (Exception ex)
             {
@@ -768,6 +771,9 @@ RULES:
                         });
                     }
                 }
+
+                // Notify caller with current results (including fallbacks)
+                onBatchComplete?.Invoke(results);
             }
         }
 
