@@ -50,6 +50,7 @@ public interface IIntelligenceService
     Task<List<BrollPromptItem>> ClassifyAndGeneratePromptsAsync(
         List<(string Timestamp, string ScriptText)> segments,
         string topic,
+        Action<List<BrollPromptItem>>? onBatchComplete = null,
         CancellationToken cancellationToken = default);
 }
 
@@ -589,20 +590,22 @@ IMPORTANT: When user specifies a Visual Style, weave those terms into PRIMARY, M
     /// <summary>
     /// Classify script segments as B-Roll video or AI Image Generation (Whisk),
     /// and generate appropriate prompts for each.
+    /// Processes in batches of 10 segments to avoid LLM timeouts.
     /// </summary>
     public async Task<List<BrollPromptItem>> ClassifyAndGeneratePromptsAsync(
         List<(string Timestamp, string ScriptText)> segments,
         string topic,
+        Action<List<BrollPromptItem>>? onBatchComplete = null,
         CancellationToken cancellationToken = default)
     {
         var results = new List<BrollPromptItem>();
         if (segments.Count == 0) return results;
 
         var stopwatch = Stopwatch.StartNew();
+        const int batchSize = 10;
 
-        try
-        {
-            var classifySystemPrompt = @"You are a visual content classifier for Islamic video essays. Your job is to analyze script segments and decide the best visual approach for each.
+        // Build the system prompt once (reused across all batches)
+        var classifySystemPrompt = $@"You are a visual content classifier for Islamic video essays. Your job is to analyze script segments and decide the best visual approach for each.
 
 For each segment, classify as:
 1. **BROLL** - Use stock footage (Pexels/Pixabay) when the content depicts:
@@ -620,135 +623,158 @@ For each segment, classify as:
    - Scenes that stock footage cannot realistically portray
    - Specific artistic scenes needing cultural/historical accuracy
 
+{EraLibrary.GetEraSelectionInstructions()}
+
+CHARACTER RULES (ISLAMIC SYAR'I):
+{Models.CharacterRules.GENDER_RULES}
+
+{Models.CharacterRules.PROPHET_RULES}
+
+LOCKED VISUAL STYLE (REQUIRED FOR ALL IMAGE_GEN PROMPTS):
+{Models.ImageVisualStyle.BASE_STYLE_SUFFIX}
+
 For BROLL segments: Generate a concise English search query for stock footage (2-5 words).
-For IMAGE_GEN segments: Generate a Whisk-style prompt with:
-  - Visual: [Era prefix] [Scene description with setting, action, lighting, atmosphere]
-  - Style: Semi-realistic academic painting, dramatic lighting, visible brushstrokes
-  - If prophets: face veiled in divine light, facial features not visible
-  - Female characters: syar'i dress (hijab, modest clothing)
+For IMAGE_GEN segments: Generate a detailed Whisk-style prompt following this structure:
+  [ERA PREFIX] [Detailed scene description: setting, action, lighting, atmosphere, characters]{{LOCKED_STYLE}}
+  - Start with one era prefix from the list above
+  - Include character descriptions with syar'i dress for females
+  - If prophets appear: add 'face completely veiled in soft white-golden divine light, facial features not visible'
+  - End with style suffix: '{Models.ImageVisualStyle.BASE_STYLE_SUFFIX}'
 
 RESPOND WITH JSON ONLY (no markdown):
 [
-  {
+  {{
     ""index"": 0,
     ""mediaType"": ""BROLL"" or ""IMAGE_GEN"",
     ""prompt"": ""the generated prompt"",
     ""reasoning"": ""brief reason for classification (in Bahasa Indonesia)""  
-  }
+  }}
 ]
 
 RULES:
 - Translate all prompts to English
 - For BROLL: Keep prompts short (2-5 words), focused on searchable stock footage terms
-- For IMAGE_GEN: Include era context, detailed scene, art style notes
+- For IMAGE_GEN: Include era prefix, detailed scene, locked style suffix
 - Never depict prophet faces
 - Avoid sensitive/haram visual triggers";
 
-            var userPrompt = new System.Text.StringBuilder();
-            userPrompt.AppendLine($"Topic: {topic}");
-            userPrompt.AppendLine();
-            userPrompt.AppendLine("SEGMENTS:");
-            for (int i = 0; i < segments.Count; i++)
-            {
-                userPrompt.AppendLine($"[{i}] {segments[i].Timestamp} {segments[i].ScriptText}");
-            }
+        // Process in batches
+        var totalBatches = (int)Math.Ceiling((double)segments.Count / batchSize);
+        _logger.LogInformation("ClassifyBroll: Processing {Count} segments in {Batches} batches for topic '{Topic}'",
+            segments.Count, totalBatches, topic);
 
-            var request = new GeminiChatRequest
+        for (int batchIdx = 0; batchIdx < totalBatches; batchIdx++)
+        {
+            var batchStart = batchIdx * batchSize;
+            var batchSegments = segments.Skip(batchStart).Take(batchSize).ToList();
+
+            _logger.LogDebug("ClassifyBroll: Batch {Batch}/{Total} — segments {Start}-{End}",
+                batchIdx + 1, totalBatches, batchStart, batchStart + batchSegments.Count - 1);
+
+            try
             {
-                Model = _settings.Model,
-                Messages = new List<GeminiMessage>
+                var userPrompt = new System.Text.StringBuilder();
+                userPrompt.AppendLine($"Topic: {topic}");
+                userPrompt.AppendLine();
+                userPrompt.AppendLine("SEGMENTS:");
+                for (int i = 0; i < batchSegments.Count; i++)
                 {
-                    new() { Role = "system", Content = classifySystemPrompt },
-                    new() { Role = "user", Content = userPrompt.ToString() }
-                },
-                Temperature = 0.4,
-                MaxTokens = Math.Min(segments.Count * 200, 8000)
-            };
+                    userPrompt.AppendLine($"[{i}] {batchSegments[i].Timestamp} {batchSegments[i].ScriptText}");
+                }
 
-            _logger.LogDebug("ClassifyBroll: Classifying {Count} segments for topic '{Topic}'", segments.Count, topic);
-
-            var response = await _httpClient.PostAsJsonAsync(
-                "v1/chat/completions",
-                request,
-                cancellationToken);
-
-            response.EnsureSuccessStatusCode();
-
-            var geminiResponse = await response.Content.ReadFromJsonAsync<GeminiChatResponse>(
-                cancellationToken: cancellationToken);
-
-            var rawContent = geminiResponse?.Choices?.FirstOrDefault()?.Message?.Content;
-
-            if (!string.IsNullOrEmpty(rawContent))
-            {
-                var cleanedJson = CleanJsonResponse(rawContent);
-                _logger.LogDebug("ClassifyBroll raw response: {Content}",
-                    rawContent.Length > 300 ? rawContent[..300] + "..." : rawContent);
-
-                try
+                var request = new GeminiChatRequest
                 {
-                    var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                    var parsed = JsonSerializer.Deserialize<List<BrollClassificationResponse>>(cleanedJson, options);
-
-                    if (parsed != null)
+                    Model = _settings.Model,
+                    Messages = new List<GeminiMessage>
                     {
-                        foreach (var item in parsed)
+                        new() { Role = "system", Content = classifySystemPrompt },
+                        new() { Role = "user", Content = userPrompt.ToString() }
+                    },
+                    Temperature = 0.4,
+                    MaxTokens = Math.Min(batchSegments.Count * 200, 4000)
+                };
+
+                var response = await _httpClient.PostAsJsonAsync(
+                    "v1/chat/completions",
+                    request,
+                    cancellationToken);
+
+                response.EnsureSuccessStatusCode();
+
+                var geminiResponse = await response.Content.ReadFromJsonAsync<GeminiChatResponse>(
+                    cancellationToken: cancellationToken);
+
+                var rawContent = geminiResponse?.Choices?.FirstOrDefault()?.Message?.Content;
+
+                if (!string.IsNullOrEmpty(rawContent))
+                {
+                    var cleanedJson = CleanJsonResponse(rawContent);
+                    _logger.LogDebug("ClassifyBroll batch {Batch} response: {Content}",
+                        batchIdx + 1, rawContent.Length > 200 ? rawContent[..200] + "..." : rawContent);
+
+                    try
+                    {
+                        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                        var parsed = JsonSerializer.Deserialize<List<BrollClassificationResponse>>(cleanedJson, options);
+
+                        if (parsed != null)
                         {
-                            var idx = item.Index;
-                            if (idx >= 0 && idx < segments.Count)
+                            foreach (var item in parsed)
                             {
-                                results.Add(new BrollPromptItem
+                                var localIdx = item.Index;
+                                if (localIdx >= 0 && localIdx < batchSegments.Count)
                                 {
-                                    Index = idx,
-                                    Timestamp = segments[idx].Timestamp,
-                                    ScriptText = segments[idx].ScriptText,
-                                    MediaType = item.MediaType?.ToUpperInvariant() == "IMAGE_GEN"
-                                        ? BrollMediaType.ImageGeneration
-                                        : BrollMediaType.BrollVideo,
-                                    Prompt = item.Prompt ?? string.Empty,
-                                    Reasoning = item.Reasoning ?? string.Empty
-                                });
+                                    var globalIdx = batchStart + localIdx;
+                                    results.Add(new BrollPromptItem
+                                    {
+                                        Index = globalIdx,
+                                        Timestamp = segments[globalIdx].Timestamp,
+                                        ScriptText = segments[globalIdx].ScriptText,
+                                        MediaType = item.MediaType?.ToUpperInvariant() == "IMAGE_GEN"
+                                            ? BrollMediaType.ImageGeneration
+                                            : BrollMediaType.BrollVideo,
+                                        Prompt = item.Prompt ?? string.Empty,
+                                        Reasoning = item.Reasoning ?? string.Empty
+                                    });
+                                }
                             }
                         }
                     }
-                }
-                catch (JsonException ex)
-                {
-                    _logger.LogWarning("ClassifyBroll JSON parse failed: {Error}", ex.Message);
-                }
-            }
-
-            // Fill in any missing segments
-            for (int i = 0; i < segments.Count; i++)
-            {
-                if (!results.Any(r => r.Index == i))
-                {
-                    results.Add(new BrollPromptItem
+                    catch (JsonException ex)
                     {
-                        Index = i,
-                        Timestamp = segments[i].Timestamp,
-                        ScriptText = segments[i].ScriptText,
-                        MediaType = BrollMediaType.BrollVideo,
-                        Prompt = "atmospheric cinematic footage",
-                        Reasoning = "Fallback: LLM tidak mengembalikan klasifikasi"
-                    });
+                        _logger.LogWarning("ClassifyBroll batch {Batch} JSON parse failed: {Error}", batchIdx + 1, ex.Message);
+                    }
                 }
             }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "ClassifyBroll batch {Batch} failed, segments {Start}-{End} will use fallback",
+                    batchIdx + 1, batchStart, batchStart + batchSegments.Count - 1);
 
-            results = results.OrderBy(r => r.Index).ToList();
-
-            var brollCount = results.Count(r => r.MediaType == BrollMediaType.BrollVideo);
-            var imageGenCount = results.Count(r => r.MediaType == BrollMediaType.ImageGeneration);
-            _logger.LogInformation(
-                "ClassifyBroll: Classified {Total} segments ({Broll} broll, {ImageGen} image gen) in {Ms}ms",
-                results.Count, brollCount, imageGenCount, stopwatch.ElapsedMilliseconds);
+                // Fallback only for this batch's segments
+                for (int i = 0; i < batchSegments.Count; i++)
+                {
+                    var globalIdx = batchStart + i;
+                    if (!results.Any(r => r.Index == globalIdx))
+                    {
+                        results.Add(new BrollPromptItem
+                        {
+                            Index = globalIdx,
+                            Timestamp = segments[globalIdx].Timestamp,
+                            ScriptText = segments[globalIdx].ScriptText,
+                            MediaType = BrollMediaType.BrollVideo,
+                            Prompt = "atmospheric cinematic footage",
+                            Reasoning = $"Batch {batchIdx + 1} error: {ex.Message}"
+                        });
+                    }
+                }
+            }
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "ClassifyBroll failed for {Count} segments", segments.Count);
 
-            // Return all as broll fallback
-            for (int i = 0; i < segments.Count; i++)
+        // Fill in any missing segments
+        for (int i = 0; i < segments.Count; i++)
+        {
+            if (!results.Any(r => r.Index == i))
             {
                 results.Add(new BrollPromptItem
                 {
@@ -757,10 +783,18 @@ RULES:
                     ScriptText = segments[i].ScriptText,
                     MediaType = BrollMediaType.BrollVideo,
                     Prompt = "atmospheric cinematic footage",
-                    Reasoning = $"Error fallback: {ex.Message}"
+                    Reasoning = "Fallback: LLM tidak mengembalikan klasifikasi"
                 });
             }
         }
+
+        results = results.OrderBy(r => r.Index).ToList();
+
+        var brollCount = results.Count(r => r.MediaType == BrollMediaType.BrollVideo);
+        var imageGenCount = results.Count(r => r.MediaType == BrollMediaType.ImageGeneration);
+        _logger.LogInformation(
+            "ClassifyBroll: Classified {Total} segments ({Broll} broll, {ImageGen} image gen) in {Ms}ms across {Batches} batches",
+            results.Count, brollCount, imageGenCount, stopwatch.ElapsedMilliseconds, totalBatches);
 
         return results;
     }

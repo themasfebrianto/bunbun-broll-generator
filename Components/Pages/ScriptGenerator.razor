@@ -13,6 +13,8 @@
 @inject BackgroundGenerationService BgService
 @inject GenerationEventBus EventBus
 @inject IIntelligenceService IntelligenceService
+@inject IAssetBroker AssetBroker
+@inject WhiskImageGenerator WhiskGenerator
 
 <div class="max-w-[90rem] mx-auto py-20 px-4">
     <div class="space-y-3 mb-10 text-center">
@@ -758,39 +760,214 @@
                         var borderAccent = isBroll ? "border-l-blue-500/40" : "border-l-purple-500/40";
 
                         <div class="card overflow-hidden border-l-4 @borderAccent">
-                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-0">
-                                @* Left: Script Text *@
-                                <div class="p-5 border-b lg:border-b-0 lg:border-r border-border/50">
-                                    <div class="flex items-center gap-2 mb-2">
-                                        <span class="font-mono text-xs text-primary bg-primary/10 px-2 py-0.5 rounded">@item.Timestamp</span>
-                                        <span class="text-[10px] text-muted-foreground">#@(item.Index + 1)</span>
-                                    </div>
-                                    <p class="text-sm leading-relaxed text-foreground/90">@item.ScriptText</p>
-                                </div>
-
-                                @* Right: Prompt Result *@
-                                <div class="p-5 bg-muted/20">
-                                    <div class="flex items-center gap-2 mb-3">
-                                        <span class="px-2.5 py-1 rounded-full text-[11px] font-semibold @badgeBg">@badgeIcon @badgeLabel</span>
-                                    </div>
-                                    <div class="space-y-2">
-                                        <div>
-                                            <span class="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Prompt</span>
-                                            <p class="text-sm mt-0.5 font-mono bg-background/60 rounded-md p-2.5 border border-border/30 whitespace-pre-wrap leading-relaxed">@item.Prompt</p>
+                            @* Top: Script + Badge + Actions *@
+                            <div class="p-5 border-b border-border/50">
+                                <div class="flex items-start justify-between gap-3">
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex items-center gap-2 mb-2">
+                                            <span class="font-mono text-xs text-primary bg-primary/10 px-2 py-0.5 rounded">@item.Timestamp</span>
+                                            <span class="text-[10px] text-muted-foreground">#@(item.Index + 1)</span>
+                                            <span class="px-2.5 py-1 rounded-full text-[11px] font-semibold @badgeBg">@badgeIcon @badgeLabel</span>
                                         </div>
-                                        @if (!string.IsNullOrEmpty(item.Reasoning))
+                                        <p class="text-sm leading-relaxed text-foreground/90">@item.ScriptText</p>
+                                    </div>
+                                    <div class="flex gap-1.5 shrink-0">
+                                        <button class="btn-ghost text-xs px-2 py-1"
+                                                disabled="@(item.IsSearching || item.IsGenerating)"
+                                                title="Regen keywords/prompt"
+                                                @onclick="() => HandleRegenSegmentKeywords(item)">
+                                            🔄
+                                        </button>
+                                        @if (isBroll)
                                         {
-                                            <div>
-                                                <span class="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Alasan</span>
-                                                <p class="text-xs text-muted-foreground mt-0.5 italic">@item.Reasoning</p>
-                                            </div>
+                                            <button class="btn-ghost text-xs px-2 py-1"
+                                                    disabled="@(item.IsSearching)"
+                                                    title="Search ulang"
+                                                    @onclick="() => HandleSearchSingleSegment(item)">
+                                                🔍
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <button class="btn-ghost text-xs px-2 py-1"
+                                                    disabled="@(item.IsGenerating || item.WhiskStatus == WhiskGenerationStatus.Done)"
+                                                    title="Generate image (Whisk)"
+                                                    @onclick="() => HandleGenerateSingleWhisk(item)">
+                                                🖼️
+                                            </button>
                                         }
                                     </div>
                                 </div>
                             </div>
+
+                            @* Bottom: Prompt + Results *@
+                            <div class="p-5 bg-muted/20">
+                                @* Prompt Display *@
+                                <div class="mb-3">
+                                    <span class="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Prompt</span>
+                                    <p class="text-sm mt-0.5 font-mono bg-background/60 rounded-md p-2.5 border border-border/30 whitespace-pre-wrap leading-relaxed">@item.Prompt</p>
+                                </div>
+                                @if (!string.IsNullOrEmpty(item.Reasoning))
+                                {
+                                    <div class="mb-3">
+                                        <span class="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Alasan</span>
+                                        <p class="text-xs text-muted-foreground mt-0.5 italic">@item.Reasoning</p>
+                                    </div>
+                                }
+
+                                @* === BROLL: Search Results Grid === *@
+                                @if (isBroll)
+                                {
+                                    @if (item.IsSearching)
+                                    {
+                                        <div class="flex items-center gap-2 py-4 text-muted-foreground text-sm">
+                                            <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            <span>Mencari video...</span>
+                                        </div>
+                                    }
+                                    else if (!string.IsNullOrEmpty(item.SearchError))
+                                    {
+                                        <div class="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-destructive text-xs mt-2">@item.SearchError</div>
+                                    }
+                                    else if (item.SearchResults.Count > 0)
+                                    {
+                                        <div class="mt-2">
+                                            <span class="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Hasil Pencarian (@item.SearchResults.Count video)</span>
+                                            <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mt-1.5">
+                                                @foreach (var video in item.SearchResults)
+                                                {
+                                                    <div class="group relative rounded-lg overflow-hidden border border-border/30 bg-background/40 hover:border-primary/50 transition-colors">
+                                                        <div class="aspect-video relative">
+                                                            @if (!string.IsNullOrEmpty(video.ThumbnailUrl))
+                                                            {
+                                                                <img src="@video.ThumbnailUrl" alt="@video.Title" class="w-full h-full object-cover" loading="lazy" />
+                                                            }
+                                                            else
+                                                            {
+                                                                <div class="w-full h-full bg-muted/30 flex items-center justify-center text-muted-foreground text-xs">No thumbnail</div>
+                                                            }
+                                                            <div class="absolute bottom-1 right-1 bg-black/70 text-white text-[9px] px-1.5 py-0.5 rounded font-mono">@(video.DurationSeconds)s</div>
+                                                            <div class="absolute top-1 left-1 bg-black/60 text-white text-[9px] px-1.5 py-0.5 rounded">@video.Provider</div>
+                                                        </div>
+                                                        @if (!string.IsNullOrEmpty(video.Quality))
+                                                        {
+                                                            <div class="px-2 py-1 text-[10px] text-muted-foreground truncate">@video.Quality · @(video.Width)×@(video.Height)</div>
+                                                        }
+                                                    </div>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
+                                }
+
+                                @* === IMAGE_GEN: Whisk Status === *@
+                                @if (!isBroll)
+                                {
+                                    <div class="mt-2">
+                                        @if (item.WhiskStatus == WhiskGenerationStatus.Pending)
+                                        {
+                                            <div class="flex items-center gap-2 py-2 px-3 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs">
+                                                <span>⏳</span>
+                                                <span>Menunggu — klik 🖼️ atau "Generate All" untuk membuat gambar</span>
+                                            </div>
+                                        }
+                                        else if (item.WhiskStatus == WhiskGenerationStatus.Generating)
+                                        {
+                                            <div class="flex items-center gap-2 py-2 px-3 rounded-md bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs">
+                                                <svg class="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                </svg>
+                                                <span>Generating via Whisk...</span>
+                                            </div>
+                                        }
+                                        else if (item.WhiskStatus == WhiskGenerationStatus.Done && !string.IsNullOrEmpty(item.WhiskImagePath))
+                                        {
+                                            <div class="space-y-2">
+                                                <div class="flex items-center gap-2 py-1 text-emerald-400 text-xs font-medium">
+                                                    <span>✅ Generated</span>
+                                                </div>
+                                                @if (System.IO.File.Exists(item.WhiskImagePath))
+                                                {
+                                                    <div class="rounded-lg overflow-hidden border border-border/30 max-w-sm">
+                                                        @{
+                                                            var imgBytes = System.IO.File.ReadAllBytes(item.WhiskImagePath!);
+                                                            var ext = System.IO.Path.GetExtension(item.WhiskImagePath).TrimStart('.').ToLower();
+                                                            var mime = ext == "png" ? "image/png" : ext == "webp" ? "image/webp" : "image/jpeg";
+                                                            var b64 = Convert.ToBase64String(imgBytes);
+                                                        }
+                                                        <img src="data:@(mime);base64,@b64" alt="Generated image" class="w-full h-auto" />
+                                                    </div>
+                                                }
+                                                else
+                                                {
+                                                    <div class="text-xs text-yellow-500">⚠️ File not found</div>
+                                                }
+                                                <div class="text-[10px] text-muted-foreground font-mono truncate">@item.WhiskImagePath</div>
+                                            </div>
+                                        }
+                                        else if (item.WhiskStatus == WhiskGenerationStatus.Failed)
+                                        {
+                                            <div class="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-destructive text-xs">
+                                                ❌ Gagal: @item.WhiskError
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            </div>
                         </div>
                     }
                 </div>
+
+                {
+                    var imageGenCount = _brollPromptItems.Count(i => i.MediaType == BrollMediaType.ImageGeneration);
+                    var pendingCount = _brollPromptItems.Count(i => i.MediaType == BrollMediaType.ImageGeneration && i.WhiskStatus != WhiskGenerationStatus.Done);
+                    var doneCount = _brollPromptItems.Count(i => i.MediaType == BrollMediaType.ImageGeneration && i.WhiskStatus == WhiskGenerationStatus.Done);
+
+                    if (imageGenCount > 0)
+                    {
+                        <div class="card p-5">
+                            <div class="flex items-center justify-between gap-4">
+                                <div>
+                                    <h3 class="text-sm font-semibold">Phase 2: Whisk Image Generation</h3>
+                                    <p class="text-xs text-muted-foreground mt-0.5">
+                                        @doneCount / @imageGenCount generated
+                                        @if (pendingCount > 0)
+                                        {
+                                            <span> · @pendingCount pending</span>
+                                        }
+                                    </p>
+                                    @if (_isGeneratingWhisk)
+                                    {
+                                        <div class="w-full bg-muted/30 rounded-full h-1.5 mt-2 max-w-xs">
+                                            <div class="bg-purple-500 h-1.5 rounded-full transition-all duration-300" 
+                                                 style="width: @(_whiskTotalCount > 0 ? (int)((double)_whiskGeneratedCount / _whiskTotalCount * 100) : 0)%"></div>
+                                        </div>
+                                    }
+                                </div>
+                                <button class="btn-primary text-sm px-5 py-2.5 flex items-center gap-2"
+                                        disabled="@(_isGeneratingWhisk || pendingCount == 0)"
+                                        @onclick="HandleGenerateAllWhiskImages">
+                                    @if (_isGeneratingWhisk)
+                                    {
+                                        <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        <span>Generating @_whiskGeneratedCount/@_whiskTotalCount...</span>
+                                    }
+                                    else
+                                    {
+                                        <span>🎨 Generate All Images (@pendingCount)</span>
+                                    }
+                                </button>
+                            </div>
+                        </div>
+                    }
+                }
             }
         </div>
     }
@@ -951,6 +1128,10 @@
     private List<BrollPromptItem> _brollPromptItems = new();
     private bool _isClassifyingBroll;
     private string? _classifyError;
+    private bool _isSearchingBroll; // Phase 1: auto-search all broll segments
+    private bool _isGeneratingWhisk; // Phase 2: generate all Whisk images
+    private int _whiskGeneratedCount;
+    private int _whiskTotalCount;
 
     // Delete
     private bool _showDeleteConfirm;
@@ -1012,6 +1193,7 @@
                 if (QueryView == "broll-prompts")
                 {
                     _currentView = "broll-prompts";
+                    await LoadBrollPromptsFromDisk();
                 }
                 else
                 {
@@ -1583,6 +1765,15 @@
             _isClassifyingBroll = false;
             StateHasChanged();
         }
+
+        // Save classification results to disk
+        await SaveBrollPromptsToDisk();
+
+        // Phase 1: Auto-search broll videos for all BROLL segments
+        if (_brollPromptItems.Any(i => i.MediaType == BrollMediaType.BrollVideo))
+        {
+            await SearchBrollForAllSegmentsAsync();
+        }
     }
 
     private void HandleBackToResults() { _currentView = "results"; _classifyError = null; }
@@ -1590,6 +1781,280 @@
     private async Task HandleReclassifyBroll()
     {
         await HandleSendToBroll();
+    }
+
+    // ===== Phase 1: Broll Search =====
+
+    private async Task SearchBrollForAllSegmentsAsync()
+    {
+        _isSearchingBroll = true;
+        StateHasChanged();
+
+        var brollItems = _brollPromptItems.Where(i => i.MediaType == BrollMediaType.BrollVideo).ToList();
+        foreach (var item in brollItems)
+        {
+            await SearchBrollForSegmentAsync(item);
+            StateHasChanged();
+        }
+
+        _isSearchingBroll = false;
+        StateHasChanged();
+    }
+
+    private async Task SearchBrollForSegmentAsync(BrollPromptItem item)
+    {
+        item.IsSearching = true;
+        item.SearchError = null;
+        item.SearchResults.Clear();
+
+        try
+        {
+            var keywords = item.Prompt.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var results = await AssetBroker.SearchVideosAsync(keywords, maxResults: 4);
+            item.SearchResults = results;
+        }
+        catch (Exception ex)
+        {
+            item.SearchError = $"Search gagal: {ex.Message}";
+        }
+        finally
+        {
+            item.IsSearching = false;
+        }
+    }
+
+    private async Task HandleSearchSingleSegment(BrollPromptItem item)
+    {
+        await SearchBrollForSegmentAsync(item);
+        StateHasChanged();
+    }
+
+    private async Task HandleRegenSegmentKeywords(BrollPromptItem item)
+    {
+        if (_resultSession == null) return;
+
+        item.IsSearching = true;
+        StateHasChanged();
+
+        try
+        {
+            // Re-classify just this one segment
+            var singleResult = await IntelligenceService.ClassifyAndGeneratePromptsAsync(
+                new List<(string, string)> { (item.Timestamp, item.ScriptText) },
+                _resultSession.Topic);
+
+            if (singleResult.Count > 0)
+            {
+                item.MediaType = singleResult[0].MediaType;
+                item.Prompt = singleResult[0].Prompt;
+                item.Reasoning = singleResult[0].Reasoning;
+            }
+
+            // Re-search if still broll
+            if (item.MediaType == BrollMediaType.BrollVideo)
+            {
+                await SearchBrollForSegmentAsync(item);
+            }
+        }
+        catch (Exception ex)
+        {
+            item.SearchError = $"Regen gagal: {ex.Message}";
+        }
+        finally
+        {
+            item.IsSearching = false;
+            StateHasChanged();
+        }
+    }
+
+    // ===== Phase 2: Whisk Image Generation =====
+
+    private async Task HandleGenerateAllWhiskImages()
+    {
+        var imageGenItems = _brollPromptItems
+            .Where(i => i.MediaType == BrollMediaType.ImageGeneration && i.WhiskStatus != WhiskGenerationStatus.Done)
+            .ToList();
+
+        if (imageGenItems.Count == 0) return;
+
+        _isGeneratingWhisk = true;
+        _whiskTotalCount = imageGenItems.Count;
+        _whiskGeneratedCount = 0;
+        StateHasChanged();
+
+        var outputDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+            "BunbunBroll", "WhiskImages", _sessionId ?? "unknown");
+        Directory.CreateDirectory(outputDir);
+
+        foreach (var item in imageGenItems)
+        {
+            item.WhiskStatus = WhiskGenerationStatus.Generating;
+            item.IsGenerating = true;
+            item.WhiskError = null;
+            StateHasChanged();
+
+            try
+            {
+                var result = await WhiskGenerator.GenerateImageAsync(item.Prompt, outputDir);
+                if (result.Success)
+                {
+                    item.WhiskStatus = WhiskGenerationStatus.Done;
+                    item.WhiskImagePath = result.ImagePath;
+                }
+                else
+                {
+                    item.WhiskStatus = WhiskGenerationStatus.Failed;
+                    item.WhiskError = result.Error ?? "Unknown error";
+                }
+            }
+            catch (Exception ex)
+            {
+                item.WhiskStatus = WhiskGenerationStatus.Failed;
+                item.WhiskError = ex.Message;
+            }
+            finally
+            {
+                item.IsGenerating = false;
+                _whiskGeneratedCount++;
+                StateHasChanged();
+            }
+        }
+
+        _isGeneratingWhisk = false;
+        await SaveBrollPromptsToDisk();
+        StateHasChanged();
+    }
+
+    private async Task HandleGenerateSingleWhisk(BrollPromptItem item)
+    {
+        item.WhiskStatus = WhiskGenerationStatus.Generating;
+        item.IsGenerating = true;
+        item.WhiskError = null;
+        StateHasChanged();
+
+        try
+        {
+            var outputDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                "BunbunBroll", "WhiskImages", _sessionId ?? "unknown");
+            Directory.CreateDirectory(outputDir);
+
+            var result = await WhiskGenerator.GenerateImageAsync(item.Prompt, outputDir);
+            if (result.Success)
+            {
+                item.WhiskStatus = WhiskGenerationStatus.Done;
+                item.WhiskImagePath = result.ImagePath;
+            }
+            else
+            {
+                item.WhiskStatus = WhiskGenerationStatus.Failed;
+                item.WhiskError = result.Error ?? "Unknown error";
+            }
+        }
+        catch (Exception ex)
+        {
+            item.WhiskStatus = WhiskGenerationStatus.Failed;
+            item.WhiskError = ex.Message;
+        }
+        finally
+        {
+            item.IsGenerating = false;
+            await SaveBrollPromptsToDisk();
+            StateHasChanged();
+        }
+    }
+
+    // ===== Broll Prompts Persistence =====
+
+    private string? GetBrollPromptsFilePath()
+    {
+        if (_resultSession == null || string.IsNullOrEmpty(_resultSession.OutputDirectory)) return null;
+        return Path.Combine(_resultSession.OutputDirectory, "broll-prompts.json");
+    }
+
+    private async Task SaveBrollPromptsToDisk()
+    {
+        var filePath = GetBrollPromptsFilePath();
+        if (filePath == null || _brollPromptItems.Count == 0) return;
+
+        try
+        {
+            // Serialize only the classification data and Whisk status (not transient search results)
+            var saveData = _brollPromptItems.Select(i => new BrollPromptSaveItem
+            {
+                Index = i.Index,
+                Timestamp = i.Timestamp,
+                ScriptText = i.ScriptText,
+                MediaType = i.MediaType,
+                Prompt = i.Prompt,
+                Reasoning = i.Reasoning,
+                WhiskStatus = i.WhiskStatus,
+                WhiskImagePath = i.WhiskImagePath,
+                WhiskError = i.WhiskError
+            }).ToList();
+
+            var json = System.Text.Json.JsonSerializer.Serialize(saveData, new System.Text.Json.JsonSerializerOptions
+            {
+                WriteIndented = true,
+                Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+            });
+            await File.WriteAllTextAsync(filePath, json);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Failed to save broll prompts: {ex.Message}");
+        }
+    }
+
+    private async Task LoadBrollPromptsFromDisk()
+    {
+        var filePath = GetBrollPromptsFilePath();
+        if (filePath == null || !File.Exists(filePath)) return;
+
+        try
+        {
+            var json = await File.ReadAllTextAsync(filePath);
+            var saveItems = System.Text.Json.JsonSerializer.Deserialize<List<BrollPromptSaveItem>>(json, new System.Text.Json.JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true,
+                Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+            });
+
+            if (saveItems != null)
+            {
+                _brollPromptItems = saveItems.Select(s => new BrollPromptItem
+                {
+                    Index = s.Index,
+                    Timestamp = s.Timestamp,
+                    ScriptText = s.ScriptText,
+                    MediaType = s.MediaType,
+                    Prompt = s.Prompt,
+                    Reasoning = s.Reasoning,
+                    WhiskStatus = s.WhiskStatus,
+                    WhiskImagePath = s.WhiskImagePath,
+                    WhiskError = s.WhiskError
+                }).ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Failed to load broll prompts: {ex.Message}");
+        }
+    }
+
+    /// <summary>Lightweight DTO for JSON persistence (excludes transient VideoAsset search results)</summary>
+    private class BrollPromptSaveItem
+    {
+        public int Index { get; set; }
+        public string Timestamp { get; set; } = "";
+        public string ScriptText { get; set; } = "";
+        public BrollMediaType MediaType { get; set; }
+        public string Prompt { get; set; } = "";
+        public string Reasoning { get; set; } = "";
+        public WhiskGenerationStatus WhiskStatus { get; set; }
+        public string? WhiskImagePath { get; set; }
+        public string? WhiskError { get; set; }
     }
 
     // ===== Export LRC =====
