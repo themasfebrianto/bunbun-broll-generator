@@ -212,6 +212,40 @@ public class ScriptOrchestrator : IScriptOrchestrator
         // Create PhaseCoordinator (ScriptFlow's architecture)
         var coordinator = new PhaseCoordinator(_intelligenceService, _logger);
 
+        // Distribute outline across phases if provided
+        if (!string.IsNullOrWhiteSpace(context.Config.Outline))
+        {
+            OnSessionProgress?.Invoke(this, new SessionProgressEventArgs
+            {
+                SessionId = session.Id,
+                Status = "Planning",
+                CompletedPhases = 0,
+                TotalPhases = orderedPhases.Count,
+                Message = "📋 Mendistribusikan outline ke setiap fase..."
+            });
+
+            var outlinePlanner = new OutlinePlanner(_intelligenceService, _logger);
+            var distribution = await outlinePlanner.DistributeAsync(
+                context.Config.Outline,
+                orderedPhases,
+                context.Config.Topic);
+
+            if (distribution.Count > 0)
+            {
+                context.SetSharedData("outlineDistribution", distribution);
+                _logger.LogInformation("Outline distributed across {Count} phases", distribution.Count);
+
+                OnSessionProgress?.Invoke(this, new SessionProgressEventArgs
+                {
+                    SessionId = session.Id,
+                    Status = "Planning",
+                    CompletedPhases = 0,
+                    TotalPhases = orderedPhases.Count,
+                    Message = $"✅ Outline terdistribusi ke {distribution.Count} fase"
+                });
+            }
+        }
+
         // Update session status
         session.Status = SessionStatus.Running;
         session.UpdatedAt = DateTime.UtcNow;
@@ -412,6 +446,22 @@ public class ScriptOrchestrator : IScriptOrchestrator
         }
 
         var coordinator = new PhaseCoordinator(_intelligenceService, _logger);
+
+        // Distribute outline if provided (so regenerated phase gets its outline points)
+        if (!string.IsNullOrWhiteSpace(context.Config.Outline))
+        {
+            var outlinePlanner = new OutlinePlanner(_intelligenceService, _logger);
+            var distribution = await outlinePlanner.DistributeAsync(
+                context.Config.Outline,
+                orderedPhases,
+                context.Config.Topic);
+
+            if (distribution.Count > 0)
+            {
+                context.SetSharedData("outlineDistribution", distribution);
+            }
+        }
+
         var generatedPhase = await coordinator.ExecutePhaseAsync(phaseDef, context);
 
         // Save content to file

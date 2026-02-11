@@ -7,6 +7,7 @@
 @inject IScriptOrchestrator Orchestrator
 @inject IConfiguration Configuration
 @inject NavigationManager Navigation
+@inject ConfigBatchGenerator BatchGenerator
 
 <div class="max-w-[90rem] mx-auto py-20 px-4">
     <div class="space-y-3 mb-10 text-center">
@@ -18,9 +19,15 @@
     @if (_currentView == "list")
     {
         <div class="max-w-[52rem] mx-auto space-y-4">
-            <div class="flex justify-end">
-                <button class="btn-primary" @onclick="ShowConfigForm">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div class="flex justify-end gap-3">
+                <button class="btn-secondary flex items-center gap-2" @onclick="ShowBatchForm">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    </svg>
+                    Batch Generate
+                </button>
+                <button class="btn-primary flex items-center gap-2" @onclick="ShowConfigForm">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                     </svg>
                     Buat Script Baru
@@ -206,6 +213,15 @@
                     <span class="badge badge-mono">@_sessionId</span>
                 </div>
                 <p class="text-sm text-muted-foreground">@_progressMessage</p>
+                @if (!string.IsNullOrWhiteSpace(_outline))
+                {
+                    <div class="flex items-center gap-1.5 mt-1">
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-500/15 text-blue-400">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                            Outline aktif — didistribusikan per fase
+                        </span>
+                    </div>
+                }
             </div>
             <div class="space-y-2">
                 <div class="h-2 rounded-full bg-muted overflow-hidden">
@@ -249,6 +265,135 @@
             @if (!string.IsNullOrEmpty(_errorMessage))
             {
                 <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-destructive text-sm">@_errorMessage</div>
+            }
+        </div>
+    }
+
+    @* ============ VIEW: Batch Gen-Configs ============ *@
+    @if (_currentView == "batch")
+    {
+        <div class="max-w-[52rem] mx-auto space-y-6">
+            <div class="card p-6 space-y-5">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-lg font-bold">Batch Generate Configs</h2>
+                    <button class="btn-ghost text-sm" @onclick="HandleBackToList">← Kembali</button>
+                </div>
+                <p class="text-sm text-muted-foreground">Generate beberapa config sekaligus berdasarkan tema menggunakan AI.</p>
+
+                @* Theme *@
+                <div>
+                    <label class="block text-xs font-medium text-muted-foreground mb-1.5">Tema *</label>
+                    <input type="text" class="input w-full" placeholder="e.g. eschatology, sahabat, ekonomi, nabi" @bind="_batchTheme" />
+                </div>
+
+                @* Channel *@
+                <div>
+                    <label class="block text-xs font-medium text-muted-foreground mb-1.5">Channel *</label>
+                    @if (_channelNames.Count > 0)
+                    {
+                        <select class="input w-full" @bind="_batchChannelName">
+                            <option value="">Pilih channel...</option>
+                            @foreach (var ch in _channelNames)
+                            {
+                                <option value="@ch">@ch</option>
+                            }
+                        </select>
+                    }
+                    else
+                    {
+                        <input type="text" class="input w-full" placeholder="Nama channel" @bind="_batchChannelName" />
+                    }
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    @* Count *@
+                    <div>
+                        <label class="block text-xs font-medium text-muted-foreground mb-1.5">Jumlah Config</label>
+                        <input type="number" class="input w-full" min="1" max="20" @bind="_batchCount" />
+                    </div>
+                    @* Pattern *@
+                    <div>
+                        <label class="block text-xs font-medium text-muted-foreground mb-1.5">Pattern</label>
+                        <select class="input w-full" @bind="_batchPatternId">
+                            @foreach (var p in _availablePatterns)
+                            {
+                                <option value="@p.Id">@p.Name</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+
+                @* Seed (optional) *@
+                <div>
+                    <label class="block text-xs font-medium text-muted-foreground mb-1.5">Seed / Instruksi Tambahan <span class="text-muted-foreground/60">(opsional)</span></label>
+                    <textarea class="input w-full" rows="2" placeholder="e.g. gunakan angle dari sisi budaya indonesia" @bind="_batchSeed"></textarea>
+                </div>
+
+                @if (!string.IsNullOrEmpty(_batchError))
+                {
+                    <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-destructive text-sm">@_batchError</div>
+                }
+
+                <button class="btn-primary w-full" 
+                        disabled="@(!CanBatchGenerate)"
+                        @onclick="HandleBatchGenerate">
+                    @if (_isBatchGenerating)
+                    {
+                        <svg class="animate-spin h-4 w-4 mr-2 inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>Generating @_batchCount configs...</span>
+                    }
+                    else
+                    {
+                        <span>🚀 Generate @_batchCount Configs</span>
+                    }
+                </button>
+            </div>
+
+            @* === Batch Results === *@
+            @if (_batchResults.Count > 0)
+            {
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-base font-semibold">Hasil: @_batchResults.Count configs</h3>
+                        <button class="btn-ghost text-xs" @onclick="HandleUseAllConfigs">Gunakan Semua →</button>
+                    </div>
+                    @foreach (var (config, idx) in _batchResults.Select((c, i) => (c, i)))
+                    {
+                        <div class="card p-4 hover:border-primary/40 transition-colors">
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="space-y-1.5 min-w-0 flex-1">
+                                    <div class="flex items-center gap-2">
+                                        <span class="flex items-center justify-center w-6 h-6 rounded-full bg-primary/15 text-primary text-xs font-bold">@(idx + 1)</span>
+                                        <h4 class="font-semibold text-sm truncate">@config.Topic</h4>
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(config.Outline))
+                                    {
+                                        <p class="text-xs text-muted-foreground line-clamp-2 ml-8">@config.Outline</p>
+                                    }
+                                    <div class="flex items-center gap-3 text-[11px] text-muted-foreground ml-8">
+                                        <span>~@config.TargetDurationMinutes menit</span>
+                                        @if (config.MustHaveBeats?.Count > 0)
+                                        {
+                                            <span>·</span>
+                                            <span>@config.MustHaveBeats.Count beats</span>
+                                        }
+                                        @if (!string.IsNullOrEmpty(config.SourceReferences))
+                                        {
+                                            <span>·</span>
+                                            <span class="truncate max-w-[200px]">@config.SourceReferences</span>
+                                        }
+                                    </div>
+                                </div>
+                                <button class="btn-primary text-xs px-3 py-1.5 flex-shrink-0" @onclick="() => HandleUseConfig(config)">
+                                    Gunakan →
+                                </button>
+                            </div>
+                        </div>
+                    }
+                </div>
             }
         </div>
     }
@@ -323,60 +468,77 @@
                         }
                     </button>
                     <div class="flex-1"></div>
+                    <button class="btn-secondary text-sm flex items-center gap-1.5"
+                            disabled="@(_isExportingLrc)"
+                            @onclick="HandleExportLrc">
+                        @if (_isExportingLrc)
+                        {
+                            <svg class="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span>Exporting...</span>
+                        }
+                        else
+                        {
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                            <span>Export LRC</span>
+                        }
+                    </button>
                     <button class="btn-primary text-sm" @onclick="HandleSendToBroll">Kirim ke B-Roll →</button>
                 </div>
             </div>
 
-            @* Horizontal Scrollable Phase Cards *@
-            <div class="overflow-x-auto pb-4">
-                <div class="flex gap-4" style="min-width: max-content;">
+            @* Horizontal Scrollable Phase Cards — Full Width Script View *@
+            <div class="overflow-x-auto pb-4 -mx-4 px-4">
+                <div class="flex gap-5" style="min-width: max-content;">
                     @foreach (var sec in _resultSections)
                     {
-                        <div class="card overflow-hidden flex-shrink-0" style="width: 480px;">
+                        <div class="card overflow-hidden flex-shrink-0" style="width: 720px;">
                             @* Phase Header *@
-                            <div class="flex items-center justify-between px-5 py-3 border-b border-border/50 bg-muted/30 cursor-pointer"
+                            <div class="flex items-center justify-between px-6 py-4 border-b border-border/50 bg-muted/30 cursor-pointer"
                                  @onclick="() => ToggleSection(sec)">
                                 <div class="flex items-center gap-3">
-                                    <span class="flex items-center justify-center w-7 h-7 rounded-full bg-primary/15 text-primary text-xs font-bold">@sec.Order</span>
+                                    <span class="flex items-center justify-center w-8 h-8 rounded-full bg-primary/15 text-primary text-sm font-bold">@sec.Order</span>
                                     <div>
-                                        <h3 class="font-semibold text-sm">@sec.PhaseName</h3>
-                                        <span class="text-[11px] text-muted-foreground">@sec.WordCount kata · ~@((int)(sec.DurationSeconds / 60)) menit</span>
+                                        <h3 class="font-semibold text-base">@sec.PhaseName</h3>
+                                        <span class="text-xs text-muted-foreground">@sec.WordCount kata · ~@((int)(sec.DurationSeconds / 60)) menit</span>
                                     </div>
                                 </div>
                                 <div class="flex items-center gap-2">
                                     @if (sec.IsValidated)
                                     {
-                                        <span class="text-success text-xs flex items-center gap-1">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                                        <span class="text-success text-sm flex items-center gap-1">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
                                         </span>
                                     }
-                                    <button class="btn-ghost text-xs px-1.5 py-1 flex items-center gap-1"
+                                    <button class="btn-ghost text-xs px-2 py-1.5 flex items-center gap-1"
                                             disabled="@(sec.IsRegenerating)"
                                             @onclick="() => HandleRegeneratePhase(sec)"
                                             @onclick:stopPropagation="true">
                                         @if (sec.IsRegenerating)
                                         {
-                                            <svg class="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <svg class="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                             </svg>
                                         }
                                         else
                                         {
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
                                         }
                                     </button>
-                                    <span class="text-xs text-muted-foreground select-none">
+                                    <span class="text-sm text-muted-foreground select-none">
                                         @(sec.IsExpanded ? "▲" : "▼")
                                     </span>
                                 </div>
                             </div>
 
-                            @* Content — expanded by default *@
+                            @* Content — expanded by default, large readable text *@
                             @if (sec.IsExpanded)
                             {
-                                <div class="px-5 py-4 overflow-y-auto" style="max-height: 60vh;">
-                                    <div class="prose prose-invert max-w-none text-sm whitespace-pre-wrap leading-relaxed">@sec.Content</div>
+                                <div class="px-8 py-6 overflow-y-auto" style="max-height: 75vh;">
+                                    <div class="prose prose-invert prose-lg max-w-none whitespace-pre-wrap leading-[1.9]">@sec.Content</div>
                                 </div>
                             }
                         </div>
@@ -454,10 +616,22 @@
     private int _totalMinutes;
     private int _validatedCount;
     private bool _isRegeneratingAll;
+    private bool _isExportingLrc;
+    private string? _lrcExportPath;
 
     // Delete
     private bool _showDeleteConfirm;
     private ScriptGenerationSession? _deleteTarget;
+
+    // Batch Gen-Configs
+    private string _batchTheme = "";
+    private string _batchChannelName = "";
+    private int _batchCount = 10;
+    private string _batchPatternId = "";
+    private string? _batchSeed;
+    private bool _isBatchGenerating;
+    private string? _batchError;
+    private List<GeneratedConfig> _batchResults = new();
     private bool _isDeleting;
 
     private bool CanGenerate => !string.IsNullOrWhiteSpace(_topic)
@@ -475,7 +649,12 @@
         if (_availablePatterns.Count == 1)
             _selectedPatternId = _availablePatterns[0].Id;
         if (_channelNames.Count == 1)
+        {
             _channelName = _channelNames[0];
+            _batchChannelName = _channelNames[0];
+        }
+        if (_availablePatterns.Count == 1)
+            _batchPatternId = _availablePatterns[0].Id;
     }
 
     private async Task LoadSessionsAsync()
@@ -493,6 +672,57 @@
         _outline = null;
         _sourceReferences = null;
         _errorMessage = null;
+    }
+
+    // ===== Batch Gen-Configs =====
+
+    private void ShowBatchForm()
+    {
+        _currentView = "batch";
+        _batchTheme = "";
+        _batchSeed = null;
+        _batchError = null;
+        _batchResults.Clear();
+    }
+
+    private bool CanBatchGenerate => !string.IsNullOrWhiteSpace(_batchTheme)
+        && !string.IsNullOrWhiteSpace(_batchChannelName)
+        && !_isBatchGenerating;
+
+    private async Task HandleBatchGenerate()
+    {
+        if (!CanBatchGenerate) return;
+        _isBatchGenerating = true;
+        _batchError = null;
+        _batchResults.Clear();
+        StateHasChanged();
+
+        try
+        {
+            var configs = await BatchGenerator.GenerateConfigsAsync(
+                _batchTheme, _batchChannelName, _batchCount, _batchSeed);
+            _batchResults = configs;
+        }
+        catch (Exception ex) { _batchError = $"Gagal: {ex.Message}"; }
+        finally { _isBatchGenerating = false; StateHasChanged(); }
+    }
+
+    private void HandleUseConfig(GeneratedConfig config)
+    {
+        _topic = config.Topic;
+        _outline = config.Outline;
+        _sourceReferences = config.SourceReferences;
+        _targetDuration = config.TargetDurationMinutes;
+        _channelName = config.ChannelName;
+        _selectedPatternId = !string.IsNullOrEmpty(_batchPatternId) ? _batchPatternId : _selectedPatternId;
+        _errorMessage = null;
+        _currentView = "config";
+    }
+
+    private void HandleUseAllConfigs()
+    {
+        if (_batchResults.Count > 0)
+            HandleUseConfig(_batchResults[0]);
     }
 
     // ===== Delete Session =====
@@ -748,6 +978,124 @@
 
     private async Task HandleBackToList() { await LoadSessionsAsync(); _currentView = "list"; _errorMessage = null; }
     private void HandleSendToBroll() { Navigation.NavigateTo("/"); }
+
+    // ===== Export LRC =====
+
+    private async Task HandleExportLrc()
+    {
+        if (_isExportingLrc || _resultSession == null) return;
+        _isExportingLrc = true;
+        _errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            var lrcContent = GenerateLrcContent();
+            var outputDir = _resultSession.OutputDirectory;
+            Directory.CreateDirectory(outputDir);
+            var lrcPath = Path.Combine(outputDir, $"{_resultSession.Id}_SCRIPT.lrc");
+            await File.WriteAllTextAsync(lrcPath, lrcContent);
+            _lrcExportPath = lrcPath;
+            _errorMessage = null;
+        }
+        catch (Exception ex) { _errorMessage = $"Export LRC gagal: {ex.Message}"; }
+        finally { _isExportingLrc = false; StateHasChanged(); }
+    }
+
+    private string GenerateLrcContent()
+    {
+        const int SoftLimit = 450;
+        const int HardCap = 500;
+        const double WordsPerMinute = 150.0;
+
+        var lines = new List<string>();
+        lines.Add("[ti:" + (_resultSession?.Topic ?? "Script") + "]");
+        lines.Add("[ar:" + (_resultSession?.ChannelName ?? "Channel") + "]");
+        lines.Add("");
+
+        double currentSeconds = 0;
+
+        foreach (var section in _resultSections.OrderBy(s => s.Order))
+        {
+            if (string.IsNullOrWhiteSpace(section.Content)) continue;
+
+            var chunks = SplitIntoLrcChunks(section.Content, SoftLimit, HardCap);
+
+            foreach (var chunk in chunks)
+            {
+                var mins = (int)(currentSeconds / 60);
+                var secs = currentSeconds % 60;
+                var timestamp = $"[{mins:D2}:{secs:00.00}]";
+                lines.Add($"{timestamp}{chunk}");
+
+                // Estimate duration from word count
+                var wordCount = chunk.Split(new[] { ' ', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries).Length;
+                currentSeconds += (wordCount / WordsPerMinute) * 60;
+            }
+        }
+
+        return string.Join("\n", lines);
+    }
+
+    private static List<string> SplitIntoLrcChunks(string text, int softLimit, int hardCap)
+    {
+        var chunks = new List<string>();
+        // Split by sentences (period, exclamation, question mark followed by space or newline)
+        var sentences = System.Text.RegularExpressions.Regex.Split(text.Trim(), @"(?<=[.!?])\s+");
+
+        var current = new System.Text.StringBuilder();
+
+        foreach (var sentence in sentences)
+        {
+            var trimmed = sentence.Trim();
+            if (string.IsNullOrEmpty(trimmed)) continue;
+
+            // If adding this sentence would exceed hard cap, flush current
+            if (current.Length > 0 && current.Length + 1 + trimmed.Length > hardCap)
+            {
+                chunks.Add(current.ToString().Trim());
+                current.Clear();
+            }
+
+            // If single sentence exceeds hard cap, force-split it
+            if (trimmed.Length > hardCap)
+            {
+                if (current.Length > 0)
+                {
+                    chunks.Add(current.ToString().Trim());
+                    current.Clear();
+                }
+                // Split at word boundaries near hardCap
+                var words = trimmed.Split(' ');
+                foreach (var word in words)
+                {
+                    if (current.Length > 0 && current.Length + 1 + word.Length > hardCap)
+                    {
+                        chunks.Add(current.ToString().Trim());
+                        current.Clear();
+                    }
+                    if (current.Length > 0) current.Append(' ');
+                    current.Append(word);
+                }
+                continue;
+            }
+
+            if (current.Length > 0) current.Append(' ');
+            current.Append(trimmed);
+
+            // If we've passed the soft limit, flush
+            if (current.Length >= softLimit)
+            {
+                chunks.Add(current.ToString().Trim());
+                current.Clear();
+            }
+        }
+
+        if (current.Length > 0)
+            chunks.Add(current.ToString().Trim());
+
+        return chunks;
+    }
 
     private string FormatDate(DateTime date)
     {

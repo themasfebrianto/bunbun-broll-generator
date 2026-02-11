@@ -56,6 +56,14 @@ public class PhaseCoordinator
                     ValidationFeedback = validationFeedback
                 };
 
+                // Populate assigned outline points from OutlinePlanner distribution
+                if (context.SharedData.TryGetValue("outlineDistribution", out var distObj)
+                    && distObj is Dictionary<string, List<string>> distribution
+                    && distribution.TryGetValue(phase.Id, out var outlinePoints))
+                {
+                    phaseContext.AssignedOutlinePoints = outlinePoints;
+                }
+
                 // Build prompt
                 string prompt;
                 if (attempt == 0)

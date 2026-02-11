@@ -41,6 +41,7 @@ builder.Services.AddScoped<IShortVideoComposer, ShortVideoComposer>();
 builder.Services.AddSingleton<IPatternRegistry, PatternRegistry>();
 builder.Services.AddScoped<IScriptOrchestrator, ScriptOrchestrator>();
 builder.Services.AddScoped<IScriptGenerationService, ScriptGenerationService>();
+builder.Services.AddScoped<ConfigBatchGenerator>();
 
 // Toast notification service
 builder.Services.AddScoped<BunbunBroll.Services.ToastService>();

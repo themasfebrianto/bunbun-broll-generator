@@ -43,10 +43,16 @@ public class PromptBuilder
             promptParts.Add(BuildAssignedBeats(phaseContext.AssignedBeats));
         }
 
-        // 6. Requirements (requiredElements, forbiddenPatterns, closingFormula)
+        // 6. Assigned outline points (if available)
+        if (phaseContext.AssignedOutlinePoints.Count > 0)
+        {
+            promptParts.Add(BuildAssignedOutline(phaseContext.AssignedOutlinePoints));
+        }
+
+        // 7. Requirements (requiredElements, forbiddenPatterns, closingFormula)
         promptParts.Add(BuildRequirements(phase, context));
 
-        // 7. Output format + writing quality guidelines
+        // 8. Output format + writing quality guidelines
         promptParts.Add(BuildOutputFormatInstructions(phase, context));
 
         return string.Join("\n\n", promptParts.Where(p => !string.IsNullOrWhiteSpace(p)));
@@ -90,10 +96,7 @@ public class PromptBuilder
             instructions.Add($"PENTING: Sebutkan nama channel \"{context.Config.ChannelName}\" saat salam pembuka di fase pertama.");
         }
 
-        if (!string.IsNullOrEmpty(context.Config.Outline))
-        {
-            instructions.Add($"Outline: {context.Config.Outline}");
-        }
+        // Note: Outline is distributed per-phase via OutlinePlanner, not placed here globally
 
         if (!string.IsNullOrEmpty(context.Config.SourceReferences))
         {
@@ -195,6 +198,13 @@ public class PromptBuilder
     {
         return $"### STORY BEATS UNTUK PHASE INI\n" +
                string.Join("\n", beats.Select((b, i) => $"{i + 1}. {b}"));
+    }
+
+    private string BuildAssignedOutline(List<string> outlinePoints)
+    {
+        return $"### OUTLINE UNTUK PHASE INI\n" +
+               $"Poin-poin outline berikut HARUS tercakup dalam konten fase ini:\n" +
+               string.Join("\n", outlinePoints.Select((p, i) => $"{i + 1}. {p}"));
     }
 
     private string BuildRequirements(PhaseDefinition phase, GenerationContext context)

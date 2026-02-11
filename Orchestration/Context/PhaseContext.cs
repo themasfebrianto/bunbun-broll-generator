@@ -41,4 +41,9 @@ public class PhaseContext
     /// Story beats assigned to this phase
     /// </summary>
     public List<string> AssignedBeats { get; set; } = new();
+
+    /// <summary>
+    /// Outline points assigned to this phase by OutlinePlanner
+    /// </summary>
+    public List<string> AssignedOutlinePoints { get; set; } = new();
 }
