@@ -717,13 +717,30 @@
 
             @if (_isClassifyingBroll)
             {
-                <div class="card p-12 text-center text-muted-foreground">
-                    <svg class="animate-spin h-8 w-8 mx-auto mb-4 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    <p class="text-lg font-medium">Mengklasifikasi segments...</p>
-                    <p class="text-sm mt-1">LLM sedang menentukan B-Roll vs Image Generation untuk setiap segment</p>
+                <div class="card p-8 text-center">
+                    <div class="flex items-center justify-center gap-3 mb-4">
+                        <svg class="animate-spin h-6 w-6 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <p class="text-lg font-medium text-foreground">Mengklasifikasi segments...</p>
+                    </div>
+                    <p class="text-sm text-muted-foreground mb-5">LLM sedang menentukan B-Roll vs Image Generation untuk setiap segment</p>
+
+                    @if (_classifyTotalSegments > 0)
+                    {
+                        var pct = _classifyTotalSegments > 0 ? (int)((double)_classifyCompletedSegments / _classifyTotalSegments * 100) : 0;
+                        <div class="max-w-md mx-auto">
+                            <div class="flex justify-between text-xs text-muted-foreground mb-1.5">
+                                <span>@_classifyCompletedSegments / @_classifyTotalSegments segments</span>
+                                <span>@pct%</span>
+                            </div>
+                            <div class="w-full h-2.5 rounded-full bg-muted overflow-hidden">
+                                <div class="h-full rounded-full bg-primary transition-all duration-300 ease-out"
+                                     style="width: @(pct)%"></div>
+                            </div>
+                        </div>
+                    }
                 </div>
             }
             else if (!string.IsNullOrEmpty(_classifyError))
@@ -749,7 +766,7 @@
             }
             else
             {
-                @* Segment List *@
+                @* Segment List — Two Column Layout *@
                 <div class="space-y-3">
                     @foreach (var item in _brollPromptItems)
                     {
@@ -760,128 +777,167 @@
                         var borderAccent = isBroll ? "border-l-blue-500/40" : "border-l-purple-500/40";
 
                         <div class="card overflow-hidden border-l-4 @borderAccent">
-                            @* Top: Script + Badge + Actions *@
-                            <div class="p-5 border-b border-border/50">
-                                <div class="flex items-start justify-between gap-3">
-                                    <div class="flex-1 min-w-0">
-                                        <div class="flex items-center gap-2 mb-2">
-                                            <span class="font-mono text-xs text-primary bg-primary/10 px-2 py-0.5 rounded">@item.Timestamp</span>
-                                            <span class="text-[10px] text-muted-foreground">#@(item.Index + 1)</span>
-                                            <span class="px-2.5 py-1 rounded-full text-[11px] font-semibold @badgeBg">@badgeIcon @badgeLabel</span>
+                            <div class="grid grid-cols-1 lg:grid-cols-5 divide-y lg:divide-y-0 lg:divide-x divide-border/30">
+                                @* === LEFT COLUMN: Script + Prompt (3/5) === *@
+                                <div class="lg:col-span-3 p-5">
+                                    <div class="flex items-start justify-between gap-3 mb-3">
+                                        <div class="flex-1 min-w-0">
+                                            <div class="flex items-center gap-2 mb-2">
+                                                <span class="font-mono text-xs text-primary bg-primary/10 px-2 py-0.5 rounded">@item.Timestamp</span>
+                                                <span class="text-[10px] text-muted-foreground">#@(item.Index + 1)</span>
+                                                <span class="px-2.5 py-1 rounded-full text-[11px] font-semibold @badgeBg">@badgeIcon @badgeLabel</span>
+                                            </div>
+                                            <p class="text-sm leading-relaxed text-foreground/90">@item.ScriptText</p>
                                         </div>
-                                        <p class="text-sm leading-relaxed text-foreground/90">@item.ScriptText</p>
-                                    </div>
-                                    <div class="flex gap-1.5 shrink-0">
-                                        <button class="btn-ghost text-xs px-2 py-1"
-                                                disabled="@(item.IsSearching || item.IsGenerating)"
-                                                title="Regen keywords/prompt"
-                                                @onclick="() => HandleRegenSegmentKeywords(item)">
-                                            🔄
-                                        </button>
-                                        @if (isBroll)
-                                        {
+                                        <div class="flex gap-1.5 shrink-0">
                                             <button class="btn-ghost text-xs px-2 py-1"
-                                                    disabled="@(item.IsSearching)"
-                                                    title="Search ulang"
-                                                    @onclick="() => HandleSearchSingleSegment(item)">
-                                                🔍
+                                                    disabled="@(item.IsSearching || item.IsGenerating)"
+                                                    title="Regen keywords/prompt"
+                                                    @onclick="() => HandleRegenSegmentKeywords(item)">
+                                                🔄
                                             </button>
+                                            @if (isBroll)
+                                            {
+                                                <button class="btn-ghost text-xs px-2 py-1"
+                                                        disabled="@(item.IsSearching)"
+                                                        title="Search ulang"
+                                                        @onclick="() => HandleSearchSingleSegment(item)">
+                                                    🔍
+                                                </button>
+                                            }
+                                            else
+                                            {
+                                                <button class="btn-ghost text-xs px-2 py-1"
+                                                        disabled="@(item.IsGenerating || item.WhiskStatus == WhiskGenerationStatus.Done)"
+                                                        title="Generate image (Whisk)"
+                                                        @onclick="() => HandleGenerateSingleWhisk(item)">
+                                                    🖼️
+                                                </button>
+                                            }
+                                        </div>
+                                    </div>
+
+                                    @* Prompt Display *@
+                                    <div class="mb-2">
+                                        <span class="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Prompt</span>
+                                        <p class="text-sm mt-0.5 font-mono bg-background/60 rounded-md p-2.5 border border-border/30 whitespace-pre-wrap leading-relaxed">@item.Prompt</p>
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(item.Reasoning))
+                                    {
+                                        <div>
+                                            <span class="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Alasan</span>
+                                            <p class="text-xs text-muted-foreground mt-0.5 italic">@item.Reasoning</p>
+                                        </div>
+                                    }
+                                </div>
+
+                                @* === RIGHT COLUMN: Visual Preview (2/5) === *@
+                                <div class="lg:col-span-2 p-4 bg-muted/10">
+                                    @if (isBroll)
+                                    {
+                                        @* BROLL: Selected Video + Suggestions *@
+                                        @if (item.IsSearching)
+                                        {
+                                            <div class="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground text-sm py-8">
+                                                <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                </svg>
+                                                <span>Mencari video...</span>
+                                            </div>
+                                        }
+                                        else if (!string.IsNullOrEmpty(item.SearchError))
+                                        {
+                                            <div class="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-destructive text-xs">@item.SearchError</div>
+                                        }
+                                        else if (item.SearchResults.Count > 0)
+                                        {
+                                            var selectedVideo = item.SearchResults.FirstOrDefault(v => v.DownloadUrl == item.SelectedVideoUrl)
+                                                                ?? item.SearchResults.First();
+                                            var otherVideos = item.SearchResults.Where(v => v != selectedVideo).ToList();
+                                            @* Selected (Main) Video *@
+                                            <div class="mb-2">
+                                                <span class="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Terpilih</span>
+                                                <div class="mt-1 rounded-lg overflow-hidden border-2 border-primary/50 bg-background/40 cursor-pointer"
+                                                     title="Video terpilih">
+                                                    <div class="aspect-video relative">
+                                                        @if (!string.IsNullOrEmpty(selectedVideo.ThumbnailUrl))
+                                                        {
+                                                            <img src="@selectedVideo.ThumbnailUrl" alt="@selectedVideo.Title" class="w-full h-full object-cover" loading="lazy" />
+                                                        }
+                                                        else
+                                                        {
+                                                            <div class="w-full h-full bg-muted/30 flex items-center justify-center text-muted-foreground text-xs">No thumbnail</div>
+                                                        }
+                                                        <div class="absolute bottom-1 right-1 bg-black/70 text-white text-[9px] px-1.5 py-0.5 rounded font-mono">@(selectedVideo.DurationSeconds)s</div>
+                                                        <div class="absolute top-1 left-1 bg-black/60 text-white text-[9px] px-1.5 py-0.5 rounded">@selectedVideo.Provider</div>
+                                                        <div class="absolute top-1 right-1 bg-primary/80 text-white text-[9px] px-1.5 py-0.5 rounded font-semibold">✓ Selected</div>
+                                                    </div>
+                                                    @if (!string.IsNullOrEmpty(selectedVideo.Quality))
+                                                    {
+                                                        <div class="px-2 py-1 text-[10px] text-muted-foreground">@selectedVideo.Quality · @(selectedVideo.Width)×@(selectedVideo.Height)</div>
+                                                    }
+                                                </div>
+                                            </div>
+
+                                            @* Suggestion Thumbnails *@
+                                            @if (otherVideos.Count > 0)
+                                            {
+                                                <div>
+                                                    <span class="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Alternatif</span>
+                                                    <div class="grid grid-cols-3 gap-1.5 mt-1">
+                                                        @foreach (var video in otherVideos)
+                                                        {
+                                                            <div class="rounded-md overflow-hidden border border-border/30 bg-background/40 hover:border-primary/50 transition-colors cursor-pointer opacity-70 hover:opacity-100"
+                                                                 @onclick="() => HandleSelectVideo(item, video)"
+                                                                 title="Klik untuk memilih video ini">
+                                                                <div class="aspect-video relative">
+                                                                    @if (!string.IsNullOrEmpty(video.ThumbnailUrl))
+                                                                    {
+                                                                        <img src="@video.ThumbnailUrl" alt="@video.Title" class="w-full h-full object-cover" loading="lazy" />
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        <div class="w-full h-full bg-muted/30 flex items-center justify-center text-muted-foreground text-[8px]">—</div>
+                                                                    }
+                                                                    <div class="absolute bottom-0.5 right-0.5 bg-black/70 text-white text-[8px] px-1 py-0.5 rounded font-mono">@(video.DurationSeconds)s</div>
+                                                                </div>
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                </div>
+                                            }
                                         }
                                         else
                                         {
-                                            <button class="btn-ghost text-xs px-2 py-1"
-                                                    disabled="@(item.IsGenerating || item.WhiskStatus == WhiskGenerationStatus.Done)"
-                                                    title="Generate image (Whisk)"
-                                                    @onclick="() => HandleGenerateSingleWhisk(item)">
-                                                🖼️
-                                            </button>
-                                        }
-                                    </div>
-                                </div>
-                            </div>
-
-                            @* Bottom: Prompt + Results *@
-                            <div class="p-5 bg-muted/20">
-                                @* Prompt Display *@
-                                <div class="mb-3">
-                                    <span class="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Prompt</span>
-                                    <p class="text-sm mt-0.5 font-mono bg-background/60 rounded-md p-2.5 border border-border/30 whitespace-pre-wrap leading-relaxed">@item.Prompt</p>
-                                </div>
-                                @if (!string.IsNullOrEmpty(item.Reasoning))
-                                {
-                                    <div class="mb-3">
-                                        <span class="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Alasan</span>
-                                        <p class="text-xs text-muted-foreground mt-0.5 italic">@item.Reasoning</p>
-                                    </div>
-                                }
-
-                                @* === BROLL: Search Results Grid === *@
-                                @if (isBroll)
-                                {
-                                    @if (item.IsSearching)
-                                    {
-                                        <div class="flex items-center gap-2 py-4 text-muted-foreground text-sm">
-                                            <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                            </svg>
-                                            <span>Mencari video...</span>
-                                        </div>
-                                    }
-                                    else if (!string.IsNullOrEmpty(item.SearchError))
-                                    {
-                                        <div class="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-destructive text-xs mt-2">@item.SearchError</div>
-                                    }
-                                    else if (item.SearchResults.Count > 0)
-                                    {
-                                        <div class="mt-2">
-                                            <span class="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Hasil Pencarian (@item.SearchResults.Count video)</span>
-                                            <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mt-1.5">
-                                                @foreach (var video in item.SearchResults)
-                                                {
-                                                    <div class="group relative rounded-lg overflow-hidden border border-border/30 bg-background/40 hover:border-primary/50 transition-colors">
-                                                        <div class="aspect-video relative">
-                                                            @if (!string.IsNullOrEmpty(video.ThumbnailUrl))
-                                                            {
-                                                                <img src="@video.ThumbnailUrl" alt="@video.Title" class="w-full h-full object-cover" loading="lazy" />
-                                                            }
-                                                            else
-                                                            {
-                                                                <div class="w-full h-full bg-muted/30 flex items-center justify-center text-muted-foreground text-xs">No thumbnail</div>
-                                                            }
-                                                            <div class="absolute bottom-1 right-1 bg-black/70 text-white text-[9px] px-1.5 py-0.5 rounded font-mono">@(video.DurationSeconds)s</div>
-                                                            <div class="absolute top-1 left-1 bg-black/60 text-white text-[9px] px-1.5 py-0.5 rounded">@video.Provider</div>
-                                                        </div>
-                                                        @if (!string.IsNullOrEmpty(video.Quality))
-                                                        {
-                                                            <div class="px-2 py-1 text-[10px] text-muted-foreground truncate">@video.Quality · @(video.Width)×@(video.Height)</div>
-                                                        }
-                                                    </div>
-                                                }
+                                            <div class="flex items-center justify-center h-full text-muted-foreground text-xs py-8">
+                                                Belum ada hasil pencarian
                                             </div>
-                                        </div>
+                                        }
                                     }
-                                }
-
-                                @* === IMAGE_GEN: Whisk Status === *@
-                                @if (!isBroll)
-                                {
-                                    <div class="mt-2">
+                                    else
+                                    {
+                                        @* IMAGE_GEN: Whisk Status *@
                                         @if (item.WhiskStatus == WhiskGenerationStatus.Pending)
                                         {
-                                            <div class="flex items-center gap-2 py-2 px-3 rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs">
-                                                <span>⏳</span>
-                                                <span>Menunggu — klik 🖼️ atau "Generate All" untuk membuat gambar</span>
+                                            <div class="flex flex-col items-center justify-center h-full gap-2 py-8">
+                                                <div class="h-12 w-12 rounded-full bg-amber-500/10 flex items-center justify-center text-2xl">⏳</div>
+                                                <span class="text-xs text-amber-400">Menunggu generate</span>
+                                                <button class="btn-ghost text-xs px-3 py-1.5 mt-1"
+                                                        disabled="@item.IsGenerating"
+                                                        @onclick="() => HandleGenerateSingleWhisk(item)">
+                                                    🖼️ Generate
+                                                </button>
                                             </div>
                                         }
                                         else if (item.WhiskStatus == WhiskGenerationStatus.Generating)
                                         {
-                                            <div class="flex items-center gap-2 py-2 px-3 rounded-md bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs">
-                                                <svg class="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <div class="flex flex-col items-center justify-center h-full gap-2 py-8 text-purple-400">
+                                                <svg class="animate-spin h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                                 </svg>
-                                                <span>Generating via Whisk...</span>
+                                                <span class="text-xs">Generating via Whisk...</span>
                                             </div>
                                         }
                                         else if (item.WhiskStatus == WhiskGenerationStatus.Done && !string.IsNullOrEmpty(item.WhiskImagePath))
@@ -892,7 +948,7 @@
                                                 </div>
                                                 @if (System.IO.File.Exists(item.WhiskImagePath))
                                                 {
-                                                    <div class="rounded-lg overflow-hidden border border-border/30 max-w-sm">
+                                                    <div class="rounded-lg overflow-hidden border border-border/30">
                                                         @{
                                                             var imgBytes = System.IO.File.ReadAllBytes(item.WhiskImagePath!);
                                                             var ext = System.IO.Path.GetExtension(item.WhiskImagePath).TrimStart('.').ToLower();
@@ -915,8 +971,8 @@
                                                 ❌ Gagal: @item.WhiskError
                                             </div>
                                         }
-                                    </div>
-                                }
+                                    }
+                                </div>
                             </div>
                         </div>
                     }
@@ -1127,6 +1183,8 @@
     // Broll Prompts
     private List<BrollPromptItem> _brollPromptItems = new();
     private bool _isClassifyingBroll;
+    private int _classifyTotalSegments;
+    private int _classifyCompletedSegments;
     private string? _classifyError;
     private bool _isSearchingBroll; // Phase 1: auto-search all broll segments
     private bool _isGeneratingWhisk; // Phase 2: generate all Whisk images
@@ -1194,6 +1252,18 @@
                 {
                     _currentView = "broll-prompts";
                     await LoadBrollPromptsFromDisk();
+                    // Auto-search broll videos for segments that have no search results
+                    if (_brollPromptItems.Any(i => i.MediaType == BrollMediaType.BrollVideo && i.SearchResults.Count == 0))
+                    {
+                        _ = Task.Run(async () =>
+                        {
+                            await InvokeAsync(async () =>
+                            {
+                                await SearchBrollForAllSegmentsAsync();
+                                StateHasChanged();
+                            });
+                        });
+                    }
                 }
                 else
                 {
@@ -1617,6 +1687,9 @@
         }
         catch (Exception ex) { _errorMessage = $"Regenerate gagal: {ex.Message}"; }
         finally { section.IsRegenerating = false; StateHasChanged(); }
+
+        // Script changed — invalidate old classification
+        InvalidateBrollClassification();
     }
 
     // ===== Regenerate All =====
@@ -1626,6 +1699,7 @@
         if (_isRegeneratingAll || _sessionId == null) return;
         _isRegeneratingAll = true;
         _errorMessage = null;
+        InvalidateBrollClassification();
         StateHasChanged();
 
         try
@@ -1695,6 +1769,8 @@
         if (_resultSession == null || _resultSections.Count == 0) return;
         _isClassifyingBroll = true;
         _classifyError = null;
+        _classifyTotalSegments = 0;
+        _classifyCompletedSegments = 0;
         _brollPromptItems.Clear();
         _currentView = "broll-prompts";
         StateHasChanged();
@@ -1753,12 +1829,16 @@
                 return;
             }
 
+            _classifyTotalSegments = segments.Count;
+            await InvokeAsync(StateHasChanged);
+
             _brollPromptItems = await IntelligenceService.ClassifyAndGeneratePromptsAsync(
                 segments, _resultSession.Topic,
-                onBatchComplete: batchResults =>
+                onBatchComplete: async batchResults =>
                 {
                     _brollPromptItems = batchResults.OrderBy(r => r.Index).ToList();
-                    InvokeAsync(StateHasChanged);
+                    _classifyCompletedSegments = batchResults.Count;
+                    await InvokeAsync(StateHasChanged);
                 });
         }
         catch (Exception ex)
@@ -1786,6 +1866,15 @@
     private async Task HandleReclassifyBroll()
     {
         await HandleSendToBroll();
+    }
+
+    // ===== Video Selection =====
+
+    private async Task HandleSelectVideo(BrollPromptItem item, VideoAsset video)
+    {
+        item.SelectedVideoUrl = video.DownloadUrl;
+        await SaveBrollPromptsToDisk();
+        StateHasChanged();
     }
 
     // ===== Phase 1: Broll Search =====
@@ -1978,6 +2067,21 @@
         return Path.Combine(_resultSession.OutputDirectory, "broll-prompts.json");
     }
 
+    private void InvalidateBrollClassification()
+    {
+        _brollPromptItems.Clear();
+        _classifyTotalSegments = 0;
+        _classifyCompletedSegments = 0;
+
+        // Delete persisted file
+        var filePath = GetBrollPromptsFilePath();
+        if (filePath != null && File.Exists(filePath))
+        {
+            try { File.Delete(filePath); }
+            catch { /* ignore */ }
+        }
+    }
+
     private async Task SaveBrollPromptsToDisk()
     {
         var filePath = GetBrollPromptsFilePath();
@@ -1996,7 +2100,8 @@
                 Reasoning = i.Reasoning,
                 WhiskStatus = i.WhiskStatus,
                 WhiskImagePath = i.WhiskImagePath,
-                WhiskError = i.WhiskError
+                WhiskError = i.WhiskError,
+                SelectedVideoUrl = i.SelectedVideoUrl
             }).ToList();
 
             var json = System.Text.Json.JsonSerializer.Serialize(saveData, new System.Text.Json.JsonSerializerOptions
@@ -2038,7 +2143,8 @@
                     Reasoning = s.Reasoning,
                     WhiskStatus = s.WhiskStatus,
                     WhiskImagePath = s.WhiskImagePath,
-                    WhiskError = s.WhiskError
+                    WhiskError = s.WhiskError,
+                    SelectedVideoUrl = s.SelectedVideoUrl
                 }).ToList();
             }
         }
@@ -2060,6 +2166,7 @@
         public WhiskGenerationStatus WhiskStatus { get; set; }
         public string? WhiskImagePath { get; set; }
         public string? WhiskError { get; set; }
+        public string? SelectedVideoUrl { get; set; }
     }
 
     // ===== Export LRC =====

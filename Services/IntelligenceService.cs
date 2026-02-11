@@ -50,7 +50,7 @@ public interface IIntelligenceService
     Task<List<BrollPromptItem>> ClassifyAndGeneratePromptsAsync(
         List<(string Timestamp, string ScriptText)> segments,
         string topic,
-        Action<List<BrollPromptItem>>? onBatchComplete = null,
+        Func<List<BrollPromptItem>, Task>? onBatchComplete = null,
         CancellationToken cancellationToken = default);
 }
 
@@ -258,7 +258,28 @@ IMPORTANT: When user specifies a Visual Style, weave those terms into PRIMARY, M
         if (raw.EndsWith("```"))
             raw = raw[..^3];
         
-        return raw.Trim();
+        raw = raw.Trim();
+
+        // --- LLM artifact repair ---
+        // Remove stray `-` before `}` or `]` (e.g.  "-}" → "}")
+        raw = System.Text.RegularExpressions.Regex.Replace(raw, @"-\s*}", "}");
+        raw = System.Text.RegularExpressions.Regex.Replace(raw, @"-\s*]", "]");
+        // Remove trailing commas before `}` or `]`  (e.g. ",}" → "}")
+        raw = System.Text.RegularExpressions.Regex.Replace(raw, @",\s*}", "}");
+        raw = System.Text.RegularExpressions.Regex.Replace(raw, @",\s*]", "]");
+
+        // Ensure the response is a JSON array — if truncated, try to close it
+        if (raw.StartsWith("[") && !raw.EndsWith("]"))
+        {
+            // Find last complete object "}," or "}" and close array
+            var lastBrace = raw.LastIndexOf('}');
+            if (lastBrace > 0)
+            {
+                raw = raw[..(lastBrace + 1)] + "]";
+            }
+        }
+
+        return raw;
     }
 
     /// <summary>
@@ -595,7 +616,7 @@ IMPORTANT: When user specifies a Visual Style, weave those terms into PRIMARY, M
     public async Task<List<BrollPromptItem>> ClassifyAndGeneratePromptsAsync(
         List<(string Timestamp, string ScriptText)> segments,
         string topic,
-        Action<List<BrollPromptItem>>? onBatchComplete = null,
+        Func<List<BrollPromptItem>, Task>? onBatchComplete = null,
         CancellationToken cancellationToken = default)
     {
         var results = new List<BrollPromptItem>();
@@ -743,11 +764,29 @@ RULES:
                     catch (JsonException ex)
                     {
                         _logger.LogWarning("ClassifyBroll batch {Batch} JSON parse failed: {Error}", batchIdx + 1, ex.Message);
+                        
+                        // Add fallback items for this batch so UI still updates
+                        for (int i = 0; i < batchSegments.Count; i++)
+                        {
+                            var globalIdx = batchStart + i;
+                            if (!results.Any(r => r.Index == globalIdx))
+                            {
+                                results.Add(new BrollPromptItem
+                                {
+                                    Index = globalIdx,
+                                    Timestamp = segments[globalIdx].Timestamp,
+                                    ScriptText = segments[globalIdx].ScriptText,
+                                    MediaType = BrollMediaType.BrollVideo,
+                                    Prompt = "atmospheric cinematic footage",
+                                    Reasoning = $"Fallback: JSON parse error batch {batchIdx + 1}"
+                                });
+                            }
+                        }
                     }
                 }
 
                 // Notify caller with current results so far
-                onBatchComplete?.Invoke(results);
+                if (onBatchComplete != null) await onBatchComplete(results);
             }
             catch (Exception ex)
             {
@@ -773,7 +812,7 @@ RULES:
                 }
 
                 // Notify caller with current results (including fallbacks)
-                onBatchComplete?.Invoke(results);
+                if (onBatchComplete != null) await onBatchComplete(results);
             }
         }
 

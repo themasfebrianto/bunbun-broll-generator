@@ -34,6 +34,9 @@ public class BrollPromptItem
     
     /// <summary>Search error message if any</summary>
     public string? SearchError { get; set; }
+    
+    /// <summary>User-selected video URL from search results</summary>
+    public string? SelectedVideoUrl { get; set; }
 
     // === Phase 2: Whisk Image Generation ===
     
