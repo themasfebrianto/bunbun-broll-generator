@@ -342,7 +342,7 @@ public class ScriptOrchestrator : IScriptOrchestrator
                     Status = "InProgress",
                     Message = $"Menulis {phaseDef.Name}...",
                     OutlinePoints = phaseOutlinePoints,
-                    DurationTarget = $"{phaseDef.DurationTarget.Min}-{phaseDef.DurationTarget.Max}s"
+                    DurationTarget = $"{(phaseDef.DurationTarget.Min / 60.0):0.#}-{(phaseDef.DurationTarget.Max / 60.0):0.#} m"
                 });
 
                 dbPhase.Status = PhaseStatus.InProgress;

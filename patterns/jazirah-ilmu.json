@@ -53,7 +53,7 @@
       ],
       "forbiddenPatterns": [],
       "guidanceTemplate": "Bangun pemahaman secara bertahap, bukan padat. Data berfungsi sebagai penopang cerita, bukan pusat perhatian. Gunakan transisi lembut seperti: 'Namun, untuk memahami ini, kita perlu mundur sejenak...' atau 'Ini bukan sekadar tentang [Y], melainkan tentang [Z]'.",
-      "transitionHint": "Namun, untuk memahami [topik], kita perlu mundur sejenak...",
+      "transitionHint": "Setelah kita merasakan urgensi di pembuka, sekarang mari kita telusuri akar dan konteks dari [topik] ini...",
       "customRules": {
         "minNumericData": "1",
         "mustHaveHistoricalContext": "true"
@@ -80,7 +80,7 @@
         "Pemaparan semua dimensi secara dangkal dan setara"
       ],
       "guidanceTemplate": "Gunakan teknik layering secara selektif. Tidak semua lapisan wajib muncul eksplisit. Alur ideal: Narasi dominan → pendalaman makna → implikasi moral/spiritual. Ritme boleh melambat dan berulang untuk penekanan emosional.",
-      "transitionHint": null,
+      "transitionHint": "Dengan pemahaman dasar itu, sekarang kita masuk ke lapisan yang lebih dalam...",
       "customRules": {
         "minDimensions": "2",
         "mustUseLayering": "optional",
@@ -107,7 +107,7 @@
       ],
       "forbiddenPatterns": [],
       "guidanceTemplate": "Climax adalah momen kesadaran, bukan kuliah. Fokus pada satu kebenaran yang terasa menghantam. Struktur fleksibel: Ketegangan → Fakta/Kisah → Kesadaran → Metafora.",
-      "transitionHint": null,
+      "transitionHint": "Dan di sinilah kita sampai pada titik yang paling mengguncang...",
       "customRules": {
         "emotionalIntensity": "high",
         "mustHaveDarkMetaphor": "preferred",
@@ -138,7 +138,7 @@
         "Membuka topik baru"
       ],
       "guidanceTemplate": "Ini adalah fase penutup yang bersifat kontemplatif. Biarkan pendengar pulang dengan perenungan, bukan jawaban final. Nada tenang, rendah hati, dan terbuka.",
-      "transitionHint": null,
+      "transitionHint": "Setelah semua yang kita ungkap, ada satu pertanyaan yang tersisa...",
       "customRules": {
         "mustHaveClosing": "true",
         "mustConnectToUmmah": "true",

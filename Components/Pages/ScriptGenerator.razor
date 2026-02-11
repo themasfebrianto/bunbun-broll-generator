@@ -262,14 +262,16 @@
                         <span class="@(phase.Status == "InProgress" ? "text-foreground font-medium" : phase.Status == "Completed" ? "text-muted-foreground" : "text-muted-foreground/60")">
                             @phase.Name
                         </span>
-                        @if (phase.WordCount > 0)
-                        {
-                            <span class="text-xs text-muted-foreground ml-auto">@phase.WordCount kata</span>
-                        }
-                        else if (!string.IsNullOrEmpty(phase.DurationTarget) && phase.Status == "InProgress")
-                        {
-                            <span class="text-xs text-primary ml-auto font-mono bg-primary/10 px-2 py-0.5 rounded">Target: @phase.DurationTarget</span>
-                        }
+                        <div class="ml-auto flex items-center gap-2">
+                            @if (!string.IsNullOrEmpty(phase.DurationTarget))
+                            {
+                                <span class="text-xs text-primary/80 font-mono bg-primary/5 px-2 py-0.5 rounded">Target: @phase.DurationTarget</span>
+                            }
+                            @if (phase.WordCount > 0)
+                            {
+                                <span class="text-xs text-muted-foreground">| @phase.WordCount kata</span>
+                            }
+                        </div>
                     </div>
                     @if (phase.OutlinePoints?.Count > 0)
                     {
@@ -506,6 +508,13 @@
                             <span>Regenerate All</span>
                         }
                     </button>
+                    <button class="btn-ghost text-sm flex items-center gap-1.5"
+                            @onclick="HandleEditConfig">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                        <span>Edit Config</span>
+                    </button>
                     <div class="flex-1"></div>
                     <button class="btn-secondary text-sm flex items-center gap-1.5"
                             disabled="@(_isExportingLrc)"
@@ -642,6 +651,81 @@
     }
 </div>
 
+@* ============ Edit Config Modal ============ *@
+@if (_showEditConfig && _resultSession != null)
+{
+    <div class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" @onclick="CancelEditConfig">
+        <div class="card p-6 max-w-2xl w-full space-y-6 max-h-[90vh] overflow-y-auto" @onclick:stopPropagation="true">
+            <h3 class="font-semibold text-lg border-b border-border/50 pb-3">Edit Script Config</h3>
+            
+            <div class="space-y-4">
+                @* Topic *@
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium">Topik</label>
+                    <input class="input" @bind="_editTopic" />
+                </div>
+
+                @* Channel & Duration Row *@
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="space-y-2">
+                        <label class="block text-sm font-medium">Channel</label>
+                        @if (_channelNames.Count > 0)
+                        {
+                            <select class="input w-full" @bind="_editChannelName">
+                                @foreach (var ch in _channelNames)
+                                {
+                                    <option value="@ch">@ch</option>
+                                }
+                            </select>
+                        }
+                        else
+                        {
+                            <input class="input" @bind="_editChannelName" />
+                        }
+                    </div>
+                    <div class="space-y-2">
+                        <label class="block text-sm font-medium">Target Durasi (menit)</label>
+                        <input type="number" class="input" min="5" max="60" @bind="_editTargetDuration" />
+                    </div>
+                </div>
+
+                @* Outline *@
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium">Outline</label>
+                    <textarea class="input min-h-[120px] resize-y font-mono text-sm" @bind="_editOutline"></textarea>
+                    <p class="text-xs text-muted-foreground">Modify outline or add "### MUST HAVE BEATS" sections here.</p>
+                </div>
+
+                @* References *@
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium">Referensi</label>
+                    <textarea class="input min-h-[80px] resize-y text-sm" @bind="_editSourceReferences"></textarea>
+                </div>
+            </div>
+
+            <div class="flex gap-3 pt-2">
+                <button class="btn-secondary flex-1" @onclick="CancelEditConfig">Batal</button>
+                <button class="btn-primary flex-1" 
+                        disabled="@(_isSavingConfig)"
+                        @onclick="SaveAndRegenerateConfig">
+                    @if (_isSavingConfig)
+                    {
+                        <svg class="animate-spin h-4 w-4 mr-2 inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>Simpan & Regenerate</span>
+                    }
+                    else
+                    {
+                        <span>Simpan & Regenerate All</span>
+                    }
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
 @* ============ Delete Confirmation Modal ============ *@
 @if (_showDeleteConfirm)
 {
@@ -722,6 +806,15 @@
     private List<GeneratedConfig> _batchResults = new();
     private bool _isDeleting;
 
+    // Edit Config
+    private bool _showEditConfig;
+    private bool _isSavingConfig;
+    private string _editTopic = "";
+    private string? _editOutline;
+    private string? _editSourceReferences;
+    private int _editTargetDuration;
+    private string _editChannelName = "";
+
     private bool CanGenerate => !string.IsNullOrWhiteSpace(_topic)
         && !string.IsNullOrWhiteSpace(_selectedPatternId)
         && !string.IsNullOrWhiteSpace(_channelName)
@@ -799,6 +892,17 @@
     {
         _topic = config.Topic;
         _outline = config.Outline;
+        
+        // Append must-have beats to outline to ensure they are distributed
+        if (config.MustHaveBeats?.Count > 0)
+        {
+            var beats = string.Join("\n", config.MustHaveBeats.Select(b => $"- {b}"));
+            if (!string.IsNullOrWhiteSpace(_outline))
+                _outline += "\n\n### MUST HAVE BEATS:\n" + beats;
+            else
+                _outline = "### MUST HAVE BEATS:\n" + beats;
+        }
+
         _sourceReferences = config.SourceReferences;
         _targetDuration = config.TargetDurationMinutes;
         _channelName = config.ChannelName;
@@ -811,6 +915,67 @@
     {
         if (_batchResults.Count > 0)
             HandleUseConfig(_batchResults[0]);
+    }
+
+    // ===== Edit Config =====
+
+    private void HandleEditConfig()
+    {
+        if (_resultSession == null) return;
+        _editTopic = _resultSession.Topic;
+        _editOutline = _resultSession.Outline;
+        _editSourceReferences = _resultSession.SourceReferences;
+        _editTargetDuration = _resultSession.TargetDurationMinutes;
+        _editChannelName = _resultSession.ChannelName;
+        _showEditConfig = true;
+    }
+
+    private void CancelEditConfig()
+    {
+        _showEditConfig = false;
+        _isSavingConfig = false;
+    }
+
+    private async Task SaveAndRegenerateConfig()
+    {
+        if (_resultSession == null) return;
+        _isSavingConfig = true;
+        _errorMessage = null;
+
+        try
+        {
+            var config = new ScriptConfig
+            {
+                Topic = _editTopic,
+                Outline = _editOutline,
+                TargetDurationMinutes = _editTargetDuration,
+                SourceReferences = _editSourceReferences,
+                ChannelName = _editChannelName
+            };
+
+            await ScriptService.UpdateSessionAsync(_resultSession.Id, config);
+            
+            // Update local state
+            _resultSession.Topic = config.Topic;
+            _resultSession.Outline = config.Outline;
+            _resultSession.TargetDurationMinutes = config.TargetDurationMinutes;
+            _resultSession.SourceReferences = config.SourceReferences;
+            _resultSession.ChannelName = config.ChannelName;
+            
+            _showEditConfig = false;
+            
+            // Trigger regeneration
+            await HandleRegenerateAll();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Gagal menyimpan config: {ex.Message}";
+        }
+        finally
+        {
+            _isSavingConfig = false;
+            StateHasChanged();
+        }
     }
 
     // ===== Delete Session =====

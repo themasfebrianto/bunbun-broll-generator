@@ -37,7 +37,7 @@ public class OutlinePlanner
 
         _logger?.LogInformation("Distributing outline across {PhaseCount} phases...", phases.Count);
 
-        var systemPrompt = "You are a script structure planner. Return ONLY valid JSON. No explanations.";
+        var systemPrompt = "You are a script structure planner. Your goal is to distribute outline points logically across phases. NEVER duplicate the same point across multiple phases. Return ONLY valid JSON.";
         var userPrompt = BuildDistributionPrompt(outline, phases, topic, mustHaveBeats);
 
         try
@@ -98,6 +98,9 @@ Distribute the following outline across the script phases. Assign each outline p
 4. If an outline point spans multiple phases, split it into sub-points
 5. Do NOT duplicate points across phases
 6. If mustHaveBeats exist, avoid assigning outline points that are redundant with beats
+7. STRICTLY FORBIDDEN: Do not assign the same outline point to multiple phases. Each point must appear in ONE phase only.
+8. Setiap fase HARUS memiliki sudut pandang/aspek yang UNIK. Jangan mendistribusikan poin yang akan menghasilkan pengulangan tema yang sama di beberapa fase.
+9. Kutipan ayat/hadits/sumber: tempatkan di SATU fase saja (yang paling relevan). Fase lain cukup mereferensikan tanpa mengulang kutipan penuh.
 
 === OUTPUT FORMAT ===
 Return ONLY a valid JSON object mapping phase IDs to arrays of outline points:

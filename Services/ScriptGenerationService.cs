@@ -173,4 +173,19 @@ public class ScriptGenerationService : IScriptGenerationService
     {
         await _orchestrator.DeleteSessionAsync(sessionId);
     }
+
+    public async Task UpdateSessionAsync(string sessionId, ScriptConfig config)
+    {
+        var session = await _orchestrator.LoadSessionAsync(sessionId)
+            ?? throw new ArgumentException($"Session '{sessionId}' not found");
+
+        session.Topic = config.Topic;
+        session.Outline = config.Outline;
+        session.TargetDurationMinutes = config.TargetDurationMinutes;
+        session.SourceReferences = config.SourceReferences;
+        session.ChannelName = config.ChannelName;
+        session.UpdatedAt = DateTime.UtcNow;
+
+        await _orchestrator.SaveSessionAsync(session);
+    }
 }

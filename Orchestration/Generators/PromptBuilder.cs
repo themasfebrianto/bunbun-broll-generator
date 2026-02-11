@@ -58,7 +58,10 @@ public class PromptBuilder
         // 7. Requirements (requiredElements, forbiddenPatterns, closingFormula)
         promptParts.Add(BuildRequirements(phase, context));
 
-        // 8. Output format + writing quality guidelines
+        // 8. Narrative quality rules (consistency, anti-redundancy, transitions, pacing, citations)
+        promptParts.Add(BuildNarrativeQualityRules(phase, phaseContext));
+
+        // 9. Output format + writing quality guidelines
         promptParts.Add(BuildOutputFormatInstructions(phase, context));
 
         return string.Join("\n\n", promptParts.Where(p => !string.IsNullOrWhiteSpace(p)));
@@ -99,7 +102,6 @@ public class PromptBuilder
         if (!string.IsNullOrEmpty(context.Config.ChannelName))
         {
             instructions.Add($"Channel: {context.Config.ChannelName}");
-            instructions.Add($"PENTING: Sebutkan nama channel \"{context.Config.ChannelName}\" saat salam pembuka di fase pertama.");
         }
 
         // Note: Outline is distributed per-phase via OutlinePlanner, not placed here globally
@@ -129,7 +131,13 @@ public class PromptBuilder
 
         if (!string.IsNullOrWhiteSpace(phase.TransitionHint) && !phase.IsFirstPhase)
         {
-            parts.Add($"\nTransition Hint: {phase.TransitionHint}");
+            parts.Add($"\n⚠️ TRANSISI WAJIB: Mulai fase ini dengan kalimat jembatan yang alami.");
+            parts.Add($"Contoh transisi: \"{phase.TransitionHint}\"");
+            parts.Add("Kamu BOLEH memodifikasi contoh di atas, tapi WAJIB ada kalimat penghubung di awal yang mengaitkan konteks sebelumnya ke konten baru.");
+        }
+        else if (!phase.IsFirstPhase)
+        {
+            parts.Add($"\n⚠️ TRANSISI WAJIB: Mulai fase ini dengan kalimat jembatan singkat yang menghubungkan konteks sebelumnya ke konten baru. Jangan langsung lompat ke materi baru tanpa pengait.");
         }
 
         // Include customRules as explicit instructions
@@ -142,6 +150,12 @@ public class PromptBuilder
                 if (!string.IsNullOrEmpty(ruleInstruction))
                     parts.Add($"- {ruleInstruction}");
             }
+        }
+
+        // Add channel greeting instruction ONLY for the first phase
+        if (phase.IsFirstPhase && !string.IsNullOrEmpty(context.Config.ChannelName))
+        {
+            parts.Add($"\nNOTE: Saat memulai script ini (karena ini Fase 1), WAJIB menyapa pemirsa dengan menyebutkan nama channel \"{context.Config.ChannelName}\".");
         }
 
         if (phase.IsFinalPhase)
@@ -296,12 +310,57 @@ Gunakan (dengan suara bergetar), (tertawa) untuk TTS emotion.
         var parts = new List<string>
         {
             "### KONTEKS GLOBAL (ANTI-REPETITION)",
-            "Berikut adalah ringkasan dari fase-fase sebelumnya. DILARANG MENGULANG poin/ide yang sudah dibahas di sini:",
+            "Berikut adalah konten dari fase-fase sebelumnya. DILARANG MENGULANG poin/ide yang sudah dibahas:",
             string.Join("\n", globalContext.Select(c => $"- {c}")),
             "",
-            "⚠️ PENTING: Fokus pada pengembangan ide BARU sesuai fase ini. Jangan terjebak mengulang frasa/konsep dari fase sebelumnya."
+            "⚠️ ATURAN ANTI-PENGULANGAN:",
+            "1. JANGAN ulangi klaim/tesis utama yang sudah disampaikan — cukup referensikan singkat jika perlu",
+            "2. JANGAN kutip ayat/hadits/sumber yang sudah dikutip penuh di fase sebelumnya — gunakan referensi singkat saja",
+            "3. JANGAN gunakan metafora atau frasa kunci yang sama — kembangkan metafora BARU",
+            "4. Setiap fase harus membawa PERSPEKTIF/SUDUT PANDANG BARU (psikologis, sosial, etis, spiritual, historis)",
+            "5. Jika ide dasar sama, kembangkan ASPEK BERBEDA — bukan mengulang dengan kata berbeda"
         };
 
         return string.Join("\n", parts);
+    }
+
+    private string BuildNarrativeQualityRules(PhaseDefinition phase, PhaseContext phaseContext)
+    {
+        var rules = new List<string>
+        {
+            "### ATURAN KUALITAS NARASI",
+            "",
+            "#### KONSISTENSI",
+            "- Jika menyebutkan alat, istilah, atau atribut (mis. cincin Sulaiman → cahaya beriman, tongkat Musa → tanda hitam kafir), TETAPKAN satu versi di awal dan gunakan KONSISTEN.",
+            "- JANGAN membalik peran/fungsi/atribut di paragraf selanjutnya.",
+            "- Jika ada variasi riwayat, sebutkan SEKALI bahwa ada perbedaan pendapat, lalu pilih SATU versi untuk digunakan.",
+            "",
+            "#### ANTI-REDUNDANSI TEMATIK",
+            "- Setiap fase memiliki FOKUS UNIK. JANGAN ulangi klaim dasar yang sama dari fase sebelumnya.",
+            "- Contoh BURUK: mengulang 'Dabbah menyingkap topeng manusia' di setiap fase.",
+            "- Contoh BAIK: Fase 2 jelaskan APA, Fase 3 jelaskan DAMPAK PSIKOLOGIS, Fase 4 jelaskan IMPLIKASI SOSIAL.",
+            "",
+            "#### PACING & DINAMIKA",
+            "- Variasikan panjang kalimat: PENDEK (5-10 kata) untuk momen dramatis, PANJANG (20-30 kata) untuk narasi mengalir.",
+            "- Gunakan jeda dramatis (...) SEBELUM momen puncak atau pengungkapan penting.",
+            "- Turunkan intensitas sebelum klimaks, lalu naikkan tajam — buat kontras emosional.",
+            "- Contoh: '...dan di sinilah... kebenaran itu terungkap.' (jeda → pengungkapan)",
+            "",
+            "#### KONSOLIDASI KUTIPAN",
+            "- Kutip ayat Al-Quran, hadits, atau sumber referensi secara LENGKAP hanya SATU KALI di posisi paling strategis.",
+            "- Setelah kutipan pertama, gunakan referensi singkat: 'sebagaimana ayat tadi', 'seperti yang telah disebutkan', dll.",
+            "- JANGAN kutip teks yang sama secara penuh lebih dari sekali dalam keseluruhan script."
+        };
+
+        // Add transition bridge rule for non-first phases
+        if (!phase.IsFirstPhase && phaseContext.PreviousContent != null)
+        {
+            rules.Insert(rules.IndexOf("", rules.IndexOf("#### ANTI-REDUNDANSI TEMATIK")), "#### KALIMAT JEMBATAN");
+            rules.Insert(rules.IndexOf("#### KALIMAT JEMBATAN") + 1, "- WAJIB mulai fase ini dengan kalimat jembatan yang menghubungkan konteks sebelumnya ke konten baru.");
+            rules.Insert(rules.IndexOf("- WAJIB mulai fase ini dengan kalimat jembatan yang menghubungkan konteks sebelumnya ke konten baru.") + 1, "- Contoh: 'Setelah kita tahu dari mana ia muncul, mari lihat rupa dan tanda yang dibawanya — karena di sanalah pesan ilahi itu terwujud.'");
+            rules.Insert(rules.IndexOf("- Contoh: 'Setelah kita tahu dari mana ia muncul, mari lihat rupa dan tanda yang dibawanya — karena di sanalah pesan ilahi itu terwujud.'") + 1, "");
+        }
+
+        return string.Join("\n", rules);
     }
 }

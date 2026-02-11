@@ -627,7 +627,7 @@ public class GeminiUsage
 public class GeminiSettings
 {
     public string BaseUrl { get; set; } = "http://127.0.0.1:8317";
-    public string Model { get; set; } = "gemini-2.5-flash";
+    public string Model { get; set; } = "gemini-3-pro-preview";
     public string ApiKey { get; set; } = "sk-dummy";
     public int TimeoutSeconds { get; set; } = 30;
 }
