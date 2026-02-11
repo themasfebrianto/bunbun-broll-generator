@@ -56,12 +56,23 @@ public class PhaseCoordinator
                     ValidationFeedback = validationFeedback
                 };
 
-                // Populate assigned outline points from OutlinePlanner distribution
-                if (context.SharedData.TryGetValue("outlineDistribution", out var distObj)
-                    && distObj is Dictionary<string, List<string>> distribution
-                    && distribution.TryGetValue(phase.Id, out var outlinePoints))
+                // Populate assigned outline points from SharedData (set by Orchestrator)
+                if (context.SharedData.TryGetValue("currentPhaseOutline", out var outObj) && outObj is List<string> outlinePoints)
                 {
                     phaseContext.AssignedOutlinePoints = outlinePoints;
+                }
+                // Fallback to full distribution map if specific points not set
+                else if (context.SharedData.TryGetValue("outlineDistribution", out var distObj)
+                    && distObj is Dictionary<string, List<string>> distribution
+                    && distribution.TryGetValue(phase.Id, out var distributionPoints))
+                {
+                    phaseContext.AssignedOutlinePoints = distributionPoints;
+                }
+
+                // Populate Global Context (anti-repetition)
+                if (context.SharedData.TryGetValue("currentGlobalContext", out var globObj) && globObj is List<string> globalCtx)
+                {
+                    phaseContext.GlobalContext = globalCtx;
                 }
 
                 // Build prompt

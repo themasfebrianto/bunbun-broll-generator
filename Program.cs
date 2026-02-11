@@ -179,6 +179,23 @@ using (var scope = app.Services.CreateScope())
             Console.WriteLine("Added ChannelName column to ScriptGenerationSessions.");
         }
 
+        // Check if OutlineDistributionJson column exists in ScriptGenerationSessions
+        command.CommandText = @"
+            SELECT COUNT(*) FROM pragma_table_info('ScriptGenerationSessions') WHERE name='OutlineDistributionJson'
+        ";
+        result = await command.ExecuteScalarAsync();
+        columnExists = Convert.ToInt32(result) > 0;
+
+        if (!columnExists)
+        {
+            using var alterCommand = connection.CreateCommand();
+            alterCommand.CommandText = @"
+                ALTER TABLE ScriptGenerationSessions ADD COLUMN OutlineDistributionJson TEXT;
+            ";
+            await alterCommand.ExecuteNonQueryAsync();
+            Console.WriteLine("Added OutlineDistributionJson column to ScriptGenerationSessions.");
+        }
+
         await connection.CloseAsync();
     }
     catch (Exception ex)

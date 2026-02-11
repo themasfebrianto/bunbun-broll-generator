@@ -8,6 +8,7 @@
 @inject IConfiguration Configuration
 @inject NavigationManager Navigation
 @inject ConfigBatchGenerator BatchGenerator
+@inject IJSRuntime JS
 
 <div class="max-w-[90rem] mx-auto py-20 px-4">
     <div class="space-y-3 mb-10 text-center">
@@ -215,12 +216,18 @@
                 <p class="text-sm text-muted-foreground">@_progressMessage</p>
                 @if (!string.IsNullOrWhiteSpace(_outline))
                 {
-                    <div class="flex items-center gap-1.5 mt-1">
-                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-500/15 text-blue-400">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
-                            Outline aktif — didistribusikan per fase
-                        </span>
-                    </div>
+                    <details class="group bg-muted/40 rounded-lg overflow-hidden border border-border/50">
+                        <summary class="flex items-center gap-2 px-4 py-2.5 cursor-pointer hover:bg-muted/60 transition-colors select-none">
+                            <span class="p-1 rounded-md bg-primary/10 text-primary">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" /></svg>
+                            </span>
+                            <span class="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex-1">Script Outline</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-muted-foreground group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                        </summary>
+                        <div class="px-4 pb-4 pt-1">
+                             <div class="text-sm text-foreground/80 whitespace-pre-wrap leading-relaxed pl-8 border-l-2 border-primary/20">@_outline</div>
+                        </div>
+                    </details>
                 }
             </div>
             <div class="space-y-2">
@@ -259,7 +266,20 @@
                         {
                             <span class="text-xs text-muted-foreground ml-auto">@phase.WordCount kata</span>
                         }
+                        else if (!string.IsNullOrEmpty(phase.DurationTarget) && phase.Status == "InProgress")
+                        {
+                            <span class="text-xs text-primary ml-auto font-mono bg-primary/10 px-2 py-0.5 rounded">Target: @phase.DurationTarget</span>
+                        }
                     </div>
+                    @if (phase.OutlinePoints?.Count > 0)
+                    {
+                        <div class="ml-8 mt-1 mb-1 pl-3 border-l-2 border-primary/20">
+                            @foreach (var point in phase.OutlinePoints)
+                            {
+                                <p class="text-xs text-muted-foreground leading-relaxed">• @point</p>
+                            }
+                        </div>
+                    }
                 }
             </div>
             @if (!string.IsNullOrEmpty(_errorMessage))
@@ -427,6 +447,25 @@
                     </div>
                 </div>
 
+                @* Outline (Collapsible) *@
+                @if (!string.IsNullOrWhiteSpace(_resultSession?.Outline))
+                {
+                    <div class="mb-6">
+                        <details class="group bg-muted/40 rounded-lg overflow-hidden border border-border/50">
+                            <summary class="flex items-center gap-2 px-4 py-2.5 cursor-pointer hover:bg-muted/60 transition-colors select-none">
+                                <span class="p-1 rounded-md bg-primary/10 text-primary">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" /></svg>
+                                </span>
+                                <span class="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex-1">Script Outline</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-muted-foreground group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                            </summary>
+                            <div class="px-4 pb-4 pt-1">
+                                 <div class="text-sm text-foreground/80 whitespace-pre-wrap leading-relaxed pl-8 border-l-2 border-primary/20">@_resultSession.Outline</div>
+                            </div>
+                        </details>
+                    </div>
+                }
+
                 @* Stats Row *@
                 <div class="grid grid-cols-4 gap-3 mb-4">
                     <div class="text-center p-3 rounded-lg bg-muted/60">
@@ -495,8 +534,8 @@
                     @foreach (var sec in _resultSections)
                     {
                         <div class="card overflow-hidden flex-shrink-0" style="width: 720px;">
-                            @* Phase Header *@
-                            <div class="flex items-center justify-between px-6 py-4 border-b border-border/50 bg-muted/30 cursor-pointer"
+                            @* Phase Header — Sticky *@
+                            <div class="flex items-center justify-between px-6 py-4 border-b border-border/50 bg-card/95 backdrop-blur-sm cursor-pointer sticky top-0 z-10"
                                  @onclick="() => ToggleSection(sec)">
                                 <div class="flex items-center gap-3">
                                     <span class="flex items-center justify-center w-8 h-8 rounded-full bg-primary/15 text-primary text-sm font-bold">@sec.Order</span>
@@ -512,6 +551,30 @@
                                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
                                         </span>
                                     }
+                                    @* Outline Indicator *@
+                                    @if (sec.OutlinePoints?.Count > 0)
+                                    {
+                                        <div class="badge badge-ghost badge-sm gap-1 text-muted-foreground/60 font-normal select-none">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                                            <span class="text-[10px]">Outline</span>
+                                        </div>
+                                    }
+
+                                    @* Copy Button *@
+                                    <button class="btn-ghost text-xs px-2 py-1.5 flex items-center gap-1"
+                                            title="Copy script"
+                                            @onclick="() => HandleCopyPhaseContent(sec)"
+                                            @onclick:stopPropagation="true">
+                                        @if (sec.CopyState == "copied")
+                                        {
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                                        }
+                                        else
+                                        {
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                                        }
+                                    </button>
+                                    @* Regenerate Button *@
                                     <button class="btn-ghost text-xs px-2 py-1.5 flex items-center gap-1"
                                             disabled="@(sec.IsRegenerating)"
                                             @onclick="() => HandleRegeneratePhase(sec)"
@@ -538,7 +601,25 @@
                             @if (sec.IsExpanded)
                             {
                                 <div class="px-8 py-6 overflow-y-auto" style="max-height: 75vh;">
-                                    <div class="prose prose-invert prose-lg max-w-none whitespace-pre-wrap leading-[1.9]">@sec.Content</div>
+                                    
+                                    @* Outline Block *@
+                                    @if (sec.OutlinePoints?.Count > 0)
+                                    {
+                                        <div class="mb-6 p-4 rounded-lg bg-muted/40 border border-border/50">
+                                            <div class="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-2 select-none">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                                                Setup Outline
+                                            </div>
+                                            <ul class="list-disc list-outside ml-4 space-y-1.5 text-sm text-foreground/80 marker:text-muted-foreground">
+                                                @foreach (var point in sec.OutlinePoints)
+                                                {
+                                                    <li>@point</li>
+                                                }
+                                            </ul>
+                                        </div>
+                                    }
+
+                                    <div class="prose prose-invert prose-lg max-w-none whitespace-pre-wrap leading-[1.9]">@NormalizeTimestamps(sec.Content)</div>
                                 </div>
                             }
                         </div>
@@ -549,6 +630,13 @@
             @if (!string.IsNullOrEmpty(_errorMessage))
             {
                 <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-destructive text-sm">@_errorMessage</div>
+            }
+            @if (!string.IsNullOrEmpty(_lrcExportPath))
+            {
+                <div class="rounded-lg border border-success/30 bg-success/10 p-3 text-success text-sm flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                    <span>LRC exported: <code class="text-xs">@_lrcExportPath</code></span>
+                </div>
             }
         </div>
     }
@@ -789,11 +877,23 @@
     private async Task LoadResultSections(ScriptGenerationSession session)
     {
         _resultSections.Clear();
+        
+        // Load outline distribution
+        Dictionary<string, List<string>> outlineDist = new();
+        if (!string.IsNullOrEmpty(session.OutlineDistributionJson))
+        {
+            try { outlineDist = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, List<string>>>(session.OutlineDistributionJson) ?? new(); }
+            catch { /* ignore */ }
+        }
+
         foreach (var phase in session.Phases.OrderBy(p => p.Order))
         {
             var content = "";
             if (!string.IsNullOrEmpty(phase.ContentFilePath) && File.Exists(phase.ContentFilePath))
                 content = await File.ReadAllTextAsync(phase.ContentFilePath);
+
+            List<string>? points = null;
+            if (outlineDist.TryGetValue(phase.PhaseId, out var pts)) points = pts;
 
             _resultSections.Add(new ResultSection
             {
@@ -804,7 +904,8 @@
                 WordCount = phase.WordCount ?? 0,
                 DurationSeconds = phase.DurationSeconds ?? 0,
                 IsValidated = phase.IsValidated,
-                IsExpanded = true  // Expanded by default
+                IsExpanded = true,
+                OutlinePoints = points
             });
         }
         _totalWords = session.Phases.Sum(p => p.WordCount ?? 0);
@@ -953,12 +1054,43 @@
 
     private void ToggleSection(ResultSection section) { section.IsExpanded = !section.IsExpanded; }
 
+    // ===== Copy Phase Content =====
+
+    private async Task HandleCopyPhaseContent(ResultSection section)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("copyToClipboard", section.Content);
+            section.CopyState = "copied";
+            StateHasChanged();
+
+            // Reset after 2 seconds
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(2000);
+                await InvokeAsync(() =>
+                {
+                    section.CopyState = "idle";
+                    StateHasChanged();
+                });
+            });
+        }
+        catch { /* silently fail */ }
+    }
+
     private void HandlePhaseProgress(object? sender, Orchestration.Events.PhaseProgressEventArgs e)
     {
         InvokeAsync(() =>
         {
             var phase = _phaseStatuses.FirstOrDefault(p => p.PhaseId == e.PhaseId);
-            if (phase != null) phase.Status = e.Status;
+            if (phase != null)
+            {
+                phase.Status = e.Status;
+                if (e.OutlinePoints?.Count > 0)
+                    phase.OutlinePoints = e.OutlinePoints;
+                if (!string.IsNullOrEmpty(e.DurationTarget))
+                    phase.DurationTarget = e.DurationTarget;
+            }
             _progressMessage = e.Message;
             StateHasChanged();
         });
@@ -986,17 +1118,25 @@
         if (_isExportingLrc || _resultSession == null) return;
         _isExportingLrc = true;
         _errorMessage = null;
+        _lrcExportPath = null;
         StateHasChanged();
 
         try
         {
             var lrcContent = GenerateLrcContent();
             var outputDir = _resultSession.OutputDirectory;
+            if (string.IsNullOrEmpty(outputDir))
+                throw new InvalidOperationException("Output directory not set on session");
             Directory.CreateDirectory(outputDir);
-            var lrcPath = Path.Combine(outputDir, $"{_resultSession.Id}_SCRIPT.lrc");
-            await File.WriteAllTextAsync(lrcPath, lrcContent);
+            var safeFilename = System.Text.RegularExpressions.Regex.Replace(
+                _resultSession.Topic ?? "script", @"[^\w\s\-]", "").Trim().Replace(" ", "-");
+            var lrcPath = Path.Combine(outputDir, $"{safeFilename}.lrc");
+            await File.WriteAllTextAsync(lrcPath, lrcContent, System.Text.Encoding.UTF8);
+            var bytes = System.Text.Encoding.UTF8.GetBytes(lrcContent);
+            var base64 = Convert.ToBase64String(bytes);
+            await JS.InvokeVoidAsync("downloadFile", $"{safeFilename}.lrc", base64, "text/plain");
+
             _lrcExportPath = lrcPath;
-            _errorMessage = null;
         }
         catch (Exception ex) { _errorMessage = $"Export LRC gagal: {ex.Message}"; }
         finally { _isExportingLrc = false; StateHasChanged(); }
@@ -1004,97 +1144,208 @@
 
     private string GenerateLrcContent()
     {
-        const int SoftLimit = 450;
-        const int HardCap = 500;
-        const double WordsPerMinute = 150.0;
+        const int MinChars = 400;
+        const int MaxChars = 500;
 
-        var lines = new List<string>();
-        lines.Add("[ti:" + (_resultSession?.Topic ?? "Script") + "]");
-        lines.Add("[ar:" + (_resultSession?.ChannelName ?? "Channel") + "]");
-        lines.Add("");
-
-        double currentSeconds = 0;
+        var sb = new System.Text.StringBuilder();
+        var startTime = TimeSpan.Zero;
 
         foreach (var section in _resultSections.OrderBy(s => s.Order))
         {
             if (string.IsNullOrWhiteSpace(section.Content)) continue;
 
-            var chunks = SplitIntoLrcChunks(section.Content, SoftLimit, HardCap);
+            var segments = SplitContentForCapCut(section.Content, MinChars, MaxChars);
 
-            foreach (var chunk in chunks)
+            foreach (var segment in segments)
             {
-                var mins = (int)(currentSeconds / 60);
-                var secs = currentSeconds % 60;
-                var timestamp = $"[{mins:D2}:{secs:00.00}]";
-                lines.Add($"{timestamp}{chunk}");
+                // Clean the text first (while it still has newlines for Multiline regexes)
+                var cleaned = CleanSubtitleText(segment);
+                if (string.IsNullOrWhiteSpace(cleaned)) continue;
 
-                // Estimate duration from word count
-                var wordCount = chunk.Split(new[] { ' ', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries).Length;
-                currentSeconds += (wordCount / WordsPerMinute) * 60;
+                var duration = EstimateDuration(segment);
+                var endTime = startTime.Add(TimeSpan.FromSeconds(duration));
+
+                // Flatten to single line for LRC output
+                var singleLine = cleaned.Replace("\r\n", " ").Replace("\n", " ").Replace("\r", " ");
+                singleLine = System.Text.RegularExpressions.Regex.Replace(singleLine, @"\s+", " ").Trim();
+
+                var minutes = (int)startTime.TotalMinutes;
+                var seconds = startTime.Seconds;
+                var centiseconds = startTime.Milliseconds / 10;
+                sb.AppendLine($"[{minutes:D2}:{seconds:D2}.{centiseconds:D2}]{singleLine}");
+
+                startTime = endTime;
             }
         }
 
-        return string.Join("\n", lines);
+        return sb.ToString();
     }
 
-    private static List<string> SplitIntoLrcChunks(string text, int softLimit, int hardCap)
+    private static List<string> SplitContentForCapCut(string content, int minChars, int maxChars)
     {
-        var chunks = new List<string>();
-        // Split by sentences (period, exclamation, question mark followed by space or newline)
-        var sentences = System.Text.RegularExpressions.Regex.Split(text.Trim(), @"(?<=[.!?])\s+");
+        var segments = new List<string>();
+        if (string.IsNullOrWhiteSpace(content)) return segments;
 
+        content = content.Trim();
+
+        // Normalize orphan quotes
+        content = System.Text.RegularExpressions.Regex.Replace(content, @"""\s*\n\s*""", "\"");
+        content = System.Text.RegularExpressions.Regex.Replace(content, @"\n\s*""", " \"");
+        content = System.Text.RegularExpressions.Regex.Replace(content, @"""\s*\n", "\" ");
+
+        // Split into sentences keeping punctuation with the sentence
+        var sentenceMatches = System.Text.RegularExpressions.Regex.Matches(content, @"[^.!?]*[.!?]+");
+
+        var sentences = new List<string>();
+        foreach (System.Text.RegularExpressions.Match match in sentenceMatches)
+        {
+            if (match.Length > 0) sentences.Add(match.Value.Trim());
+        }
+
+        // Fallback: word-based split if no punctuation found
+        if (sentences.Count == 0)
+        {
+            var words = content.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            var currentSeg = new System.Text.StringBuilder();
+            foreach (var word in words)
+            {
+                if (currentSeg.Length + word.Length + 1 > maxChars && currentSeg.Length >= minChars)
+                {
+                    segments.Add(currentSeg.ToString().Trim());
+                    currentSeg.Clear();
+                }
+                if (currentSeg.Length > 0) currentSeg.Append(' ');
+                currentSeg.Append(word);
+            }
+            if (currentSeg.Length > 0) segments.Add(currentSeg.ToString().Trim());
+            return segments;
+        }
+
+        // Build segments from sentences
         var current = new System.Text.StringBuilder();
+        var currentLength = 0;
 
         foreach (var sentence in sentences)
         {
-            var trimmed = sentence.Trim();
-            if (string.IsNullOrEmpty(trimmed)) continue;
+            var sentenceLength = sentence.Length;
 
-            // If adding this sentence would exceed hard cap, flush current
-            if (current.Length > 0 && current.Length + 1 + trimmed.Length > hardCap)
+            // If single sentence exceeds max, split by words
+            if (sentenceLength > maxChars)
             {
-                chunks.Add(current.ToString().Trim());
-                current.Clear();
-            }
-
-            // If single sentence exceeds hard cap, force-split it
-            if (trimmed.Length > hardCap)
-            {
-                if (current.Length > 0)
+                if (currentLength > 0)
                 {
-                    chunks.Add(current.ToString().Trim());
+                    segments.Add(current.ToString().Trim());
                     current.Clear();
+                    currentLength = 0;
                 }
-                // Split at word boundaries near hardCap
-                var words = trimmed.Split(' ');
+                var words = sentence.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                var wordBuf = new System.Text.StringBuilder();
                 foreach (var word in words)
                 {
-                    if (current.Length > 0 && current.Length + 1 + word.Length > hardCap)
+                    if (wordBuf.Length + word.Length + 1 > maxChars && wordBuf.Length > 0)
                     {
-                        chunks.Add(current.ToString().Trim());
-                        current.Clear();
+                        segments.Add(wordBuf.ToString().Trim());
+                        wordBuf.Clear();
                     }
-                    if (current.Length > 0) current.Append(' ');
-                    current.Append(word);
+                    if (wordBuf.Length > 0) wordBuf.Append(' ');
+                    wordBuf.Append(word);
                 }
+                if (wordBuf.Length > 0) segments.Add(wordBuf.ToString().Trim());
                 continue;
             }
 
-            if (current.Length > 0) current.Append(' ');
-            current.Append(trimmed);
-
-            // If we've passed the soft limit, flush
-            if (current.Length >= softLimit)
+            // If adding this sentence would exceed max and we're past min, flush
+            if (currentLength + sentenceLength > maxChars && currentLength >= minChars)
             {
-                chunks.Add(current.ToString().Trim());
+                segments.Add(current.ToString().Trim());
                 current.Clear();
+                currentLength = 0;
             }
+
+            if (current.Length > 0) current.Append(' ');
+            current.Append(sentence);
+            currentLength += sentenceLength + 1;
         }
 
-        if (current.Length > 0)
-            chunks.Add(current.ToString().Trim());
+        if (currentLength > 0) segments.Add(current.ToString().Trim());
+        return segments;
+    }
 
-        return chunks;
+    private static int EstimateDuration(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return 1;
+        var words = text.Split(new[] { ' ', '\t', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+        var baseDuration = words.Length / 2.5; // 150 wpm = 2.5 wps
+        var ellipsisCount = System.Text.RegularExpressions.Regex.Matches(text, @"\.\.\.").Count;
+        var totalDuration = baseDuration + (ellipsisCount * 0.5);
+        return (int)Math.Ceiling(Math.Max(3, Math.Min(15, totalDuration)));
+    }
+
+    private static string CleanSubtitleText(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return string.Empty;
+        var result = text;
+
+        // 1. Remove markdown headers (e.g., ## Opening Hook)
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"^#+\s+.*$", "", System.Text.RegularExpressions.RegexOptions.Multiline);
+        
+        // 2. Remove common phase headers (without hashes) at start of lines
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"^\s*(?:Opening Hook|Kontekstualisasi|Multi-Dimensi|Climax|Eschatology|Contextualization|Content|Segment \d+):?\s*$", "", System.Text.RegularExpressions.RegexOptions.Multiline | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        // 3. Remove embedded timestamps like 00:00, 01:25, or [00:15]
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"\b\d{1,2}:\d{2}(?::\d{2})?\b", "");
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"\[\d{1,2}:\d{2}(?::\d{2})?\]", "");
+
+        // 4. Remove visual/production markers in brackets
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"\[(?:Visual|Musik|Music|Efek|Effect|SFX|Audio|PAUSE)[^\]]*\]", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        // 5. Remove stage directions in parentheses
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"\([^)]*\)", "");
+
+        // 6. Basic formatting and symbols
+        result = result.Replace("\"", "").Replace("'", "");
+        result = result.Replace("*", "").Replace("_", "");
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"#\S+", "");
+        result = result.Replace("[", "").Replace("]", "");
+        result = result.Replace(".. .", "").Replace("...", "");
+        result = result.Replace("—", " - ").Replace("–", " - ");
+
+        // 7. Cleanup multiple spaces and newlines
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"\s+", " ");
+        return result.Trim();
+    }
+
+    /// <summary>
+    /// Normalize timestamps so they always appear at the START of sentences/paragraphs.
+    /// Moves trailing [MM:SS] or MM:SS timestamps to the beginning of the next line/sentence.
+    /// </summary>
+    private static string NormalizeTimestamps(string content)
+    {
+        if (string.IsNullOrWhiteSpace(content)) return content;
+
+        // Pattern: text followed by a timestamp at the end of line → move timestamp to next line start
+        // e.g. "some text. [01:25]\n\nNext paragraph" → "some text.\n\n[01:25] Next paragraph"
+        var result = content;
+
+        // 1. Remove timestamps that appear at end of a line/paragraph and re-attach to the start of next content
+        //    Match: [MM:SS] at end of line (possibly before newlines)
+        result = System.Text.RegularExpressions.Regex.Replace(
+            result,
+            @"\s*\[(\d{1,2}:\d{2})\]\s*\n",
+            m => $"\n\n[{m.Groups[1].Value}] ",
+            System.Text.RegularExpressions.RegexOptions.Multiline);
+
+        // 2. Handle mid-sentence timestamps: "text [01:25] more text" → newline before timestamp
+        //    Only if preceded by sentence-ending punctuation
+        result = System.Text.RegularExpressions.Regex.Replace(
+            result,
+            @"([.!?])\s*\[(\d{1,2}:\d{2})\]\s*",
+            m => $"{m.Groups[1].Value}\n\n[{m.Groups[2].Value}] ");
+
+        // 3. Clean up excessive newlines
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"\n{3,}", "\n\n");
+
+        return result.Trim();
     }
 
     private string FormatDate(DateTime date)
@@ -1122,6 +1373,8 @@
         public int Order { get; set; }
         public string Status { get; set; } = "Pending";
         public int WordCount { get; set; }
+        public List<string>? OutlinePoints { get; set; }
+        public string DurationTarget { get; set; } = "";
     }
 
     private class ResultSection
@@ -1135,5 +1388,7 @@
         public bool IsValidated { get; set; }
         public bool IsExpanded { get; set; }
         public bool IsRegenerating { get; set; }
+        public List<string>? OutlinePoints { get; set; }
+        public string CopyState { get; set; } = "idle";
     }
 }

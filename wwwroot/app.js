@@ -49,6 +49,35 @@ function downloadFile(filename, base64Content, mimeType) {
 }
 
 /**
+ * Copy text to clipboard
+ * @param {string} text - Text to copy
+ * @returns {boolean} - Whether copy was successful
+ */
+async function copyToClipboard(text) {
+    try {
+        await navigator.clipboard.writeText(text);
+        return true;
+    } catch (err) {
+        console.error('Failed to copy:', err);
+        // Fallback for older browsers
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            return true;
+        } catch (e) {
+            document.body.removeChild(textarea);
+            return false;
+        }
+    }
+}
+
+/**
  * Download multiple files as a single ZIP
  * @param {string} zipFilename - Name of the output ZIP file
  * @param {Array<{url: string, filename: string}>} files - Array of files to download

@@ -46,4 +46,9 @@ public class PhaseContext
     /// Outline points assigned to this phase by OutlinePlanner
     /// </summary>
     public List<string> AssignedOutlinePoints { get; set; } = new();
+
+    /// <summary>
+    /// Key concepts or summaries from ALL previous phases to prevent repetition.
+    /// </summary>
+    public List<string> GlobalContext { get; set; } = new();
 }

@@ -201,7 +201,38 @@ public class ScriptOrchestrator : IScriptOrchestrator
     private async Task<PatternResult> ExecuteGenerationAsync(ScriptGenerationSession session, GenerationContext context)
     {
         var result = new PatternResult { SessionId = session.Id, IsSuccess = true };
-        var orderedPhases = context.Pattern.GetOrderedPhases().ToList();
+        // Deep clone phases to avoid modifying the shared pattern instance
+        var orderedPhases = context.Pattern.GetOrderedPhases()
+            .Select(p => JsonSerializer.Deserialize<PhaseDefinition>(JsonSerializer.Serialize(p)))
+            .Where(p => p != null)
+            .Cast<PhaseDefinition>()
+            .ToList();
+
+        // Scale targets based on user preference
+        if (context.Config.TargetDurationMinutes > 0)
+        {
+            // Calculate total base duration from pattern (average of min/max)
+            double patternBaseMinutes = orderedPhases.Sum(p => (p.DurationTarget.Min + p.DurationTarget.Max) / 2.0) / 60.0;
+            
+            if (patternBaseMinutes > 0)
+            {
+                double scaleFactor = context.Config.TargetDurationMinutes / patternBaseMinutes;
+                _logger.LogInformation("Scaling script targets by factor {Scale:F2} (Target: {Target}m / Base: {Base:F1}m)", 
+                    scaleFactor, context.Config.TargetDurationMinutes, patternBaseMinutes);
+
+                foreach (var phase in orderedPhases)
+                {
+                    // Scale Duration
+                    phase.DurationTarget.Min = (int)(phase.DurationTarget.Min * scaleFactor);
+                    phase.DurationTarget.Max = (int)(phase.DurationTarget.Max * scaleFactor);
+
+                    // Scale Word Count (assuming 150 wpm average)
+                    // We scale the original targets to preserve the phase's relative "density"
+                    phase.WordCountTarget.Min = (int)(phase.WordCountTarget.Min * scaleFactor);
+                    phase.WordCountTarget.Max = (int)(phase.WordCountTarget.Max * scaleFactor);
+                }
+            }
+        }
 
         // Mark final phase
         if (orderedPhases.Count > 0)
@@ -233,6 +264,7 @@ public class ScriptOrchestrator : IScriptOrchestrator
             if (distribution.Count > 0)
             {
                 context.SetSharedData("outlineDistribution", distribution);
+                session.OutlineDistributionJson = JsonSerializer.Serialize(distribution);
                 _logger.LogInformation("Outline distributed across {Count} phases", distribution.Count);
 
                 OnSessionProgress?.Invoke(this, new SessionProgressEventArgs
@@ -275,6 +307,31 @@ public class ScriptOrchestrator : IScriptOrchestrator
 
             try
             {
+                // Look up assigned outline points for this phase
+                List<string>? phaseOutlinePoints = null;
+                if (context.SharedData.TryGetValue("outlineDistribution", out var distObj)
+                    && distObj is Dictionary<string, List<string>> dist
+                    && dist.TryGetValue(phaseDef.Id, out var pts))
+                {
+                    phaseOutlinePoints = pts;
+                }
+
+                // Build Global Context (all previous phases except immediate one which is already in PreviousContent)
+                var globalContext = context.CompletedPhases
+                    .Where(cp => cp.Order < phaseDef.Order - 1) // Skip immediate predecessor
+                    .OrderBy(cp => cp.Order)
+                    .Select(cp => $"[Phase {cp.PhaseName} (FULL CONTENT PREVIEW)]: {cp.Content.Substring(0, Math.Min(cp.Content.Length, 2000))}...") // Take up to 2000 chars (effectively whole phase)
+                    .ToList();
+
+                // Pass outline points and global context to PhaseCoordinator via shared data or context
+                // Note: PhaseCoordinator will need to read these. We can set them in a temporary way or update PhaseCoordinator.
+                // Since PhaseCoordinator builds PhaseContext internally, we need to pass these via GenerationContext.SharedData
+                // or pass them as arguments.
+                
+                // To avoid changing PhaseCoordinator signature too much, let's use SharedData to pass transient phase-specific data
+                context.SetSharedData("currentPhaseOutline", phaseOutlinePoints);
+                context.SetSharedData("currentGlobalContext", globalContext);
+
                 OnPhaseProgress?.Invoke(this, new PhaseProgressEventArgs
                 {
                     SessionId = session.Id,
@@ -283,7 +340,9 @@ public class ScriptOrchestrator : IScriptOrchestrator
                     PhaseOrder = phaseDef.Order,
                     TotalPhases = orderedPhases.Count,
                     Status = "InProgress",
-                    Message = $"Menulis {phaseDef.Name}..."
+                    Message = $"Menulis {phaseDef.Name}...",
+                    OutlinePoints = phaseOutlinePoints,
+                    DurationTarget = $"{phaseDef.DurationTarget.Min}-{phaseDef.DurationTarget.Max}s"
                 });
 
                 dbPhase.Status = PhaseStatus.InProgress;
@@ -448,13 +507,41 @@ public class ScriptOrchestrator : IScriptOrchestrator
         var coordinator = new PhaseCoordinator(_intelligenceService, _logger);
 
         // Distribute outline if provided (so regenerated phase gets its outline points)
+        // Distribute outline if provided (so regenerated phase gets its outline points)
         if (!string.IsNullOrWhiteSpace(context.Config.Outline))
         {
-            var outlinePlanner = new OutlinePlanner(_intelligenceService, _logger);
-            var distribution = await outlinePlanner.DistributeAsync(
-                context.Config.Outline,
-                orderedPhases,
-                context.Config.Topic);
+            Dictionary<string, List<string>> distribution = new();
+            
+            // Try to load from session first
+            if (!string.IsNullOrEmpty(session.OutlineDistributionJson))
+            {
+                try 
+                {
+                    distribution = JsonSerializer.Deserialize<Dictionary<string, List<string>>>(session.OutlineDistributionJson) 
+                        ?? new Dictionary<string, List<string>>();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to deserialize saved outline distribution during regeneration");
+                }
+            }
+
+            // Fallback to fresh distribution if needed
+            if (distribution.Count == 0)
+            {
+                var outlinePlanner = new OutlinePlanner(_intelligenceService, _logger);
+                distribution = await outlinePlanner.DistributeAsync(
+                    context.Config.Outline,
+                    orderedPhases,
+                    context.Config.Topic);
+                
+                // Save for future use
+                if (distribution.Count > 0)
+                {
+                    session.OutlineDistributionJson = JsonSerializer.Serialize(distribution);
+                    await SaveSessionAsync(session);
+                }
+            }
 
             if (distribution.Count > 0)
             {

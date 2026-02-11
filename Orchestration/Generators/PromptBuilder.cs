@@ -43,6 +43,12 @@ public class PromptBuilder
             promptParts.Add(BuildAssignedBeats(phaseContext.AssignedBeats));
         }
 
+        // 6. Global Context (Anti-Repetition)
+        if (phaseContext.GlobalContext != null && phaseContext.GlobalContext.Count > 0)
+        {
+            promptParts.Add(BuildGlobalContext(phaseContext.GlobalContext));
+        }
+
         // 6. Assigned outline points (if available)
         if (phaseContext.AssignedOutlinePoints.Count > 0)
         {
@@ -245,7 +251,9 @@ Output harus dalam format markdown dengan struktur berikut:
 
 [Konten dalam bahasa Indonesia dengan gaya conversational]
 
-Gunakan timestamp format [MM:SS] untuk momen penting.
+Gunakan timestamp format [MM:SS] HANYA di AWAL kalimat atau paragraf baru, JANGAN di tengah atau akhir kalimat.
+Contoh yang BENAR: [01:10] Namun, untuk memahami mengapa riba begitu berbahaya...
+Contoh yang SALAH: Namun, untuk memahami mengapa riba begitu berbahaya... [01:10]
 Gunakan marker [Musik], [Efek] untuk transisi audio.
 Gunakan (dengan suara bergetar), (tertawa) untuk TTS emotion.
 
@@ -279,6 +287,20 @@ Gunakan (dengan suara bergetar), (tertawa) untuk TTS emotion.
                 "- Do NOT introduce new topics or cliffhangers\n" +
                 "- End with a thoughtful, conclusive message");
         }
+
+        return string.Join("\n", parts);
+    }
+
+    private string BuildGlobalContext(List<string> globalContext)
+    {
+        var parts = new List<string>
+        {
+            "### KONTEKS GLOBAL (ANTI-REPETITION)",
+            "Berikut adalah ringkasan dari fase-fase sebelumnya. DILARANG MENGULANG poin/ide yang sudah dibahas di sini:",
+            string.Join("\n", globalContext.Select(c => $"- {c}")),
+            "",
+            "⚠️ PENTING: Fokus pada pengembangan ide BARU sesuai fase ini. Jangan terjebak mengulang frasa/konsep dari fase sebelumnya."
+        };
 
         return string.Join("\n", parts);
     }

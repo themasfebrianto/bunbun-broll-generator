@@ -20,6 +20,12 @@ public class ScriptGenerationSession
 
     public string? Outline { get; set; }
 
+    /// <summary>
+    /// JSON-serialized Dictionary&lt;string, List&lt;string&gt;&gt; mapping phaseId → outline points.
+    /// Persisted after OutlinePlanner distributes the outline.
+    /// </summary>
+    public string? OutlineDistributionJson { get; set; }
+
     public int TargetDurationMinutes { get; set; }
 
     public string? SourceReferences { get; set; }

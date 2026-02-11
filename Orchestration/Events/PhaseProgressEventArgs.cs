@@ -9,4 +9,6 @@ public class PhaseProgressEventArgs : EventArgs
     public int TotalPhases { get; set; }
     public string Status { get; set; } = string.Empty;
     public string? Message { get; set; }
+    public List<string>? OutlinePoints { get; set; }
+    public string? DurationTarget { get; set; }
 }
