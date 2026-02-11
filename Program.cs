@@ -1,5 +1,6 @@
 using BunbunBroll.Components;
 using BunbunBroll.Services;
+using BunbunBroll.Orchestration;
 using BunbunBroll.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -35,6 +36,11 @@ builder.Services.AddScoped<IScriptProcessor, ScriptProcessor>();
 builder.Services.AddScoped<IPipelineOrchestrator, PipelineOrchestrator>();
 builder.Services.AddScoped<IProjectService, ProjectService>();
 builder.Services.AddScoped<IShortVideoComposer, ShortVideoComposer>();
+
+// Script Generation services
+builder.Services.AddSingleton<IPatternRegistry, PatternRegistry>();
+builder.Services.AddScoped<IScriptOrchestrator, ScriptOrchestrator>();
+builder.Services.AddScoped<IScriptGenerationService, ScriptGenerationService>();
 
 // Toast notification service
 builder.Services.AddScoped<BunbunBroll.Services.ToastService>();
@@ -103,6 +109,13 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.EnsureCreated();
 
+    // Load pattern registry
+    var patternRegistry = scope.ServiceProvider.GetRequiredService<IPatternRegistry>();
+    var patternsDir = builder.Configuration["Patterns:Directory"] ?? "patterns";
+    if (!Path.IsPathRooted(patternsDir))
+        patternsDir = Path.Combine(Directory.GetCurrentDirectory(), patternsDir);
+    patternRegistry.LoadFromDirectory(patternsDir);
+
     // Add new columns if they don't exist (for existing databases)
     try
     {
@@ -146,6 +159,23 @@ using (var scope = app.Services.CreateScope())
             ";
             await alterCommand.ExecuteNonQueryAsync();
             Console.WriteLine("Added VideoDuration column to existing database.");
+        }
+
+        // Check if ChannelName column exists in ScriptGenerationSessions
+        command.CommandText = @"
+            SELECT COUNT(*) FROM pragma_table_info('ScriptGenerationSessions') WHERE name='ChannelName'
+        ";
+        result = await command.ExecuteScalarAsync();
+        columnExists = Convert.ToInt32(result) > 0;
+
+        if (!columnExists)
+        {
+            using var alterCommand = connection.CreateCommand();
+            alterCommand.CommandText = @"
+                ALTER TABLE ScriptGenerationSessions ADD COLUMN ChannelName TEXT DEFAULT '';
+            ";
+            await alterCommand.ExecuteNonQueryAsync();
+            Console.WriteLine("Added ChannelName column to ScriptGenerationSessions.");
         }
 
         await connection.CloseAsync();

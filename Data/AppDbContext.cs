@@ -13,6 +13,11 @@ public class AppDbContext : DbContext
     public DbSet<ProjectSegment> Segments => Set<ProjectSegment>();
     public DbSet<ProjectSentence> Sentences => Set<ProjectSentence>();
 
+    // Script Generation
+    public DbSet<ScriptPattern> ScriptPatterns => Set<ScriptPattern>();
+    public DbSet<ScriptGenerationSession> ScriptGenerationSessions => Set<ScriptGenerationSession>();
+    public DbSet<ScriptGenerationPhase> ScriptGenerationPhases => Set<ScriptGenerationPhase>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Project>()
@@ -26,6 +31,32 @@ public class AppDbContext : DbContext
             .WithOne(s => s.Segment)
             .HasForeignKey(s => s.SegmentId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // Script Generation entities
+        modelBuilder.Entity<ScriptPattern>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Description).HasMaxLength(500);
+        });
+
+        modelBuilder.Entity<ScriptGenerationSession>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Topic).IsRequired().HasMaxLength(500);
+            entity.Property(e => e.PatternId).IsRequired().HasMaxLength(100);
+            entity.HasMany(e => e.Phases)
+                  .WithOne(p => p.Session)
+                  .HasForeignKey(p => p.SessionId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ScriptGenerationPhase>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.PhaseId).IsRequired();
+            entity.HasIndex(e => e.SessionId);
+        });
     }
 }
 

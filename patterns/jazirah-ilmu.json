@@ -1,0 +1,179 @@
+{
+  "name": "jazirah-ilmu",
+  "description": "Video Essay Reflektif-Eskatologis-Kritik Sosial - 5 fase untuk konten Islami mendalam",
+  "phases": [
+    {
+      "id": "opening-hook",
+      "name": "Opening Hook",
+      "order": 1,
+      "durationTarget": {
+        "min": 60,
+        "max": 90
+      },
+      "wordCountTarget": {
+        "min": 180,
+        "max": 320
+      },
+      "requiredElements": [
+        "Salam pembuka (Assalamualaikum)",
+        "Pertanyaan provokatif atau paradoks",
+        "Alamat audiens (sahabat/saudara-saudaraku)"
+      ],
+      "forbiddenPatterns": [
+        "Bayangkan",
+        "Pada kesempatan kali ini",
+        "Hari ini kita bahas",
+        "Mulai dengan definisi kering"
+      ],
+      "guidanceTemplate": "Gunakan kontras atau paradoks secara natural untuk memancing rasa terusik. Fokus pada satu ketegangan utama, bukan banyak gagasan sekaligus. Template fleksibel: [Realitas yang dianggap biasa] → [retakan tersembunyi] → [topik sebagai pertanyaan besar].",
+      "transitionHint": null,
+      "customRules": {
+        "mustHaveGreeting": "true",
+        "mustHaveAudienceAddress": "true",
+        "cognitiveDisturbance": "moderate"
+      }
+    },
+    {
+      "id": "contextualization",
+      "name": "Kontekstualisasi",
+      "order": 2,
+      "durationTarget": {
+        "min": 180,
+        "max": 240
+      },
+      "wordCountTarget": {
+        "min": 600,
+        "max": 900
+      },
+      "requiredElements": [
+        "Tahun/angka spesifik (1–3 data numerik relevan)",
+        "Definisi konseptual atau etimologi (opsional jika relevan)",
+        "Konteks historis singkat",
+        "Penggambaran visual yang bisa dibayangkan"
+      ],
+      "forbiddenPatterns": [],
+      "guidanceTemplate": "Bangun pemahaman secara bertahap, bukan padat. Data berfungsi sebagai penopang cerita, bukan pusat perhatian. Gunakan transisi lembut seperti: 'Namun, untuk memahami ini, kita perlu mundur sejenak...' atau 'Ini bukan sekadar tentang [Y], melainkan tentang [Z]'.",
+      "transitionHint": "Namun, untuk memahami [topik], kita perlu mundur sejenak...",
+      "customRules": {
+        "minNumericData": "1",
+        "mustHaveHistoricalContext": "true"
+      }
+    },
+    {
+      "id": "multi-dimensi",
+      "name": "Pengungkapan Multi-Dimensi",
+      "order": 3,
+      "durationTarget": {
+        "min": 480,
+        "max": 600
+      },
+      "wordCountTarget": {
+        "min": 1200,
+        "max": 2000
+      },
+      "requiredElements": [
+        "Dimensi Religius atau Psikologis sebagai poros utama",
+        "Dimensi Sosial atau Historis sebagai penguat",
+        "Dimensi Ekonomi atau Geopolitik jika relevan dengan topik"
+      ],
+      "forbiddenPatterns": [
+        "Pemaparan semua dimensi secara dangkal dan setara"
+      ],
+      "guidanceTemplate": "Gunakan teknik layering secara selektif. Tidak semua lapisan wajib muncul eksplisit. Alur ideal: Narasi dominan → pendalaman makna → implikasi moral/spiritual. Ritme boleh melambat dan berulang untuk penekanan emosional.",
+      "transitionHint": null,
+      "customRules": {
+        "minDimensions": "2",
+        "mustUseLayering": "optional",
+        "mustHaveRhetoricalQuestions": "true"
+      }
+    },
+    {
+      "id": "climax",
+      "name": "Titik Kritis / Climax Naratif",
+      "order": 4,
+      "durationTarget": {
+        "min": 240,
+        "max": 300
+      },
+      "wordCountTarget": {
+        "min": 800,
+        "max": 1200
+      },
+      "requiredElements": [
+        "Pertanyaan retoris penantang",
+        "Fakta atau contoh konkret (tidak harus numerik)",
+        "Momen kesadaran atau pembalikan sudut pandang",
+        "Metafora kuat yang mudah divisualisasikan"
+      ],
+      "forbiddenPatterns": [],
+      "guidanceTemplate": "Climax adalah momen kesadaran, bukan kuliah. Fokus pada satu kebenaran yang terasa menghantam. Struktur fleksibel: Ketegangan → Fakta/Kisah → Kesadaran → Metafora.",
+      "transitionHint": null,
+      "customRules": {
+        "emotionalIntensity": "high",
+        "mustHaveDarkMetaphor": "preferred",
+        "mustRevealHidden": "true"
+      }
+    },
+    {
+      "id": "eschatology",
+      "name": "Refleksi Eskatologis",
+      "order": 5,
+      "durationTarget": {
+        "min": 180,
+        "max": 300
+      },
+      "wordCountTarget": {
+        "min": 300,
+        "max": 700
+      },
+      "requiredElements": [
+        "Perbandingan masa lalu → kini → masa depan",
+        "Pertanyaan terbuka tanpa jawaban instan",
+        "Refleksi religius yang menenangkan sekaligus menggugah",
+        "Penutup: 'Wallahuam bissawab'",
+        "Penutup: 'Wassalamualaikum warahmatullahi wabarakatuh'"
+      ],
+      "forbiddenPatterns": [
+        "Kesimpulan mutlak atau menggurui",
+        "Membuka topik baru"
+      ],
+      "guidanceTemplate": "Ini adalah fase penutup yang bersifat kontemplatif. Biarkan pendengar pulang dengan perenungan, bukan jawaban final. Nada tenang, rendah hati, dan terbuka.",
+      "transitionHint": null,
+      "customRules": {
+        "mustHaveClosing": "true",
+        "mustConnectToUmmah": "true",
+        "openEnded": "true"
+      }
+    }
+  ],
+  "globalRules": {
+    "tone": "Serius, reflektif, kontemplatif",
+    "perspective": "Kritis terhadap kekuasaan, empati pada yang tertindas",
+    "structure": "Hook-Konteks-Pendalaman-Refleksi",
+    "language": "Bahasa Indonesia formal-naratif",
+    "wordsPerMinute": "150-200",
+    "targetDuration": "15-40 menit",
+    "honorificsRequired": "true",
+    "maxWordsPerSentence": "30",
+    "preferredWordsPerSentence": "Variasi alami, tidak berpola kaku",
+    "mustUseKeywords": "opsional dan alami: namun, tetapi, justru, sebaliknya, ironisnya, di balik, tersembunyi, mungkin, barangkali"
+  },
+  "closingFormula": "Wallahuam bissawab",
+  "productionChecklist": {
+    "praProduksi": [
+      "Topik memiliki kedalaman historis atau moral",
+      "Ada ketegangan dengan narasi umum",
+      "Tersedia fakta atau contoh konkret",
+      "Ada relevansi dengan kondisi umat",
+      "Durasi target realistis untuk satu fokus utama"
+    ],
+    "penulisan": [
+      "Hook jelas dan fokus pada satu konflik ide",
+      "Data digunakan secukupnya untuk memperkuat narasi",
+      "Ada pergeseran emosi yang terasa",
+      "Metafora digunakan selektif dan kuat",
+      "Pertanyaan retoris muncul di momen penting",
+      "Penutup religius disampaikan dengan tenang"
+    ]
+  }
+}

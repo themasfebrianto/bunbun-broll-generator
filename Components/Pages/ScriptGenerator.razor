@@ -1,0 +1,631 @@
+@page "/script-generator"
+@rendermode InteractiveServer
+@using BunbunBroll.Services
+@using BunbunBroll.Orchestration
+@using BunbunBroll.Models
+@inject IScriptGenerationService ScriptService
+@inject IScriptOrchestrator Orchestrator
+@inject IConfiguration Configuration
+@inject NavigationManager Navigation
+
+<div class="max-w-[52rem] mx-auto py-20 px-4">
+    <div class="space-y-3 mb-10 text-center">
+        <h1 class="text-4xl font-bold tracking-tight">Script Generator</h1>
+        <p class="text-muted-foreground text-lg">Buat script video essay dari pattern.</p>
+    </div>
+
+    @* ============ VIEW 0: Session List ============ *@
+    @if (_currentView == "list")
+    {
+        <div class="space-y-4">
+            <div class="flex justify-end">
+                <button class="btn-primary" @onclick="ShowConfigForm">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                    Buat Script Baru
+                </button>
+            </div>
+
+            @if (_isLoadingSessions)
+            {
+                <div class="card p-12 text-center text-muted-foreground">
+                    <svg class="animate-spin h-6 w-6 mx-auto mb-3 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Memuat sesi...
+                </div>
+            }
+            else if (_sessions.Count == 0)
+            {
+                <div class="card p-12 text-center">
+                    <div class="text-muted-foreground space-y-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <p class="text-lg font-medium">Belum ada script</p>
+                        <p class="text-sm">Klik "Buat Script Baru" untuk memulai.</p>
+                    </div>
+                </div>
+            }
+            else
+            {
+                @foreach (var session in _sessions)
+                {
+                    <div class="card p-5 cursor-pointer hover:border-primary/40 transition-colors"
+                         @onclick="() => HandleViewSession(session)">
+                        <div class="flex items-start justify-between gap-4">
+                            <div class="min-w-0 flex-1 space-y-1">
+                                <h3 class="font-semibold text-base truncate">@session.Topic</h3>
+                                <div class="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                                    <span class="badge badge-mono text-[10px]">@session.Id</span>
+                                    @if (!string.IsNullOrEmpty(session.ChannelName))
+                                    {
+                                        <span class="px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-medium">@session.ChannelName</span>
+                                    }
+                                    <span>·</span>
+                                    <span>@FormatDate(session.CreatedAt)</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3 shrink-0">
+                                @if (session.Status == SessionStatus.Completed)
+                                {
+                                    var totalWords = session.Phases.Sum(p => p.WordCount ?? 0);
+                                    var totalMins = (int)(session.Phases.Sum(p => p.DurationSeconds ?? 0) / 60);
+                                    <div class="text-right text-xs text-muted-foreground">
+                                        <span class="font-medium text-foreground">@totalWords</span> kata
+                                        <br />~@totalMins menit
+                                    </div>
+                                }
+                                @StatusBadge(session.Status)
+                            </div>
+                        </div>
+                        @if (session.Phases.Count > 0)
+                        {
+                            <div class="mt-3 flex gap-[3px]">
+                                @foreach (var phase in session.Phases.OrderBy(p => p.Order))
+                                {
+                                    var bgClass = phase.Status switch
+                                    {
+                                        PhaseStatus.Completed => "bg-success",
+                                        PhaseStatus.Failed => "bg-destructive",
+                                        PhaseStatus.InProgress => "bg-primary animate-pulse",
+                                        _ => "bg-muted-foreground/20"
+                                    };
+                                    <div class="h-1.5 flex-1 rounded-full @bgClass" title="@phase.PhaseName (@phase.Status)"></div>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            }
+        </div>
+    }
+
+    @* ============ VIEW 1: Config Form ============ *@
+    @if (_currentView == "config")
+    {
+        <div class="card p-8 space-y-6">
+            <div class="flex items-center gap-3 mb-2">
+                <button class="btn-ghost text-sm px-2 py-1" @onclick='() => _currentView = "list"'>← Kembali</button>
+                <h2 class="text-lg font-semibold">Buat Script Baru</h2>
+            </div>
+
+            @* Channel Name *@
+            <div class="space-y-2">
+                <label class="block text-sm font-medium">Channel <span class="text-destructive">*</span></label>
+                <select class="input" @bind="_channelName">
+                    <option value="">Pilih channel...</option>
+                    @foreach (var ch in _channelNames)
+                    {
+                        <option value="@ch">@ch</option>
+                    }
+                </select>
+            </div>
+
+            @* Pattern Selection *@
+            <div class="space-y-2">
+                <label class="block text-sm font-medium">Pattern</label>
+                <select class="input" @bind="_selectedPatternId">
+                    <option value="">Pilih pattern...</option>
+                    @foreach (var p in _availablePatterns)
+                    {
+                        <option value="@p.Id">@p.Name (@p.PhaseCount fase)</option>
+                    }
+                </select>
+                @if (_selectedPattern != null)
+                {
+                    <p class="text-xs text-muted-foreground mt-1">@_selectedPattern.Description</p>
+                }
+            </div>
+
+            @* Topic *@
+            <div class="space-y-2">
+                <label class="block text-sm font-medium">Topik <span class="text-destructive">*</span></label>
+                <input class="input" placeholder="Judul atau topik utama video essay" @bind="_topic" />
+            </div>
+
+            @* Outline *@
+            <div class="space-y-2">
+                <label class="block text-sm font-medium">Outline (opsional)</label>
+                <textarea class="input min-h-[100px] resize-y" placeholder="Garis besar atau poin-poin yang ingin dibahas" @bind="_outline"></textarea>
+            </div>
+
+            @* Source References *@
+            <div class="space-y-2">
+                <label class="block text-sm font-medium">Referensi (opsional)</label>
+                <textarea class="input min-h-[80px] resize-y" placeholder="Sumber referensi, data, atau kutipan" @bind="_sourceReferences"></textarea>
+            </div>
+
+            @* Target Duration *@
+            <div class="space-y-2">
+                <label class="block text-sm font-medium">Target Durasi (menit)</label>
+                <input type="number" class="input w-32" min="5" max="60" @bind="_targetDuration" />
+            </div>
+
+            <div class="flex gap-3 pt-2">
+                <button class="btn-primary flex-1" disabled="@(!CanGenerate)" @onclick="HandleGenerate">
+                    @if (_isGenerating)
+                    {
+                        <svg class="animate-spin -ml-1 mr-2 h-4 w-4 inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>Menulis Script...</span>
+                    }
+                    else
+                    {
+                        <span>Mulai Generate</span>
+                    }
+                </button>
+            </div>
+
+            @if (!string.IsNullOrEmpty(_errorMessage))
+            {
+                <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-destructive text-sm">@_errorMessage</div>
+            }
+        </div>
+    }
+
+    @* ============ VIEW 2: Progress ============ *@
+    @if (_currentView == "progress")
+    {
+        <div class="card p-8 space-y-6">
+            <div class="space-y-2">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-lg font-semibold">Generating: @_topic</h2>
+                    <span class="badge badge-mono">@_sessionId</span>
+                </div>
+                <p class="text-sm text-muted-foreground">@_progressMessage</p>
+            </div>
+            <div class="space-y-2">
+                <div class="h-2 rounded-full bg-muted overflow-hidden">
+                    <div class="h-full bg-primary rounded-full transition-all duration-500" style="width: @(_progressPercent)%"></div>
+                </div>
+                <p class="text-xs text-muted-foreground text-right">@_completedPhases / @_totalPhases fase</p>
+            </div>
+            <div class="space-y-3">
+                @foreach (var phase in _phaseStatuses)
+                {
+                    <div class="flex items-center gap-3 text-sm">
+                        @if (phase.Status == "Completed")
+                        {
+                            <span class="text-success text-lg">✓</span>
+                        }
+                        else if (phase.Status == "InProgress")
+                        {
+                            <svg class="animate-spin h-4 w-4 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        }
+                        else if (phase.Status == "Failed")
+                        {
+                            <span class="text-destructive text-lg">✗</span>
+                        }
+                        else
+                        {
+                            <span class="text-muted-foreground text-lg">○</span>
+                        }
+                        <span class="@(phase.Status == "InProgress" ? "text-foreground font-medium" : phase.Status == "Completed" ? "text-muted-foreground" : "text-muted-foreground/60")">
+                            @phase.Name
+                        </span>
+                        @if (phase.WordCount > 0)
+                        {
+                            <span class="text-xs text-muted-foreground ml-auto">@phase.WordCount kata</span>
+                        }
+                    </div>
+                }
+            </div>
+            @if (!string.IsNullOrEmpty(_errorMessage))
+            {
+                <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-destructive text-sm">@_errorMessage</div>
+            }
+        </div>
+    }
+
+    @* ============ VIEW 3: Results — Sophisticated ============ *@
+    @if (_currentView == "results")
+    {
+        <div class="space-y-6">
+            @* Header Card *@
+            <div class="card p-6">
+                <div class="flex items-start justify-between gap-4 mb-4">
+                    <div class="space-y-1 min-w-0">
+                        <h2 class="text-xl font-bold truncate">@_resultSession?.Topic</h2>
+                        <div class="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                            @if (!string.IsNullOrEmpty(_resultSession?.ChannelName))
+                            {
+                                <span class="px-2 py-0.5 rounded-full bg-primary/15 text-primary text-[11px] font-semibold">@_resultSession.ChannelName</span>
+                            }
+                            <span class="badge badge-mono text-[10px]">@_sessionId</span>
+                            <span>·</span>
+                            <span>@_resultSession?.PatternId</span>
+                            @if (_resultSession?.CompletedAt != null)
+                            {
+                                <span>·</span>
+                                <span>@FormatDate(_resultSession.CompletedAt.Value)</span>
+                            }
+                        </div>
+                    </div>
+                    @StatusBadge(_resultSession?.Status ?? SessionStatus.Pending)
+                </div>
+
+                @* Stats Row *@
+                <div class="grid grid-cols-4 gap-3">
+                    <div class="text-center p-3 rounded-lg bg-muted/60">
+                        <p class="text-2xl font-bold">@_totalWords</p>
+                        <p class="text-[10px] text-muted-foreground uppercase tracking-wide">kata</p>
+                    </div>
+                    <div class="text-center p-3 rounded-lg bg-muted/60">
+                        <p class="text-2xl font-bold">~@_totalMinutes</p>
+                        <p class="text-[10px] text-muted-foreground uppercase tracking-wide">menit</p>
+                    </div>
+                    <div class="text-center p-3 rounded-lg bg-muted/60">
+                        <p class="text-2xl font-bold">@_totalPhases</p>
+                        <p class="text-[10px] text-muted-foreground uppercase tracking-wide">fase</p>
+                    </div>
+                    <div class="text-center p-3 rounded-lg bg-muted/60">
+                        <p class="text-2xl font-bold">@_validatedCount</p>
+                        <p class="text-[10px] text-muted-foreground uppercase tracking-wide">valid</p>
+                    </div>
+                </div>
+            </div>
+
+            @* Per-Phase Sections *@
+            @foreach (var sec in _resultSections)
+            {
+                <div class="card overflow-hidden">
+                    @* Phase Header *@
+                    <div class="flex items-center justify-between px-6 py-4 border-b border-border/50 bg-muted/30">
+                        <div class="flex items-center gap-3">
+                            <span class="flex items-center justify-center w-7 h-7 rounded-full bg-primary/15 text-primary text-xs font-bold">@sec.Order</span>
+                            <div>
+                                <h3 class="font-semibold text-sm">@sec.PhaseName</h3>
+                                <span class="text-[11px] text-muted-foreground">@sec.WordCount kata · ~@((int)(sec.DurationSeconds / 60)) menit</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            @if (sec.IsValidated)
+                            {
+                                <span class="text-success text-xs flex items-center gap-1">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                                    Valid
+                                </span>
+                            }
+                            <button class="btn-ghost text-xs px-2 py-1 flex items-center gap-1"
+                                    disabled="@(sec.IsRegenerating)"
+                                    @onclick="() => HandleRegeneratePhase(sec)">
+                                @if (sec.IsRegenerating)
+                                {
+                                    <svg class="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    <span>Regenerating...</span>
+                                }
+                                else
+                                {
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                                    <span>Regenerate</span>
+                                }
+                            </button>
+                            <button class="btn-ghost text-xs px-2 py-1"
+                                    @onclick="() => ToggleSection(sec)">
+                                @(sec.IsExpanded ? "▲ Tutup" : "▼ Buka")
+                            </button>
+                        </div>
+                    </div>
+
+                    @* Content *@
+                    @if (sec.IsExpanded)
+                    {
+                        <div class="px-6 py-5">
+                            <div class="prose prose-invert max-w-none text-sm whitespace-pre-wrap leading-relaxed">@sec.Content</div>
+                        </div>
+                    }
+                </div>
+            }
+
+            @* Actions *@
+            <div class="flex gap-3">
+                <button class="btn-secondary flex-1" @onclick="HandleBackToList">← Daftar Script</button>
+                <button class="btn-primary flex-1" @onclick="HandleSendToBroll">Kirim ke B-Roll →</button>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    // Views: list, config, progress, results
+    private string _currentView = "list";
+    private List<ScriptGenerationSession> _sessions = new();
+    private bool _isLoadingSessions = true;
+
+    // Config
+    private List<ScriptPattern> _availablePatterns = new();
+    private List<string> _channelNames = new();
+    private string _selectedPatternId = "";
+    private ScriptPattern? _selectedPattern => _availablePatterns.FirstOrDefault(p => p.Id == _selectedPatternId);
+    private string _channelName = "";
+    private string _topic = "";
+    private string? _outline;
+    private string? _sourceReferences;
+    private int _targetDuration = 30;
+    private bool _isGenerating = false;
+    private string? _errorMessage;
+
+    // Progress
+    private string? _sessionId;
+    private string? _progressMessage;
+    private double _progressPercent;
+    private int _completedPhases;
+    private int _totalPhases;
+    private List<PhaseStatusItem> _phaseStatuses = new();
+
+    // Results
+    private ScriptGenerationSession? _resultSession;
+    private List<ResultSection> _resultSections = new();
+    private int _totalWords;
+    private int _totalMinutes;
+    private int _validatedCount;
+
+    private bool CanGenerate => !string.IsNullOrWhiteSpace(_topic)
+        && !string.IsNullOrWhiteSpace(_selectedPatternId)
+        && !string.IsNullOrWhiteSpace(_channelName)
+        && !_isGenerating;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Load channel names from config
+        _channelNames = Configuration.GetSection("Channels").Get<List<string>>() ?? new List<string>();
+
+        await LoadSessionsAsync();
+        _availablePatterns = await ScriptService.GetAvailablePatternsAsync();
+        if (_availablePatterns.Count == 1)
+            _selectedPatternId = _availablePatterns[0].Id;
+        if (_channelNames.Count == 1)
+            _channelName = _channelNames[0];
+    }
+
+    private async Task LoadSessionsAsync()
+    {
+        _isLoadingSessions = true;
+        try { _sessions = await ScriptService.ListSessionsAsync(); }
+        catch { _sessions = new(); }
+        finally { _isLoadingSessions = false; }
+    }
+
+    private void ShowConfigForm()
+    {
+        _currentView = "config";
+        _topic = "";
+        _outline = null;
+        _sourceReferences = null;
+        _errorMessage = null;
+    }
+
+    private async Task HandleViewSession(ScriptGenerationSession session)
+    {
+        _sessionId = session.Id;
+        _resultSession = session;
+        _totalPhases = session.Phases.Count;
+
+        if (session.Status == SessionStatus.Completed)
+        {
+            await LoadResultSections(session);
+            _currentView = "results";
+        }
+        else if (session.Status == SessionStatus.Running || session.Status == SessionStatus.Failed)
+        {
+            _phaseStatuses = session.Phases.OrderBy(p => p.Order).Select(p => new PhaseStatusItem
+            {
+                PhaseId = p.PhaseId, Name = p.PhaseName, Order = p.Order,
+                Status = p.Status.ToString(), WordCount = p.WordCount ?? 0
+            }).ToList();
+            _completedPhases = session.Phases.Count(p => p.Status == PhaseStatus.Completed);
+            _progressPercent = _totalPhases > 0 ? (double)_completedPhases / _totalPhases * 100 : 0;
+            _progressMessage = session.ErrorMessage ?? "Sedang berjalan...";
+            _errorMessage = session.Status == SessionStatus.Failed ? session.ErrorMessage : null;
+            _currentView = "progress";
+        }
+    }
+
+    private async Task LoadResultSections(ScriptGenerationSession session)
+    {
+        _resultSections.Clear();
+        foreach (var phase in session.Phases.OrderBy(p => p.Order))
+        {
+            var content = "";
+            if (!string.IsNullOrEmpty(phase.ContentFilePath) && File.Exists(phase.ContentFilePath))
+                content = await File.ReadAllTextAsync(phase.ContentFilePath);
+
+            _resultSections.Add(new ResultSection
+            {
+                PhaseId = phase.PhaseId,
+                PhaseName = phase.PhaseName,
+                Order = phase.Order,
+                Content = content,
+                WordCount = phase.WordCount ?? 0,
+                DurationSeconds = phase.DurationSeconds ?? 0,
+                IsValidated = phase.IsValidated,
+                IsExpanded = false
+            });
+        }
+        _totalWords = session.Phases.Sum(p => p.WordCount ?? 0);
+        _totalMinutes = (int)(session.Phases.Sum(p => p.DurationSeconds ?? 0) / 60);
+        _validatedCount = session.Phases.Count(p => p.IsValidated);
+    }
+
+    private async Task HandleGenerate()
+    {
+        if (!CanGenerate) return;
+        _isGenerating = true;
+        _errorMessage = null;
+
+        try
+        {
+            var session = await ScriptService.CreateSessionAsync(
+                _selectedPatternId, _topic, _outline, _targetDuration, _sourceReferences, _channelName);
+            _sessionId = session.Id;
+            _totalPhases = session.Phases.Count;
+            _completedPhases = 0;
+            _progressPercent = 0;
+            _progressMessage = "Mempersiapkan...";
+
+            _phaseStatuses = session.Phases.OrderBy(p => p.Order).Select(p => new PhaseStatusItem
+            {
+                PhaseId = p.PhaseId, Name = p.PhaseName, Order = p.Order, Status = "Pending"
+            }).ToList();
+
+            _currentView = "progress";
+            StateHasChanged();
+
+            Orchestrator.OnPhaseProgress += HandlePhaseProgress;
+            Orchestrator.OnSessionProgress += HandleSessionProgress;
+
+            try
+            {
+                session = await ScriptService.GenerateAsync(_sessionId);
+                if (session.Status == SessionStatus.Completed)
+                {
+                    _resultSession = session;
+                    await LoadResultSections(session);
+                    _currentView = "results";
+                }
+                else
+                {
+                    _errorMessage = session.ErrorMessage ?? "Generasi gagal.";
+                }
+            }
+            finally
+            {
+                Orchestrator.OnPhaseProgress -= HandlePhaseProgress;
+                Orchestrator.OnSessionProgress -= HandleSessionProgress;
+            }
+        }
+        catch (Exception ex) { _errorMessage = $"Error: {ex.Message}"; }
+        finally { _isGenerating = false; StateHasChanged(); }
+    }
+
+    private async Task HandleRegeneratePhase(ResultSection section)
+    {
+        if (section.IsRegenerating || _sessionId == null) return;
+        section.IsRegenerating = true;
+        StateHasChanged();
+
+        try
+        {
+            var session = await ScriptService.RegeneratePhaseAsync(_sessionId, section.PhaseId);
+            _resultSession = session;
+
+            // Reload the content for this section
+            var updatedPhase = session.Phases.FirstOrDefault(p => p.PhaseId == section.PhaseId);
+            if (updatedPhase != null)
+            {
+                if (!string.IsNullOrEmpty(updatedPhase.ContentFilePath) && File.Exists(updatedPhase.ContentFilePath))
+                    section.Content = await File.ReadAllTextAsync(updatedPhase.ContentFilePath);
+                section.WordCount = updatedPhase.WordCount ?? 0;
+                section.DurationSeconds = updatedPhase.DurationSeconds ?? 0;
+                section.IsValidated = updatedPhase.IsValidated;
+                section.IsExpanded = true;
+            }
+
+            // Recalculate totals
+            _totalWords = session.Phases.Sum(p => p.WordCount ?? 0);
+            _totalMinutes = (int)(session.Phases.Sum(p => p.DurationSeconds ?? 0) / 60);
+            _validatedCount = session.Phases.Count(p => p.IsValidated);
+        }
+        catch (Exception ex) { _errorMessage = $"Regenerate gagal: {ex.Message}"; }
+        finally { section.IsRegenerating = false; StateHasChanged(); }
+    }
+
+    private void ToggleSection(ResultSection section) { section.IsExpanded = !section.IsExpanded; }
+
+    private void HandlePhaseProgress(object? sender, Orchestration.Events.PhaseProgressEventArgs e)
+    {
+        InvokeAsync(() =>
+        {
+            var phase = _phaseStatuses.FirstOrDefault(p => p.PhaseId == e.PhaseId);
+            if (phase != null) phase.Status = e.Status;
+            _progressMessage = e.Message;
+            StateHasChanged();
+        });
+    }
+
+    private void HandleSessionProgress(object? sender, Orchestration.Events.SessionProgressEventArgs e)
+    {
+        InvokeAsync(() =>
+        {
+            _completedPhases = e.CompletedPhases;
+            _totalPhases = e.TotalPhases;
+            _progressPercent = e.ProgressPercent;
+            _progressMessage = e.Message;
+            StateHasChanged();
+        });
+    }
+
+    private async Task HandleBackToList() { await LoadSessionsAsync(); _currentView = "list"; _errorMessage = null; }
+    private void HandleSendToBroll() { Navigation.NavigateTo("/"); }
+
+    private string FormatDate(DateTime date)
+    {
+        var elapsed = DateTime.UtcNow - date;
+        if (elapsed.TotalMinutes < 1) return "baru saja";
+        if (elapsed.TotalHours < 1) return $"{(int)elapsed.TotalMinutes}m lalu";
+        if (elapsed.TotalDays < 1) return $"{(int)elapsed.TotalHours}j lalu";
+        if (elapsed.TotalDays < 7) return $"{(int)elapsed.TotalDays}h lalu";
+        return date.ToString("dd MMM yyyy");
+    }
+
+    private static RenderFragment StatusBadge(SessionStatus status) => status switch
+    {
+        SessionStatus.Completed => @<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-success/15 text-success"><span>●</span> Selesai</span>,
+        SessionStatus.Running => @<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-primary/15 text-primary"><span class="animate-pulse">●</span> Berjalan</span>,
+        SessionStatus.Failed => @<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-destructive/15 text-destructive"><span>●</span> Gagal</span>,
+        _ => @<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-muted-foreground/15 text-muted-foreground"><span>●</span> Pending</span>
+    };
+
+    private class PhaseStatusItem
+    {
+        public string PhaseId { get; set; } = "";
+        public string Name { get; set; } = "";
+        public int Order { get; set; }
+        public string Status { get; set; } = "Pending";
+        public int WordCount { get; set; }
+    }
+
+    private class ResultSection
+    {
+        public string PhaseId { get; set; } = "";
+        public string PhaseName { get; set; } = "";
+        public int Order { get; set; }
+        public string Content { get; set; } = "";
+        public int WordCount { get; set; }
+        public double DurationSeconds { get; set; }
+        public bool IsValidated { get; set; }
+        public bool IsExpanded { get; set; }
+        public bool IsRegenerating { get; set; }
+    }
+}

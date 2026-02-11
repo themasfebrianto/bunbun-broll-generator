@@ -31,6 +31,17 @@ public interface IIntelligenceService
         IEnumerable<(int Id, string Text)> sentences, 
         string? mood = null, 
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// General-purpose content generation via LLM.
+    /// Used by ScriptOrchestrator for script phase generation.
+    /// </summary>
+    Task<string?> GenerateContentAsync(
+        string systemPrompt, 
+        string userPrompt, 
+        int maxTokens = 4000, 
+        double temperature = 0.7, 
+        CancellationToken cancellationToken = default);
 }
 
 public class IntelligenceService : IIntelligenceService
@@ -513,6 +524,57 @@ IMPORTANT: When user specifies a Visual Style, weave those terms into PRIMARY, M
         }
 
         return results;
+    }
+
+    /// <summary>
+    /// General-purpose content generation via LLM.
+    /// </summary>
+    public async Task<string?> GenerateContentAsync(
+        string systemPrompt, 
+        string userPrompt, 
+        int maxTokens = 4000, 
+        double temperature = 0.7, 
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var request = new GeminiChatRequest
+            {
+                Model = _settings.Model,
+                Messages = new List<GeminiMessage>
+                {
+                    new() { Role = "system", Content = systemPrompt },
+                    new() { Role = "user", Content = userPrompt }
+                },
+                Temperature = temperature,
+                MaxTokens = maxTokens
+            };
+
+            _logger.LogDebug("GenerateContent: Sending request ({MaxTokens} max tokens)", maxTokens);
+
+            var response = await _httpClient.PostAsJsonAsync(
+                "v1/chat/completions",
+                request,
+                cancellationToken);
+
+            response.EnsureSuccessStatusCode();
+
+            var geminiResponse = await response.Content.ReadFromJsonAsync<GeminiChatResponse>(
+                cancellationToken: cancellationToken);
+
+            var content = geminiResponse?.Choices?.FirstOrDefault()?.Message?.Content;
+            
+            _logger.LogInformation("GenerateContent: Received {Length} chars, {Tokens} tokens",
+                content?.Length ?? 0,
+                geminiResponse?.Usage?.TotalTokens ?? 0);
+
+            return content;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "GenerateContent failed");
+            return null;
+        }
     }
 }
 
