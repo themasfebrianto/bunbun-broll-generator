@@ -8,7 +8,7 @@
 @inject IConfiguration Configuration
 @inject NavigationManager Navigation
 
-<div class="max-w-[52rem] mx-auto py-20 px-4">
+<div class="max-w-[90rem] mx-auto py-20 px-4">
     <div class="space-y-3 mb-10 text-center">
         <h1 class="text-4xl font-bold tracking-tight">Script Generator</h1>
         <p class="text-muted-foreground text-lg">Buat script video essay dari pattern.</p>
@@ -17,7 +17,7 @@
     @* ============ VIEW 0: Session List ============ *@
     @if (_currentView == "list")
     {
-        <div class="space-y-4">
+        <div class="max-w-[52rem] mx-auto space-y-4">
             <div class="flex justify-end">
                 <button class="btn-primary" @onclick="ShowConfigForm">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -53,7 +53,7 @@
             {
                 @foreach (var session in _sessions)
                 {
-                    <div class="card p-5 cursor-pointer hover:border-primary/40 transition-colors"
+                    <div class="card p-5 cursor-pointer hover:border-primary/40 transition-colors group"
                          @onclick="() => HandleViewSession(session)">
                         <div class="flex items-start justify-between gap-4">
                             <div class="min-w-0 flex-1 space-y-1">
@@ -79,6 +79,14 @@
                                     </div>
                                 }
                                 @StatusBadge(session.Status)
+                                <button class="btn-ghost text-xs px-1.5 py-1 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:bg-destructive/10"
+                                        title="Hapus sesi"
+                                        @onclick="() => HandleDeleteSession(session)"
+                                        @onclick:stopPropagation="true">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                </button>
                             </div>
                         </div>
                         @if (session.Phases.Count > 0)
@@ -106,7 +114,7 @@
     @* ============ VIEW 1: Config Form ============ *@
     @if (_currentView == "config")
     {
-        <div class="card p-8 space-y-6">
+        <div class="max-w-[52rem] mx-auto card p-8 space-y-6">
             <div class="flex items-center gap-3 mb-2">
                 <button class="btn-ghost text-sm px-2 py-1" @onclick='() => _currentView = "list"'>← Kembali</button>
                 <h2 class="text-lg font-semibold">Buat Script Baru</h2>
@@ -191,7 +199,7 @@
     @* ============ VIEW 2: Progress ============ *@
     @if (_currentView == "progress")
     {
-        <div class="card p-8 space-y-6">
+        <div class="max-w-[52rem] mx-auto card p-8 space-y-6">
             <div class="space-y-2">
                 <div class="flex items-center justify-between">
                     <h2 class="text-lg font-semibold">Generating: @_topic</h2>
@@ -245,7 +253,7 @@
         </div>
     }
 
-    @* ============ VIEW 3: Results — Sophisticated ============ *@
+    @* ============ VIEW 3: Results — Horizontal Scrollable ============ *@
     @if (_currentView == "results")
     {
         <div class="space-y-6">
@@ -269,11 +277,13 @@
                             }
                         </div>
                     </div>
-                    @StatusBadge(_resultSession?.Status ?? SessionStatus.Pending)
+                    <div class="flex items-center gap-2">
+                        @StatusBadge(_resultSession?.Status ?? SessionStatus.Pending)
+                    </div>
                 </div>
 
                 @* Stats Row *@
-                <div class="grid grid-cols-4 gap-3">
+                <div class="grid grid-cols-4 gap-3 mb-4">
                     <div class="text-center p-3 rounded-lg bg-muted/60">
                         <p class="text-2xl font-bold">@_totalWords</p>
                         <p class="text-[10px] text-muted-foreground uppercase tracking-wide">kata</p>
@@ -291,71 +301,124 @@
                         <p class="text-[10px] text-muted-foreground uppercase tracking-wide">valid</p>
                     </div>
                 </div>
+
+                @* Action buttons *@
+                <div class="flex gap-3">
+                    <button class="btn-secondary text-sm" @onclick="HandleBackToList">← Daftar Script</button>
+                    <button class="btn-ghost text-sm flex items-center gap-1.5"
+                            disabled="@(_isRegeneratingAll)"
+                            @onclick="HandleRegenerateAll">
+                        @if (_isRegeneratingAll)
+                        {
+                            <svg class="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span>Regenerating All...</span>
+                        }
+                        else
+                        {
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                            <span>Regenerate All</span>
+                        }
+                    </button>
+                    <div class="flex-1"></div>
+                    <button class="btn-primary text-sm" @onclick="HandleSendToBroll">Kirim ke B-Roll →</button>
+                </div>
             </div>
 
-            @* Per-Phase Sections *@
-            @foreach (var sec in _resultSections)
-            {
-                <div class="card overflow-hidden">
-                    @* Phase Header *@
-                    <div class="flex items-center justify-between px-6 py-4 border-b border-border/50 bg-muted/30">
-                        <div class="flex items-center gap-3">
-                            <span class="flex items-center justify-center w-7 h-7 rounded-full bg-primary/15 text-primary text-xs font-bold">@sec.Order</span>
-                            <div>
-                                <h3 class="font-semibold text-sm">@sec.PhaseName</h3>
-                                <span class="text-[11px] text-muted-foreground">@sec.WordCount kata · ~@((int)(sec.DurationSeconds / 60)) menit</span>
-                            </div>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            @if (sec.IsValidated)
-                            {
-                                <span class="text-success text-xs flex items-center gap-1">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
-                                    Valid
-                                </span>
-                            }
-                            <button class="btn-ghost text-xs px-2 py-1 flex items-center gap-1"
-                                    disabled="@(sec.IsRegenerating)"
-                                    @onclick="() => HandleRegeneratePhase(sec)">
-                                @if (sec.IsRegenerating)
-                                {
-                                    <svg class="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                    <span>Regenerating...</span>
-                                }
-                                else
-                                {
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                                    <span>Regenerate</span>
-                                }
-                            </button>
-                            <button class="btn-ghost text-xs px-2 py-1"
-                                    @onclick="() => ToggleSection(sec)">
-                                @(sec.IsExpanded ? "▲ Tutup" : "▼ Buka")
-                            </button>
-                        </div>
-                    </div>
-
-                    @* Content *@
-                    @if (sec.IsExpanded)
+            @* Horizontal Scrollable Phase Cards *@
+            <div class="overflow-x-auto pb-4">
+                <div class="flex gap-4" style="min-width: max-content;">
+                    @foreach (var sec in _resultSections)
                     {
-                        <div class="px-6 py-5">
-                            <div class="prose prose-invert max-w-none text-sm whitespace-pre-wrap leading-relaxed">@sec.Content</div>
+                        <div class="card overflow-hidden flex-shrink-0" style="width: 480px;">
+                            @* Phase Header *@
+                            <div class="flex items-center justify-between px-5 py-3 border-b border-border/50 bg-muted/30 cursor-pointer"
+                                 @onclick="() => ToggleSection(sec)">
+                                <div class="flex items-center gap-3">
+                                    <span class="flex items-center justify-center w-7 h-7 rounded-full bg-primary/15 text-primary text-xs font-bold">@sec.Order</span>
+                                    <div>
+                                        <h3 class="font-semibold text-sm">@sec.PhaseName</h3>
+                                        <span class="text-[11px] text-muted-foreground">@sec.WordCount kata · ~@((int)(sec.DurationSeconds / 60)) menit</span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    @if (sec.IsValidated)
+                                    {
+                                        <span class="text-success text-xs flex items-center gap-1">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                                        </span>
+                                    }
+                                    <button class="btn-ghost text-xs px-1.5 py-1 flex items-center gap-1"
+                                            disabled="@(sec.IsRegenerating)"
+                                            @onclick="() => HandleRegeneratePhase(sec)"
+                                            @onclick:stopPropagation="true">
+                                        @if (sec.IsRegenerating)
+                                        {
+                                            <svg class="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                        }
+                                        else
+                                        {
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                                        }
+                                    </button>
+                                    <span class="text-xs text-muted-foreground select-none">
+                                        @(sec.IsExpanded ? "▲" : "▼")
+                                    </span>
+                                </div>
+                            </div>
+
+                            @* Content — expanded by default *@
+                            @if (sec.IsExpanded)
+                            {
+                                <div class="px-5 py-4 overflow-y-auto" style="max-height: 60vh;">
+                                    <div class="prose prose-invert max-w-none text-sm whitespace-pre-wrap leading-relaxed">@sec.Content</div>
+                                </div>
+                            }
                         </div>
                     }
                 </div>
-            }
-
-            @* Actions *@
-            <div class="flex gap-3">
-                <button class="btn-secondary flex-1" @onclick="HandleBackToList">← Daftar Script</button>
-                <button class="btn-primary flex-1" @onclick="HandleSendToBroll">Kirim ke B-Roll →</button>
             </div>
+
+            @if (!string.IsNullOrEmpty(_errorMessage))
+            {
+                <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-destructive text-sm">@_errorMessage</div>
+            }
         </div>
     }
 </div>
+
+@* ============ Delete Confirmation Modal ============ *@
+@if (_showDeleteConfirm)
+{
+    <div class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" @onclick="CancelDelete">
+        <div class="card p-6 max-w-sm w-full space-y-4" @onclick:stopPropagation="true">
+            <h3 class="font-semibold text-lg">Hapus Script?</h3>
+            <p class="text-sm text-muted-foreground">
+                Script "<span class="font-medium text-foreground">@_deleteTarget?.Topic</span>" akan dihapus beserta semua file-nya.
+            </p>
+            <div class="flex gap-3 pt-2">
+                <button class="btn-secondary flex-1" @onclick="CancelDelete">Batal</button>
+                <button class="btn-primary flex-1 !bg-destructive hover:!bg-destructive/90" 
+                        disabled="@_isDeleting"
+                        @onclick="ConfirmDelete">
+                    @if (_isDeleting)
+                    {
+                        <svg class="animate-spin h-4 w-4 mr-1 inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    }
+                    Hapus
+                </button>
+            </div>
+        </div>
+    </div>
+}
 
 @code {
     // Views: list, config, progress, results
@@ -390,6 +453,12 @@
     private int _totalWords;
     private int _totalMinutes;
     private int _validatedCount;
+    private bool _isRegeneratingAll;
+
+    // Delete
+    private bool _showDeleteConfirm;
+    private ScriptGenerationSession? _deleteTarget;
+    private bool _isDeleting;
 
     private bool CanGenerate => !string.IsNullOrWhiteSpace(_topic)
         && !string.IsNullOrWhiteSpace(_selectedPatternId)
@@ -425,6 +494,41 @@
         _sourceReferences = null;
         _errorMessage = null;
     }
+
+    // ===== Delete Session =====
+
+    private void HandleDeleteSession(ScriptGenerationSession session)
+    {
+        _deleteTarget = session;
+        _showDeleteConfirm = true;
+    }
+
+    private void CancelDelete()
+    {
+        _showDeleteConfirm = false;
+        _deleteTarget = null;
+    }
+
+    private async Task ConfirmDelete()
+    {
+        if (_deleteTarget == null) return;
+        _isDeleting = true;
+        try
+        {
+            await ScriptService.DeleteSessionAsync(_deleteTarget.Id);
+            _sessions.Remove(_deleteTarget);
+        }
+        catch (Exception ex) { _errorMessage = $"Gagal menghapus: {ex.Message}"; }
+        finally
+        {
+            _isDeleting = false;
+            _showDeleteConfirm = false;
+            _deleteTarget = null;
+            StateHasChanged();
+        }
+    }
+
+    // ===== View Session =====
 
     private async Task HandleViewSession(ScriptGenerationSession session)
     {
@@ -470,13 +574,15 @@
                 WordCount = phase.WordCount ?? 0,
                 DurationSeconds = phase.DurationSeconds ?? 0,
                 IsValidated = phase.IsValidated,
-                IsExpanded = false
+                IsExpanded = true  // Expanded by default
             });
         }
         _totalWords = session.Phases.Sum(p => p.WordCount ?? 0);
         _totalMinutes = (int)(session.Phases.Sum(p => p.DurationSeconds ?? 0) / 60);
         _validatedCount = session.Phases.Count(p => p.IsValidated);
     }
+
+    // ===== Generate =====
 
     private async Task HandleGenerate()
     {
@@ -529,6 +635,8 @@
         finally { _isGenerating = false; StateHasChanged(); }
     }
 
+    // ===== Regenerate Phase =====
+
     private async Task HandleRegeneratePhase(ResultSection section)
     {
         if (section.IsRegenerating || _sessionId == null) return;
@@ -559,6 +667,58 @@
         }
         catch (Exception ex) { _errorMessage = $"Regenerate gagal: {ex.Message}"; }
         finally { section.IsRegenerating = false; StateHasChanged(); }
+    }
+
+    // ===== Regenerate All =====
+
+    private async Task HandleRegenerateAll()
+    {
+        if (_isRegeneratingAll || _sessionId == null) return;
+        _isRegeneratingAll = true;
+        _errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            // Switch to progress view
+            _progressMessage = "Regenerating semua fase...";
+            _completedPhases = 0;
+            _progressPercent = 0;
+
+            _phaseStatuses = _resultSections.Select(s => new PhaseStatusItem
+            {
+                PhaseId = s.PhaseId, Name = s.PhaseName, Order = s.Order, Status = "Pending"
+            }).ToList();
+
+            _currentView = "progress";
+            StateHasChanged();
+
+            Orchestrator.OnPhaseProgress += HandlePhaseProgress;
+            Orchestrator.OnSessionProgress += HandleSessionProgress;
+
+            try
+            {
+                var session = await ScriptService.GenerateAsync(_sessionId);
+                _resultSession = session;
+
+                if (session.Status == SessionStatus.Completed)
+                {
+                    await LoadResultSections(session);
+                    _currentView = "results";
+                }
+                else
+                {
+                    _errorMessage = session.ErrorMessage ?? "Regenerasi gagal.";
+                }
+            }
+            finally
+            {
+                Orchestrator.OnPhaseProgress -= HandlePhaseProgress;
+                Orchestrator.OnSessionProgress -= HandleSessionProgress;
+            }
+        }
+        catch (Exception ex) { _errorMessage = $"Regenerate All gagal: {ex.Message}"; }
+        finally { _isRegeneratingAll = false; StateHasChanged(); }
     }
 
     private void ToggleSection(ResultSection section) { section.IsExpanded = !section.IsExpanded; }

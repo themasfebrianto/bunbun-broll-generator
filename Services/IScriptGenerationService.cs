@@ -17,4 +17,5 @@ public interface IScriptGenerationService
     Task<List<ScriptGenerationSession>> ListSessionsAsync();
     Task<string> ExportScriptAsync(string sessionId, bool clean = false);
     Task<ScriptGenerationSession> RegeneratePhaseAsync(string sessionId, string phaseId);
+    Task DeleteSessionAsync(string sessionId);
 }

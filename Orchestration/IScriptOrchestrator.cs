@@ -23,6 +23,7 @@ public interface IScriptOrchestrator
     Task<PatternResult> GenerateAllAsync(string sessionId);
     Task<PatternResult> ResumeAsync(string sessionId);
     Task<GeneratedPhase> RegeneratePhaseAsync(string sessionId, string phaseId);
+    Task DeleteSessionAsync(string sessionId);
 
     // Progress events
     event EventHandler<PhaseProgressEventArgs>? OnPhaseProgress;

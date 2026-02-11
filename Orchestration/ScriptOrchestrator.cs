@@ -439,4 +439,28 @@ public class ScriptOrchestrator : IScriptOrchestrator
 
         return generatedPhase;
     }
+
+    public async Task DeleteSessionAsync(string sessionId)
+    {
+        using var scope = _serviceProvider.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var session = await db.ScriptGenerationSessions
+            .Include(s => s.Phases)
+            .FirstOrDefaultAsync(s => s.Id == sessionId);
+
+        if (session == null) return;
+
+        // Delete output directory
+        if (!string.IsNullOrEmpty(session.OutputDirectory) && Directory.Exists(session.OutputDirectory))
+        {
+            try { Directory.Delete(session.OutputDirectory, recursive: true); }
+            catch (Exception ex) { _logger.LogWarning(ex, "Failed to delete output directory for {SessionId}", sessionId); }
+        }
+
+        db.ScriptGenerationSessions.Remove(session);
+        await db.SaveChangesAsync();
+
+        _logger.LogInformation("Deleted session {SessionId}", sessionId);
+    }
 }

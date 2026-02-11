@@ -168,4 +168,9 @@ public class ScriptGenerationService : IScriptGenerationService
 
         return session;
     }
+
+    public async Task DeleteSessionAsync(string sessionId)
+    {
+        await _orchestrator.DeleteSessionAsync(sessionId);
+    }
 }

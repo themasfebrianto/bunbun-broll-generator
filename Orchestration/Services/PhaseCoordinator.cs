@@ -208,6 +208,9 @@ public class PhaseCoordinator
             $"Nada: {context.Pattern.GlobalRules.Tone}"
         };
 
+        if (!string.IsNullOrEmpty(context.Config.ChannelName))
+            parts.Add($"Channel: {context.Config.ChannelName}");
+
         if (!string.IsNullOrEmpty(context.Pattern.GlobalRules.Perspective))
             parts.Add($"Perspektif: {context.Pattern.GlobalRules.Perspective}");
         if (!string.IsNullOrEmpty(context.Pattern.GlobalRules.MaxWordsPerSentence))
