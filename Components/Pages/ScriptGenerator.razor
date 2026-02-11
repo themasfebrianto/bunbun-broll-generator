@@ -12,6 +12,7 @@
 @inject IJSRuntime JS
 @inject BackgroundGenerationService BgService
 @inject GenerationEventBus EventBus
+@inject IIntelligenceService IntelligenceService
 
 <div class="max-w-[90rem] mx-auto py-20 px-4">
     <div class="space-y-3 mb-10 text-center">
@@ -648,7 +649,7 @@
                                         </div>
                                     }
 
-                                    <div class="prose prose-invert prose-lg max-w-none whitespace-pre-wrap leading-[1.9]">@NormalizeTimestamps(sec.Content)</div>
+                                    <div class="prose prose-invert prose-lg max-w-none whitespace-pre-wrap leading-[1.9]">@sec.Content</div>
                                 </div>
                             }
                         </div>
@@ -665,6 +666,113 @@
                 <div class="rounded-lg border border-success/30 bg-success/10 p-3 text-success text-sm flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
                     <span>LRC exported: <code class="text-xs">@_lrcExportPath</code></span>
+                </div>
+            }
+        </div>
+    }
+
+    @* ============ VIEW 4: B-Roll Prompts — Vertical List with Side Prompts ============ *@
+    @if (_currentView == "broll-prompts")
+    {
+        <div class="space-y-6">
+            @* Header Card *@
+            <div class="card p-6">
+                <div class="flex items-start justify-between gap-4 mb-4">
+                    <div class="space-y-1 min-w-0">
+                        <h2 class="text-xl font-bold truncate">B-Roll Prompts: @_resultSession?.Topic</h2>
+                        <div class="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                            <span class="badge badge-mono text-[10px]">@_sessionId</span>
+                            <span>·</span>
+                            <span>@_brollPromptItems.Count segments</span>
+                            <span>·</span>
+                            <span class="px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-400 text-[11px] font-semibold">🎬 @_brollPromptItems.Count(i => i.MediaType == BrollMediaType.BrollVideo) broll</span>
+                            <span class="px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-400 text-[11px] font-semibold">🎨 @_brollPromptItems.Count(i => i.MediaType == BrollMediaType.ImageGeneration) image gen</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex gap-3">
+                    <button class="btn-secondary text-sm" @onclick="HandleBackToResults">← Kembali ke Script</button>
+                    <button class="btn-ghost text-sm flex items-center gap-1.5"
+                            disabled="@(_isClassifyingBroll)"
+                            @onclick="HandleReclassifyBroll">
+                        @if (_isClassifyingBroll)
+                        {
+                            <svg class="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span>Classifying...</span>
+                        }
+                        else
+                        {
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                            <span>Generate Ulang</span>
+                        }
+                    </button>
+                </div>
+            </div>
+
+            @if (_isClassifyingBroll)
+            {
+                <div class="card p-12 text-center text-muted-foreground">
+                    <svg class="animate-spin h-8 w-8 mx-auto mb-4 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <p class="text-lg font-medium">Mengklasifikasi segments...</p>
+                    <p class="text-sm mt-1">LLM sedang menentukan B-Roll vs Image Generation untuk setiap segment</p>
+                </div>
+            }
+            else if (!string.IsNullOrEmpty(_classifyError))
+            {
+                <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-destructive text-sm">@_classifyError</div>
+            }
+            else
+            {
+                @* Segment List *@
+                <div class="space-y-3">
+                    @foreach (var item in _brollPromptItems)
+                    {
+                        var isBroll = item.MediaType == BrollMediaType.BrollVideo;
+                        var badgeBg = isBroll ? "bg-blue-500/15 text-blue-400" : "bg-purple-500/15 text-purple-400";
+                        var badgeIcon = isBroll ? "🎬" : "🎨";
+                        var badgeLabel = isBroll ? "BROLL VIDEO" : "IMAGE GENERATION";
+                        var borderAccent = isBroll ? "border-l-blue-500/40" : "border-l-purple-500/40";
+
+                        <div class="card overflow-hidden border-l-4 @borderAccent">
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-0">
+                                @* Left: Script Text *@
+                                <div class="p-5 border-b lg:border-b-0 lg:border-r border-border/50">
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <span class="font-mono text-xs text-primary bg-primary/10 px-2 py-0.5 rounded">@item.Timestamp</span>
+                                        <span class="text-[10px] text-muted-foreground">#@(item.Index + 1)</span>
+                                    </div>
+                                    <p class="text-sm leading-relaxed text-foreground/90">@item.ScriptText</p>
+                                </div>
+
+                                @* Right: Prompt Result *@
+                                <div class="p-5 bg-muted/20">
+                                    <div class="flex items-center gap-2 mb-3">
+                                        <span class="px-2.5 py-1 rounded-full text-[11px] font-semibold @badgeBg">@badgeIcon @badgeLabel</span>
+                                    </div>
+                                    <div class="space-y-2">
+                                        <div>
+                                            <span class="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Prompt</span>
+                                            <p class="text-sm mt-0.5 font-mono bg-background/60 rounded-md p-2.5 border border-border/30 whitespace-pre-wrap leading-relaxed">@item.Prompt</p>
+                                        </div>
+                                        @if (!string.IsNullOrEmpty(item.Reasoning))
+                                        {
+                                            <div>
+                                                <span class="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Alasan</span>
+                                                <p class="text-xs text-muted-foreground mt-0.5 italic">@item.Reasoning</p>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
                 </div>
             }
         </div>
@@ -814,6 +922,11 @@
     private bool _isRegeneratingAll;
     private bool _isExportingLrc;
     private string? _lrcExportPath;
+
+    // Broll Prompts
+    private List<BrollPromptItem> _brollPromptItems = new();
+    private bool _isClassifyingBroll;
+    private string? _classifyError;
 
     // Delete
     private bool _showDeleteConfirm;
@@ -1348,7 +1461,89 @@
     }
 
     private async Task HandleBackToList() { await LoadSessionsAsync(); _currentView = "list"; _errorMessage = null; }
-    private void HandleSendToBroll() { Navigation.NavigateTo("/"); }
+    private async Task HandleSendToBroll()
+    {
+        if (_resultSession == null || _resultSections.Count == 0) return;
+        _isClassifyingBroll = true;
+        _classifyError = null;
+        _brollPromptItems.Clear();
+        _currentView = "broll-prompts";
+        StateHasChanged();
+
+        try
+        {
+            // Parse all timestamped entries from all sections
+            var timestampPattern = new System.Text.RegularExpressions.Regex(
+                @"\[(\d{1,3}):(\d{2})\]",
+                System.Text.RegularExpressions.RegexOptions.Compiled);
+
+            var segments = new List<(string Timestamp, string ScriptText)>();
+            var globalOffset = TimeSpan.Zero;
+
+            foreach (var section in _resultSections.OrderBy(s => s.Order))
+            {
+                if (string.IsNullOrWhiteSpace(section.Content)) continue;
+
+                var entries = ParseTimestampedEntries(section.Content, timestampPattern);
+
+                if (entries.Count > 0)
+                {
+                    foreach (var entry in entries)
+                    {
+                        var absoluteTime = globalOffset.Add(entry.Timestamp);
+                        var cleaned = CleanSubtitleText(entry.Text);
+                        if (string.IsNullOrWhiteSpace(cleaned)) continue;
+
+                        var mins = (int)absoluteTime.TotalMinutes;
+                        var secs = absoluteTime.Seconds;
+                        segments.Add(($"[{mins:D2}:{secs:D2}]", cleaned));
+                    }
+
+                    // Advance global offset
+                    var lastEntry = entries.Last();
+                    var lastDuration = EstimateDuration(lastEntry.Text);
+                    globalOffset = globalOffset.Add(lastEntry.Timestamp).Add(TimeSpan.FromSeconds(lastDuration));
+                }
+                else
+                {
+                    // No timestamps — treat whole content as one segment
+                    var cleaned = CleanSubtitleText(section.Content);
+                    if (!string.IsNullOrWhiteSpace(cleaned))
+                    {
+                        var mins = (int)globalOffset.TotalMinutes;
+                        var secs = globalOffset.Seconds;
+                        segments.Add(($"[{mins:D2}:{secs:D2}]", cleaned));
+                        globalOffset = globalOffset.Add(TimeSpan.FromSeconds(EstimateDuration(cleaned)));
+                    }
+                }
+            }
+
+            if (segments.Count == 0)
+            {
+                _classifyError = "Tidak ada segment yang bisa diproses.";
+                return;
+            }
+
+            _brollPromptItems = await IntelligenceService.ClassifyAndGeneratePromptsAsync(
+                segments, _resultSession.Topic);
+        }
+        catch (Exception ex)
+        {
+            _classifyError = $"Gagal mengklasifikasi: {ex.Message}";
+        }
+        finally
+        {
+            _isClassifyingBroll = false;
+            StateHasChanged();
+        }
+    }
+
+    private void HandleBackToResults() { _currentView = "results"; _classifyError = null; }
+
+    private async Task HandleReclassifyBroll()
+    {
+        await HandleSendToBroll();
+    }
 
     // ===== Export LRC =====
 
@@ -1434,17 +1629,18 @@
                 sb.AppendLine($"[{minutes:D2}:{seconds:D2}.{centiseconds:D2}]{singleLine}");
             }
 
-            // Advance global offset by this phase's actual duration
-            if (section.DurationSeconds > 0)
+            // Advance global offset by this phase's actual duration derived from its entries
+            if (entries.Count > 0)
             {
-                globalOffset = globalOffset.Add(TimeSpan.FromSeconds(section.DurationSeconds));
-            }
-            else if (entries.Count > 0)
-            {
-                // Use last timestamp + estimated duration of last segment as phase duration
+                // The new offset is the absolute time of the last entry plus its estimated duration
                 var lastEntry = entries.Last();
                 var lastDuration = EstimateDuration(lastEntry.Text);
                 globalOffset = globalOffset.Add(lastEntry.Timestamp).Add(TimeSpan.FromSeconds(lastDuration));
+            }
+            else if (section.DurationSeconds > 0)
+            {
+                // Fallback: no entries/text found, advance by metadata duration
+                globalOffset = globalOffset.Add(TimeSpan.FromSeconds(section.DurationSeconds));
             }
         }
 
@@ -1546,6 +1742,11 @@
 
         // 7. Cleanup multiple spaces and newlines
         result = System.Text.RegularExpressions.Regex.Replace(result, @"\s+", " ");
+
+        // 8. Specific typos/fixes
+        result = result.Replace("Wallahuam bissawab", "Wallahu a'lam bish-shawab");
+        result = result.Replace("Wallahualam bissawab", "Wallahu a'lam bish-shawab");
+        
         return result.Trim();
     }
 

@@ -130,7 +130,7 @@
         "Perbandingan masa lalu → kini → masa depan",
         "Pertanyaan terbuka tanpa jawaban instan",
         "Refleksi religius yang menenangkan sekaligus menggugah",
-        "Penutup: 'Wallahuam bissawab'",
+        "Penutup: 'Wallahu a'lam bish-shawab'",
         "Penutup: 'Wassalamualaikum warahmatullahi wabarakatuh'"
       ],
       "forbiddenPatterns": [
@@ -158,7 +158,7 @@
     "preferredWordsPerSentence": "Variasi alami, tidak berpola kaku",
     "mustUseKeywords": "opsional dan alami: namun, tetapi, justru, sebaliknya, ironisnya, di balik, tersembunyi, mungkin, barangkali"
   },
-  "closingFormula": "Wallahuam bissawab",
+  "closingFormula": "Wallahu a'lam bish-shawab",
   "productionChecklist": {
     "praProduksi": [
       "Topik memiliki kedalaman historis atau moral",

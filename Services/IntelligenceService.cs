@@ -42,6 +42,15 @@ public interface IIntelligenceService
         int maxTokens = 4000, 
         double temperature = 0.7, 
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Classify script segments as B-Roll video or AI Image Generation (Whisk),
+    /// and generate appropriate prompts for each.
+    /// </summary>
+    Task<List<BrollPromptItem>> ClassifyAndGeneratePromptsAsync(
+        List<(string Timestamp, string ScriptText)> segments,
+        string topic,
+        CancellationToken cancellationToken = default);
 }
 
 public class IntelligenceService : IIntelligenceService
@@ -575,6 +584,201 @@ IMPORTANT: When user specifies a Visual Style, weave those terms into PRIMARY, M
             _logger.LogError(ex, "GenerateContent failed");
             return null;
         }
+    }
+
+    /// <summary>
+    /// Classify script segments as B-Roll video or AI Image Generation (Whisk),
+    /// and generate appropriate prompts for each.
+    /// </summary>
+    public async Task<List<BrollPromptItem>> ClassifyAndGeneratePromptsAsync(
+        List<(string Timestamp, string ScriptText)> segments,
+        string topic,
+        CancellationToken cancellationToken = default)
+    {
+        var results = new List<BrollPromptItem>();
+        if (segments.Count == 0) return results;
+
+        var stopwatch = Stopwatch.StartNew();
+
+        try
+        {
+            var classifySystemPrompt = @"You are a visual content classifier for Islamic video essays. Your job is to analyze script segments and decide the best visual approach for each.
+
+For each segment, classify as:
+1. **BROLL** - Use stock footage (Pexels/Pixabay) when the content depicts:
+   - Real-world landscapes, nature, cityscapes, urban
+   - General human activities (working, walking, talking, studying)
+   - Modern/contemporary scenes
+   - Objects, food, technology, daily life
+   - Atmospheric footage (rain, clouds, sunrise, ocean)
+
+2. **IMAGE_GEN** - Use AI image generation (Whisk / Imagen) when the content depicts:
+   - Historical/ancient scenes (7th century Arabia, ancient civilizations)
+   - Prophets or religious figures (requires divine light, no face)
+   - Supernatural/eschatological events (Day of Judgment, afterlife, angels)
+   - Abstract spiritual concepts (soul, faith, divine light)
+   - Scenes that stock footage cannot realistically portray
+   - Specific artistic scenes needing cultural/historical accuracy
+
+For BROLL segments: Generate a concise English search query for stock footage (2-5 words).
+For IMAGE_GEN segments: Generate a Whisk-style prompt with:
+  - Visual: [Era prefix] [Scene description with setting, action, lighting, atmosphere]
+  - Style: Semi-realistic academic painting, dramatic lighting, visible brushstrokes
+  - If prophets: face veiled in divine light, facial features not visible
+  - Female characters: syar'i dress (hijab, modest clothing)
+
+RESPOND WITH JSON ONLY (no markdown):
+[
+  {
+    ""index"": 0,
+    ""mediaType"": ""BROLL"" or ""IMAGE_GEN"",
+    ""prompt"": ""the generated prompt"",
+    ""reasoning"": ""brief reason for classification (in Bahasa Indonesia)""  
+  }
+]
+
+RULES:
+- Translate all prompts to English
+- For BROLL: Keep prompts short (2-5 words), focused on searchable stock footage terms
+- For IMAGE_GEN: Include era context, detailed scene, art style notes
+- Never depict prophet faces
+- Avoid sensitive/haram visual triggers";
+
+            var userPrompt = new System.Text.StringBuilder();
+            userPrompt.AppendLine($"Topic: {topic}");
+            userPrompt.AppendLine();
+            userPrompt.AppendLine("SEGMENTS:");
+            for (int i = 0; i < segments.Count; i++)
+            {
+                userPrompt.AppendLine($"[{i}] {segments[i].Timestamp} {segments[i].ScriptText}");
+            }
+
+            var request = new GeminiChatRequest
+            {
+                Model = _settings.Model,
+                Messages = new List<GeminiMessage>
+                {
+                    new() { Role = "system", Content = classifySystemPrompt },
+                    new() { Role = "user", Content = userPrompt.ToString() }
+                },
+                Temperature = 0.4,
+                MaxTokens = Math.Min(segments.Count * 200, 8000)
+            };
+
+            _logger.LogDebug("ClassifyBroll: Classifying {Count} segments for topic '{Topic}'", segments.Count, topic);
+
+            var response = await _httpClient.PostAsJsonAsync(
+                "v1/chat/completions",
+                request,
+                cancellationToken);
+
+            response.EnsureSuccessStatusCode();
+
+            var geminiResponse = await response.Content.ReadFromJsonAsync<GeminiChatResponse>(
+                cancellationToken: cancellationToken);
+
+            var rawContent = geminiResponse?.Choices?.FirstOrDefault()?.Message?.Content;
+
+            if (!string.IsNullOrEmpty(rawContent))
+            {
+                var cleanedJson = CleanJsonResponse(rawContent);
+                _logger.LogDebug("ClassifyBroll raw response: {Content}",
+                    rawContent.Length > 300 ? rawContent[..300] + "..." : rawContent);
+
+                try
+                {
+                    var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                    var parsed = JsonSerializer.Deserialize<List<BrollClassificationResponse>>(cleanedJson, options);
+
+                    if (parsed != null)
+                    {
+                        foreach (var item in parsed)
+                        {
+                            var idx = item.Index;
+                            if (idx >= 0 && idx < segments.Count)
+                            {
+                                results.Add(new BrollPromptItem
+                                {
+                                    Index = idx,
+                                    Timestamp = segments[idx].Timestamp,
+                                    ScriptText = segments[idx].ScriptText,
+                                    MediaType = item.MediaType?.ToUpperInvariant() == "IMAGE_GEN"
+                                        ? BrollMediaType.ImageGeneration
+                                        : BrollMediaType.BrollVideo,
+                                    Prompt = item.Prompt ?? string.Empty,
+                                    Reasoning = item.Reasoning ?? string.Empty
+                                });
+                            }
+                        }
+                    }
+                }
+                catch (JsonException ex)
+                {
+                    _logger.LogWarning("ClassifyBroll JSON parse failed: {Error}", ex.Message);
+                }
+            }
+
+            // Fill in any missing segments
+            for (int i = 0; i < segments.Count; i++)
+            {
+                if (!results.Any(r => r.Index == i))
+                {
+                    results.Add(new BrollPromptItem
+                    {
+                        Index = i,
+                        Timestamp = segments[i].Timestamp,
+                        ScriptText = segments[i].ScriptText,
+                        MediaType = BrollMediaType.BrollVideo,
+                        Prompt = "atmospheric cinematic footage",
+                        Reasoning = "Fallback: LLM tidak mengembalikan klasifikasi"
+                    });
+                }
+            }
+
+            results = results.OrderBy(r => r.Index).ToList();
+
+            var brollCount = results.Count(r => r.MediaType == BrollMediaType.BrollVideo);
+            var imageGenCount = results.Count(r => r.MediaType == BrollMediaType.ImageGeneration);
+            _logger.LogInformation(
+                "ClassifyBroll: Classified {Total} segments ({Broll} broll, {ImageGen} image gen) in {Ms}ms",
+                results.Count, brollCount, imageGenCount, stopwatch.ElapsedMilliseconds);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "ClassifyBroll failed for {Count} segments", segments.Count);
+
+            // Return all as broll fallback
+            for (int i = 0; i < segments.Count; i++)
+            {
+                results.Add(new BrollPromptItem
+                {
+                    Index = i,
+                    Timestamp = segments[i].Timestamp,
+                    ScriptText = segments[i].ScriptText,
+                    MediaType = BrollMediaType.BrollVideo,
+                    Prompt = "atmospheric cinematic footage",
+                    Reasoning = $"Error fallback: {ex.Message}"
+                });
+            }
+        }
+
+        return results;
+    }
+
+    /// <summary>Internal DTO for parsing LLM classification response</summary>
+    private class BrollClassificationResponse
+    {
+        [JsonPropertyName("index")]
+        public int Index { get; set; }
+
+        [JsonPropertyName("mediaType")]
+        public string? MediaType { get; set; }
+
+        [JsonPropertyName("prompt")]
+        public string? Prompt { get; set; }
+
+        [JsonPropertyName("reasoning")]
+        public string? Reasoning { get; set; }
     }
 }
 
