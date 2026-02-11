@@ -56,15 +56,20 @@ public class ScriptOrchestrator : IScriptOrchestrator
         var outputDir = Path.Combine(baseDir, sessionId);
         Directory.CreateDirectory(outputDir);
 
+        // Truncate fields to prevent MaxLength violations from LLM-generated content
+        var safeTopic = config.Topic.Length > 500 ? config.Topic[..497] + "..." : config.Topic;
+        var safeChannel = config.ChannelName.Length > 100 ? config.ChannelName[..97] + "..." : config.ChannelName;
+        var safePatternId = patternId.Length > 100 ? patternId[..100] : patternId;
+
         var session = new ScriptGenerationSession
         {
             Id = sessionId,
-            PatternId = patternId,
-            Topic = config.Topic,
+            PatternId = safePatternId,
+            Topic = safeTopic,
             Outline = config.Outline,
             TargetDurationMinutes = config.TargetDurationMinutes,
             SourceReferences = config.SourceReferences,
-            ChannelName = config.ChannelName,
+            ChannelName = safeChannel,
             Status = SessionStatus.Pending,
             OutputDirectory = outputDir,
             CreatedAt = DateTime.UtcNow

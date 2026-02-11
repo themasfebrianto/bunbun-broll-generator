@@ -883,7 +883,14 @@
 }
 
 @code {
-    // Views: list, config, progress, results
+    // Query parameters for deep linking (e.g. from /video page)
+    [SupplyParameterFromQuery(Name = "sessionId")]
+    public string? QuerySessionId { get; set; }
+
+    [SupplyParameterFromQuery(Name = "view")]
+    public string? QueryView { get; set; }
+
+    // Views: list, config, progress, results, broll-prompts
     private string _currentView = "list";
     private List<ScriptGenerationSession> _sessions = new();
     private bool _isLoadingSessions = true;
@@ -973,6 +980,29 @@
         }
         if (_availablePatterns.Count == 1)
             _batchPatternId = _availablePatterns[0].Id;
+
+        // Handle deep link from Video page (e.g. ?sessionId=abc&view=broll-prompts)
+        if (!string.IsNullOrEmpty(QuerySessionId))
+        {
+            var session = await ScriptService.GetSessionAsync(QuerySessionId);
+            if (session != null && session.Status == SessionStatus.Completed)
+            {
+                _sessionId = session.Id;
+                _resultSession = session;
+                _totalPhases = session.Phases.Count;
+                await LoadResultSections(session);
+
+                if (QueryView == "broll-prompts")
+                {
+                    await HandleSendToBroll();
+                }
+                else
+                {
+                    _currentView = "results";
+                }
+                return;
+            }
+        }
 
         // Subscribe to event bus for all running sessions (for list view live updates)
         SubscribeToRunningSessionsForList();

@@ -119,11 +119,58 @@ using (var scope = app.Services.CreateScope())
         patternsDir = Path.Combine(Directory.GetCurrentDirectory(), patternsDir);
     patternRegistry.LoadFromDirectory(patternsDir);
 
-    // Add new columns if they don't exist (for existing databases)
+    // Add new columns/tables if they don't exist (for existing databases)
     try
     {
         var connection = db.Database.GetDbConnection();
         await connection.OpenAsync();
+
+        // === Create Script Generation tables if they don't exist ===
+        using var createCommand = connection.CreateCommand();
+        createCommand.CommandText = @"
+            CREATE TABLE IF NOT EXISTS ScriptPatterns (
+                Id TEXT NOT NULL PRIMARY KEY,
+                Name TEXT NOT NULL,
+                Description TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS ScriptGenerationSessions (
+                Id TEXT NOT NULL PRIMARY KEY,
+                PatternId TEXT NOT NULL,
+                Topic TEXT NOT NULL,
+                Outline TEXT,
+                OutlineDistributionJson TEXT,
+                TargetDurationMinutes INTEGER NOT NULL DEFAULT 30,
+                SourceReferences TEXT,
+                ChannelName TEXT DEFAULT '',
+                Status INTEGER NOT NULL DEFAULT 0,
+                OutputDirectory TEXT NOT NULL DEFAULT '',
+                CreatedAt TEXT NOT NULL,
+                UpdatedAt TEXT,
+                CompletedAt TEXT,
+                ErrorMessage TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS ScriptGenerationPhases (
+                Id TEXT NOT NULL PRIMARY KEY,
+                SessionId TEXT NOT NULL,
+                PhaseId TEXT NOT NULL,
+                PhaseName TEXT NOT NULL DEFAULT '',
+                ""Order"" INTEGER NOT NULL DEFAULT 0,
+                Status INTEGER NOT NULL DEFAULT 0,
+                ContentFilePath TEXT,
+                WordCount INTEGER,
+                DurationSeconds REAL,
+                IsValidated INTEGER NOT NULL DEFAULT 0,
+                WarningsJson TEXT,
+                CompletedAt TEXT,
+                FOREIGN KEY (SessionId) REFERENCES ScriptGenerationSessions(Id) ON DELETE CASCADE
+            );
+
+            CREATE INDEX IF NOT EXISTS IX_ScriptGenerationPhases_SessionId ON ScriptGenerationPhases(SessionId);
+        ";
+        await createCommand.ExecuteNonQueryAsync();
+        Console.WriteLine("Ensured Script Generation tables exist.");
 
         // Check if KeywordsJson column exists
         using var command = connection.CreateCommand();

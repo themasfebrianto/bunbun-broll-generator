@@ -1,0 +1,120 @@
+@page "/video"
+@rendermode InteractiveServer
+@using BunbunBroll.Services
+@using BunbunBroll.Models
+@inject IScriptGenerationService ScriptService
+@inject NavigationManager Navigation
+
+<PageTitle>Video Projects</PageTitle>
+
+<div class="animate-in max-w-5xl mx-auto py-12 px-4">
+    <div class="space-y-1 mb-10">
+        <h1 class="text-3xl font-bold tracking-tight">Video Projects</h1>
+        <p class="text-muted-foreground">Script yang sudah selesai — klik untuk lihat B-Roll prompts.</p>
+    </div>
+
+    @if (_isLoading)
+    {
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            @for (int i = 0; i < 6; i++)
+            {
+                <div class="h-[160px] rounded-lg border border-border bg-muted skeleton"></div>
+            }
+        </div>
+    }
+    else if (_sessions.Count == 0)
+    {
+        <div class="flex flex-col items-center justify-center py-24 border border-dashed border-border rounded-lg">
+            <div class="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-6">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground">
+                    <polygon points="23 7 16 12 23 17 23 7"></polygon>
+                    <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+                </svg>
+            </div>
+            <h3 class="text-lg font-semibold mb-2">Belum ada script selesai</h3>
+            <p class="text-muted-foreground mb-6 text-center max-w-xs text-sm">Buat dan selesaikan script di halaman Script Generator terlebih dahulu.</p>
+            <a href="/script-generator" class="btn-secondary">
+                Ke Script Generator
+                <svg class="ml-2 h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+            </a>
+        </div>
+    }
+    else
+    {
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            @foreach (var session in _sessions)
+            {
+                var totalWords = session.Phases.Sum(p => p.WordCount ?? 0);
+                var totalMins = (int)(session.Phases.Sum(p => p.DurationSeconds ?? 0) / 60);
+
+                <div class="card card-hover p-5 group cursor-pointer"
+                     @onclick="() => HandleOpenBroll(session)">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="badge badge-mono text-[10px]">@session.Id</span>
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-success/15 text-success">
+                            <span>●</span> Selesai
+                        </span>
+                    </div>
+                    <h3 class="font-semibold text-base mb-1 truncate">@session.Topic</h3>
+                    @if (!string.IsNullOrEmpty(session.ChannelName))
+                    {
+                        <span class="px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-medium">@session.ChannelName</span>
+                    }
+                    <div class="flex items-center gap-3 text-xs text-muted-foreground mt-3">
+                        <span>@totalWords kata</span>
+                        <span>·</span>
+                        <span>~@totalMins menit</span>
+                        <span>·</span>
+                        <span>@session.Phases.Count fase</span>
+                    </div>
+                    <div class="text-xs text-muted-foreground mt-2">
+                        @FormatDate(session.CreatedAt)
+                    </div>
+                    <div class="mt-3 flex items-center gap-1.5 text-xs text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <polygon points="23 7 16 12 23 17 23 7"></polygon>
+                            <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+                        </svg>
+                        <span>Lihat B-Roll Prompts →</span>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private List<ScriptGenerationSession> _sessions = new();
+    private bool _isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var allSessions = await ScriptService.ListSessionsAsync();
+            _sessions = allSessions
+                .Where(s => s.Status == SessionStatus.Completed)
+                .OrderByDescending(s => s.CompletedAt ?? s.CreatedAt)
+                .ToList();
+        }
+        catch { _sessions = new(); }
+        finally { _isLoading = false; }
+    }
+
+    private void HandleOpenBroll(ScriptGenerationSession session)
+    {
+        Navigation.NavigateTo($"/script-generator?sessionId={session.Id}&view=broll-prompts");
+    }
+
+    private string FormatDate(DateTime date)
+    {
+        var elapsed = DateTime.UtcNow - date;
+        if (elapsed.TotalMinutes < 1) return "baru saja";
+        if (elapsed.TotalHours < 1) return $"{(int)elapsed.TotalMinutes}m lalu";
+        if (elapsed.TotalDays < 1) return $"{(int)elapsed.TotalHours}j lalu";
+        if (elapsed.TotalDays < 7) return $"{(int)elapsed.TotalDays}h lalu";
+        return date.ToString("dd MMM yyyy");
+    }
+}

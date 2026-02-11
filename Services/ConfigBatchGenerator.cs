@@ -74,11 +74,17 @@ public class ConfigBatchGenerator
                 var configs = JsonSerializer.Deserialize<List<GeneratedConfig>>(jsonContent, options)
                     ?? throw new InvalidOperationException("Failed to deserialize config array");
 
-                // Ensure channel name is set on all configs
+                // Ensure channel name is set and fields are within DB limits
                 foreach (var config in configs)
                 {
                     if (string.IsNullOrEmpty(config.ChannelName))
                         config.ChannelName = channelName;
+
+                    // Truncate to prevent MaxLength violations when saved to DB
+                    if (config.Topic.Length > 500)
+                        config.Topic = config.Topic[..497] + "...";
+                    if (config.ChannelName.Length > 100)
+                        config.ChannelName = config.ChannelName[..97] + "...";
                 }
 
                 _logger.LogInformation("Generated {Count} configs successfully (attempt {Attempt})", configs.Count, attempt);
@@ -100,22 +106,37 @@ public class ConfigBatchGenerator
     {
         var seedInstruction = string.IsNullOrEmpty(seed) ? "" : $"\n\n=== CULTURAL SEED INSTRUCTION ===\n\n{seed}\n";
 
-        return $@"Generate {count} UNIQUE, CLICKBAIT, and HIGH-ENGAGING project configs for theme: ""{theme}"" on channel ""{channelName}"".{seedInstruction}
+        return $@"Generate {count} UNIQUE project configs for theme: ""{theme}"" on channel ""{channelName}"".{seedInstruction}
 
 === REQUIREMENTS ===
 
 1. TOPICS must be:
-   - UNIQUE and NOT common (avoid generic topics unless with fresh angle)
-   - CLICKBAIT titles that make people CURIOUS
-   - RELATABLE to modern daily life
-   - Specific angles or perspectives that haven't been over-discussed
+   - UNIQUE and NOT generic — offer a fresh, specific angle
+   - Written in calm, mature tone — like a thoughtful documentary title
+   - Intriguing enough to spark genuine curiosity without being desperate or sensational
+   - Relatable to modern daily life
+   - NO CAPSLOCK, no shouting, no excessive punctuation (!!!, ???)
 
-2. TITLE PATTERNS (use these for inspiration):
-   - ""[CAPITALIZED PHRASE] - [Curiosity Question]""
-   - ""WHY [X]? - The SHOCKING Truth About [Y]""
-   - ""This ONE Thing - That Will CHANGE Your [Z]""
-   - ""DI AKHIRAT KITA DIBAGI JADI 3 ROMBONGAN - Lihat Sekarang, Masuk Rombongan Mana Nanti?""
-   - ""ILMU TANPA AMAL = BENCANA - Inilah Ma'mun yang Ditunggu PARA NABI""
+2. TITLE STYLE GUIDELINES:
+   - Use lowercase/title case naturally — never all-caps words
+   - Create a subtle curiosity gap: make people wonder, not scream
+   - Feel intellectual and premium, like a well-crafted book chapter title
+   - Avoid try-hard clickbait patterns (""SHOCKING"", ""You WON'T Believe"", etc.)
+   - Can use a dash or colon to add a secondary hook
+
+   GOOD EXAMPLES:
+   - ""Di akhirat nanti, kita dibagi jadi 3 rombongan — kamu masuk yang mana?""
+   - ""Satu amalan kecil yang ternyata lebih berat dari Gunung Uhud""
+   - ""Kenapa orang zaman dulu bisa hidup 900 tahun?""
+   - ""Harta yang kamu simpan hari ini, besok jadi ular di lehermu""
+   - ""Malaikat pencabut nyawa punya prosedur yang sangat detail""
+   - ""Ada satu doa yang tidak pernah ditolak — tapi jarang yang tahu""
+
+   BAD EXAMPLES (DO NOT USE):
+   - ""ILMU TANPA AMAL = BENCANA!!!""
+   - ""The SHOCKING Truth About...""
+   - ""WHY You NEED to Know This NOW""
+   - ""WAJIB TONTON! Ini Akan MENGUBAH Hidupmu""
 
 3. OUTLINE: Brief 2-3 sentence outline of the narrative arc
 
@@ -135,7 +156,7 @@ Return ONLY a valid JSON array. No markdown, no explanations.
 
 [
   {{
-    ""topic"": ""CLICKBAIT TITLE HERE - With Curiosity Gap"",
+    ""topic"": ""Judul yang tenang tapi bikin penasaran — dengan hook halus"",
     ""targetDurationMinutes"": 60,
     ""channelName"": ""{channelName}"",
     ""outline"": ""Brief narrative arc description"",
@@ -154,7 +175,7 @@ Return ONLY a valid JSON array. No markdown, no explanations.
 
 === START GENERATING ===
 
-Generate {count} configs now. Remember: UNIQUE + CLICKBAIT + RELATABLE.";
+Generate {count} configs now. Remember: UNIQUE + MATURE TONE + GENUINELY INTRIGUING (no capslock, no pick-me energy).";
     }
 
     private string GetThemeGuidance(string theme)
