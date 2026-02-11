@@ -48,6 +48,32 @@ builder.Services.AddSingleton<BackgroundGenerationService>();
 // Toast notification service
 builder.Services.AddScoped<BunbunBroll.Services.ToastService>();
 
+// Whisk Image Generation (Google Imagen via CLI)
+builder.Services.AddSingleton<BunbunBroll.Models.WhiskConfig>(sp =>
+{
+    var config = sp.GetRequiredService<IConfiguration>();
+    var whiskSection = config.GetSection("Whisk");
+    var whiskConfig = new BunbunBroll.Models.WhiskConfig
+    {
+        Cookie = whiskSection["Cookie"] ?? "",
+        EnableImageGeneration = bool.TryParse(whiskSection["EnableImageGeneration"], out var e) && e,
+        AspectRatio = whiskSection["AspectRatio"] ?? "LANDSCAPE",
+        Model = whiskSection["Model"] ?? "IMAGEN_3_5",
+        OutputDirectory = whiskSection["OutputDirectory"] ?? "output/whisk-images"
+    };
+
+    // Override cookie from environment variable if appsettings is empty
+    if (string.IsNullOrWhiteSpace(whiskConfig.Cookie))
+    {
+        var envCookie = Environment.GetEnvironmentVariable("WHISK_COOKIE");
+        if (!string.IsNullOrWhiteSpace(envCookie))
+            whiskConfig.Cookie = envCookie;
+    }
+
+    return whiskConfig;
+});
+builder.Services.AddScoped<WhiskImageGenerator>();
+
 // Configure HttpClient for Gemini (Local LLM) - Uses IOptions pattern for env var support
 builder.Services.AddHttpClient<IIntelligenceService, IntelligenceService>()
 .ConfigureHttpClient((sp, client) =>

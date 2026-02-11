@@ -728,6 +728,23 @@
             {
                 <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-destructive text-sm">@_classifyError</div>
             }
+            else if (_brollPromptItems.Count == 0)
+            {
+                @* Empty State — prompt user to generate *@
+                <div class="card p-12 text-center">
+                    <div class="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <polygon points="23 7 16 12 23 17 23 7"></polygon>
+                            <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-semibold mb-2">Siap Generate Prompts</h3>
+                    <p class="text-sm text-muted-foreground mb-6 max-w-md mx-auto">LLM akan menganalisis setiap segment script dan menentukan apakah perlu <span class="text-blue-400 font-medium">B-Roll video</span> atau <span class="text-purple-400 font-medium">Image Generation</span> prompt.</p>
+                    <button class="btn-primary text-sm px-6 py-2.5" @onclick="HandleSendToBroll">
+                        🚀 Generate Prompts
+                    </button>
+                </div>
+            }
             else
             {
                 @* Segment List *@
@@ -994,7 +1011,7 @@
 
                 if (QueryView == "broll-prompts")
                 {
-                    await HandleSendToBroll();
+                    _currentView = "broll-prompts";
                 }
                 else
                 {
