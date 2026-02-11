@@ -3,12 +3,15 @@
 @using BunbunBroll.Services
 @using BunbunBroll.Orchestration
 @using BunbunBroll.Models
+@implements IDisposable
 @inject IScriptGenerationService ScriptService
 @inject IScriptOrchestrator Orchestrator
 @inject IConfiguration Configuration
 @inject NavigationManager Navigation
 @inject ConfigBatchGenerator BatchGenerator
 @inject IJSRuntime JS
+@inject BackgroundGenerationService BgService
+@inject GenerationEventBus EventBus
 
 <div class="max-w-[90rem] mx-auto py-20 px-4">
     <div class="space-y-3 mb-10 text-center">
@@ -77,7 +80,24 @@
                                 </div>
                             </div>
                             <div class="flex items-center gap-3 shrink-0">
-                                @if (session.Status == SessionStatus.Completed)
+                                @if (BgService.IsRunning(session.Id))
+                                {
+                                    var job = BgService.GetActiveJobs().GetValueOrDefault(session.Id);
+                                    var pct = job != null && job.TotalPhases > 0 ? (double)job.CompletedPhases / job.TotalPhases * 100 : 0;
+                                    <div class="text-right text-xs text-muted-foreground space-y-1">
+                                        <div class="flex items-center gap-1.5">
+                                            <svg class="animate-spin h-3 w-3 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            <span class="font-medium text-primary">@($"{pct:F0}%")</span>
+                                        </div>
+                                        <div class="w-16 h-1 bg-muted rounded-full overflow-hidden">
+                                            <div class="h-full bg-primary rounded-full transition-all duration-500" style="width: @($"{pct:F0}%")"></div>
+                                        </div>
+                                    </div>
+                                }
+                                else if (session.Status == SessionStatus.Completed)
                                 {
                                     var totalWords = session.Phases.Sum(p => p.WordCount ?? 0);
                                     var totalMins = (int)(session.Phases.Sum(p => p.DurationSeconds ?? 0) / 60);
@@ -760,6 +780,10 @@
     private List<ScriptGenerationSession> _sessions = new();
     private bool _isLoadingSessions = true;
 
+    // Event bus subscriptions
+    private IDisposable? _progressSubscription;
+    private IDisposable? _listSubscription;
+
     // Config
     private List<ScriptPattern> _availablePatterns = new();
     private List<string> _channelNames = new();
@@ -836,7 +860,47 @@
         }
         if (_availablePatterns.Count == 1)
             _batchPatternId = _availablePatterns[0].Id;
+
+        // Subscribe to event bus for all running sessions (for list view live updates)
+        SubscribeToRunningSessionsForList();
     }
+
+    private void SubscribeToRunningSessionsForList()
+    {
+        _listSubscription?.Dispose();
+        foreach (var session in _sessions.Where(s => BgService.IsRunning(s.Id)))
+        {
+            SubscribeToSessionForList(session.Id);
+        }
+    }
+
+    private void SubscribeToSessionForList(string sessionId)
+    {
+        var sub = EventBus.Subscribe(sessionId, evt =>
+        {
+            InvokeAsync(() =>
+            {
+                if (evt.Type == GenerationEventType.SessionCompleted ||
+                    evt.Type == GenerationEventType.SessionFailed)
+                {
+                    // Reload session list to reflect final status
+                    _ = InvokeAsync(async () =>
+                    {
+                        await LoadSessionsAsync();
+                        StateHasChanged();
+                    });
+                }
+                else if (_currentView == "list")
+                {
+                    StateHasChanged();
+                }
+            });
+        });
+        // Store for cleanup; we reuse _listSubscription as a composite
+        _listSubscriptions.Add(sub);
+    }
+
+    private readonly List<IDisposable> _listSubscriptions = new();
 
     private async Task LoadSessionsAsync()
     {
@@ -1024,7 +1088,7 @@
             await LoadResultSections(session);
             _currentView = "results";
         }
-        else if (session.Status == SessionStatus.Running || session.Status == SessionStatus.Failed)
+        else if (session.Status == SessionStatus.Running || session.Status == SessionStatus.Failed || BgService.IsRunning(session.Id))
         {
             _phaseStatuses = session.Phases.OrderBy(p => p.Order).Select(p => new PhaseStatusItem
             {
@@ -1036,6 +1100,12 @@
             _progressMessage = session.ErrorMessage ?? "Sedang berjalan...";
             _errorMessage = session.Status == SessionStatus.Failed ? session.ErrorMessage : null;
             _currentView = "progress";
+
+            // Subscribe to event bus if still running
+            if (BgService.IsRunning(session.Id))
+            {
+                SubscribeToProgress(session.Id);
+            }
         }
     }
 
@@ -1104,31 +1174,73 @@
             _currentView = "progress";
             StateHasChanged();
 
-            Orchestrator.OnPhaseProgress += HandlePhaseProgress;
-            Orchestrator.OnSessionProgress += HandleSessionProgress;
+            // Subscribe to event bus for progress updates
+            SubscribeToProgress(session.Id);
 
-            try
-            {
-                session = await ScriptService.GenerateAsync(_sessionId);
-                if (session.Status == SessionStatus.Completed)
-                {
-                    _resultSession = session;
-                    await LoadResultSections(session);
-                    _currentView = "results";
-                }
-                else
-                {
-                    _errorMessage = session.ErrorMessage ?? "Generasi gagal.";
-                }
-            }
-            finally
-            {
-                Orchestrator.OnPhaseProgress -= HandlePhaseProgress;
-                Orchestrator.OnSessionProgress -= HandleSessionProgress;
-            }
+            // Also subscribe in list view for live updates
+            SubscribeToSessionForList(session.Id);
+
+            // Fire-and-forget: generation runs in background
+            BgService.EnqueueGeneration(session.Id);
         }
         catch (Exception ex) { _errorMessage = $"Error: {ex.Message}"; }
         finally { _isGenerating = false; StateHasChanged(); }
+    }
+
+    private void SubscribeToProgress(string sessionId)
+    {
+        _progressSubscription?.Dispose();
+        _progressSubscription = EventBus.Subscribe(sessionId, evt =>
+        {
+            InvokeAsync(() =>
+            {
+                switch (evt.Type)
+                {
+                    case GenerationEventType.PhaseStarted:
+                    case GenerationEventType.PhaseCompleted:
+                    case GenerationEventType.PhaseFailed:
+                        var phase = _phaseStatuses.FirstOrDefault(p => p.PhaseId == evt.PhaseId);
+                        if (phase != null)
+                        {
+                            phase.Status = evt.PhaseStatus ?? evt.Type.ToString();
+                            if (evt.OutlinePoints?.Count > 0)
+                                phase.OutlinePoints = evt.OutlinePoints;
+                            if (!string.IsNullOrEmpty(evt.DurationTarget))
+                                phase.DurationTarget = evt.DurationTarget;
+                        }
+                        _progressMessage = evt.Message;
+                        break;
+
+                    case GenerationEventType.SessionProgress:
+                        _completedPhases = evt.CompletedPhases;
+                        _totalPhases = evt.TotalPhases;
+                        _progressPercent = evt.ProgressPercent;
+                        _progressMessage = evt.Message;
+                        break;
+
+                    case GenerationEventType.SessionCompleted:
+                        _progressSubscription?.Dispose();
+                        _ = InvokeAsync(async () =>
+                        {
+                            var completedSession = await ScriptService.GetSessionAsync(sessionId);
+                            if (completedSession != null)
+                            {
+                                _resultSession = completedSession;
+                                await LoadResultSections(completedSession);
+                                _currentView = "results";
+                            }
+                            StateHasChanged();
+                        });
+                        break;
+
+                    case GenerationEventType.SessionFailed:
+                        _progressSubscription?.Dispose();
+                        _errorMessage = evt.Message;
+                        break;
+                }
+                StateHasChanged();
+            });
+        });
     }
 
     // ===== Regenerate Phase =====
@@ -1189,29 +1301,11 @@
             _currentView = "progress";
             StateHasChanged();
 
-            Orchestrator.OnPhaseProgress += HandlePhaseProgress;
-            Orchestrator.OnSessionProgress += HandleSessionProgress;
+            // Subscribe to progress via event bus
+            SubscribeToProgress(_sessionId);
 
-            try
-            {
-                var session = await ScriptService.GenerateAsync(_sessionId);
-                _resultSession = session;
-
-                if (session.Status == SessionStatus.Completed)
-                {
-                    await LoadResultSections(session);
-                    _currentView = "results";
-                }
-                else
-                {
-                    _errorMessage = session.ErrorMessage ?? "Regenerasi gagal.";
-                }
-            }
-            finally
-            {
-                Orchestrator.OnPhaseProgress -= HandlePhaseProgress;
-                Orchestrator.OnSessionProgress -= HandleSessionProgress;
-            }
+            // Fire-and-forget
+            BgService.EnqueueGeneration(_sessionId);
         }
         catch (Exception ex) { _errorMessage = $"Regenerate All gagal: {ex.Message}"; }
         finally { _isRegeneratingAll = false; StateHasChanged(); }
@@ -1243,34 +1337,14 @@
         catch { /* silently fail */ }
     }
 
-    private void HandlePhaseProgress(object? sender, Orchestration.Events.PhaseProgressEventArgs e)
-    {
-        InvokeAsync(() =>
-        {
-            var phase = _phaseStatuses.FirstOrDefault(p => p.PhaseId == e.PhaseId);
-            if (phase != null)
-            {
-                phase.Status = e.Status;
-                if (e.OutlinePoints?.Count > 0)
-                    phase.OutlinePoints = e.OutlinePoints;
-                if (!string.IsNullOrEmpty(e.DurationTarget))
-                    phase.DurationTarget = e.DurationTarget;
-            }
-            _progressMessage = e.Message;
-            StateHasChanged();
-        });
-    }
+    // Old per-instance event handlers replaced by SubscribeToProgress() event bus pattern
 
-    private void HandleSessionProgress(object? sender, Orchestration.Events.SessionProgressEventArgs e)
+    public void Dispose()
     {
-        InvokeAsync(() =>
-        {
-            _completedPhases = e.CompletedPhases;
-            _totalPhases = e.TotalPhases;
-            _progressPercent = e.ProgressPercent;
-            _progressMessage = e.Message;
-            StateHasChanged();
-        });
+        _progressSubscription?.Dispose();
+        foreach (var sub in _listSubscriptions)
+            sub.Dispose();
+        _listSubscriptions.Clear();
     }
 
     private async Task HandleBackToList() { await LoadSessionsAsync(); _currentView = "list"; _errorMessage = null; }
@@ -1307,133 +1381,128 @@
         finally { _isExportingLrc = false; StateHasChanged(); }
     }
 
+    /// <summary>
+    /// Generate LRC content by parsing [MM:SS] timestamps from source markdown.
+    /// Each phase has relative timestamps; we accumulate a global offset across phases.
+    /// </summary>
     private string GenerateLrcContent()
     {
-        const int MinChars = 400;
-        const int MaxChars = 500;
-
         var sb = new System.Text.StringBuilder();
-        var startTime = TimeSpan.Zero;
+        var globalOffset = TimeSpan.Zero;
+
+        // Regex to match [MM:SS] or [MMM:SS] timestamps at start of text segments
+        var timestampPattern = new System.Text.RegularExpressions.Regex(
+            @"\[(\d{1,3}):(\d{2})\]",
+            System.Text.RegularExpressions.RegexOptions.Compiled);
 
         foreach (var section in _resultSections.OrderBy(s => s.Order))
         {
             if (string.IsNullOrWhiteSpace(section.Content)) continue;
 
-            var segments = SplitContentForCapCut(section.Content, MinChars, MaxChars);
+            var entries = ParseTimestampedEntries(section.Content, timestampPattern);
 
-            foreach (var segment in segments)
+            if (entries.Count == 0)
             {
-                // Clean the text first (while it still has newlines for Multiline regexes)
-                var cleaned = CleanSubtitleText(segment);
+                // Fallback: no timestamps found, use estimation approach
+                var cleaned = CleanSubtitleText(section.Content);
+                if (!string.IsNullOrWhiteSpace(cleaned))
+                {
+                    var singleLine = System.Text.RegularExpressions.Regex.Replace(
+                        cleaned.Replace("\r\n", " ").Replace("\n", " ").Replace("\r", " "),
+                        @"\s+", " ").Trim();
+                    var minutes = (int)globalOffset.TotalMinutes;
+                    var seconds = globalOffset.Seconds;
+                    sb.AppendLine($"[{minutes:D2}:{seconds:D2}.00]{singleLine}");
+                    globalOffset = globalOffset.Add(TimeSpan.FromSeconds(EstimateDuration(cleaned)));
+                }
+                continue;
+            }
+
+            foreach (var entry in entries)
+            {
+                var absoluteTime = globalOffset.Add(entry.Timestamp);
+                var cleaned = CleanSubtitleText(entry.Text);
                 if (string.IsNullOrWhiteSpace(cleaned)) continue;
 
-                var duration = EstimateDuration(segment);
-                var endTime = startTime.Add(TimeSpan.FromSeconds(duration));
+                var singleLine = System.Text.RegularExpressions.Regex.Replace(
+                    cleaned.Replace("\r\n", " ").Replace("\n", " ").Replace("\r", " "),
+                    @"\s+", " ").Trim();
 
-                // Flatten to single line for LRC output
-                var singleLine = cleaned.Replace("\r\n", " ").Replace("\n", " ").Replace("\r", " ");
-                singleLine = System.Text.RegularExpressions.Regex.Replace(singleLine, @"\s+", " ").Trim();
-
-                var minutes = (int)startTime.TotalMinutes;
-                var seconds = startTime.Seconds;
-                var centiseconds = startTime.Milliseconds / 10;
+                var minutes = (int)absoluteTime.TotalMinutes;
+                var seconds = absoluteTime.Seconds;
+                var centiseconds = absoluteTime.Milliseconds / 10;
                 sb.AppendLine($"[{minutes:D2}:{seconds:D2}.{centiseconds:D2}]{singleLine}");
+            }
 
-                startTime = endTime;
+            // Advance global offset by this phase's actual duration
+            if (section.DurationSeconds > 0)
+            {
+                globalOffset = globalOffset.Add(TimeSpan.FromSeconds(section.DurationSeconds));
+            }
+            else if (entries.Count > 0)
+            {
+                // Use last timestamp + estimated duration of last segment as phase duration
+                var lastEntry = entries.Last();
+                var lastDuration = EstimateDuration(lastEntry.Text);
+                globalOffset = globalOffset.Add(lastEntry.Timestamp).Add(TimeSpan.FromSeconds(lastDuration));
             }
         }
 
         return sb.ToString();
     }
 
-    private static List<string> SplitContentForCapCut(string content, int minChars, int maxChars)
+    /// <summary>
+    /// Parse timestamped entries from markdown content.
+    /// Returns list of (timestamp, text) pairs.
+    /// </summary>
+    private static List<(TimeSpan Timestamp, string Text)> ParseTimestampedEntries(
+        string content, System.Text.RegularExpressions.Regex timestampPattern)
     {
-        var segments = new List<string>();
-        if (string.IsNullOrWhiteSpace(content)) return segments;
+        var entries = new List<(TimeSpan Timestamp, string Text)>();
+        var matches = timestampPattern.Matches(content);
 
-        content = content.Trim();
+        if (matches.Count == 0) return entries;
 
-        // Normalize orphan quotes
-        content = System.Text.RegularExpressions.Regex.Replace(content, @"""\s*\n\s*""", "\"");
-        content = System.Text.RegularExpressions.Regex.Replace(content, @"\n\s*""", " \"");
-        content = System.Text.RegularExpressions.Regex.Replace(content, @"""\s*\n", "\" ");
-
-        // Split into sentences keeping punctuation with the sentence
-        var sentenceMatches = System.Text.RegularExpressions.Regex.Matches(content, @"[^.!?]*[.!?]+");
-
-        var sentences = new List<string>();
-        foreach (System.Text.RegularExpressions.Match match in sentenceMatches)
+        // Collect text before first timestamp (if any)
+        var firstMatch = matches[0];
+        if (firstMatch.Index > 0)
         {
-            if (match.Length > 0) sentences.Add(match.Value.Trim());
+            var beforeText = content[..firstMatch.Index].Trim();
+            if (!string.IsNullOrWhiteSpace(beforeText) && !IsOnlyHeader(beforeText))
+            {
+                entries.Add((TimeSpan.Zero, beforeText));
+            }
         }
 
-        // Fallback: word-based split if no punctuation found
-        if (sentences.Count == 0)
+        for (int i = 0; i < matches.Count; i++)
         {
-            var words = content.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-            var currentSeg = new System.Text.StringBuilder();
-            foreach (var word in words)
+            var match = matches[i];
+            var mins = int.Parse(match.Groups[1].Value);
+            var secs = int.Parse(match.Groups[2].Value);
+            var timestamp = new TimeSpan(0, mins, secs);
+
+            // Text runs from end of this match to start of next match (or end of content)
+            var textStart = match.Index + match.Length;
+            var textEnd = i + 1 < matches.Count ? matches[i + 1].Index : content.Length;
+            var text = content[textStart..textEnd].Trim();
+
+            if (!string.IsNullOrWhiteSpace(text))
             {
-                if (currentSeg.Length + word.Length + 1 > maxChars && currentSeg.Length >= minChars)
-                {
-                    segments.Add(currentSeg.ToString().Trim());
-                    currentSeg.Clear();
-                }
-                if (currentSeg.Length > 0) currentSeg.Append(' ');
-                currentSeg.Append(word);
+                entries.Add((timestamp, text));
             }
-            if (currentSeg.Length > 0) segments.Add(currentSeg.ToString().Trim());
-            return segments;
         }
 
-        // Build segments from sentences
-        var current = new System.Text.StringBuilder();
-        var currentLength = 0;
+        return entries;
+    }
 
-        foreach (var sentence in sentences)
-        {
-            var sentenceLength = sentence.Length;
-
-            // If single sentence exceeds max, split by words
-            if (sentenceLength > maxChars)
-            {
-                if (currentLength > 0)
-                {
-                    segments.Add(current.ToString().Trim());
-                    current.Clear();
-                    currentLength = 0;
-                }
-                var words = sentence.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-                var wordBuf = new System.Text.StringBuilder();
-                foreach (var word in words)
-                {
-                    if (wordBuf.Length + word.Length + 1 > maxChars && wordBuf.Length > 0)
-                    {
-                        segments.Add(wordBuf.ToString().Trim());
-                        wordBuf.Clear();
-                    }
-                    if (wordBuf.Length > 0) wordBuf.Append(' ');
-                    wordBuf.Append(word);
-                }
-                if (wordBuf.Length > 0) segments.Add(wordBuf.ToString().Trim());
-                continue;
-            }
-
-            // If adding this sentence would exceed max and we're past min, flush
-            if (currentLength + sentenceLength > maxChars && currentLength >= minChars)
-            {
-                segments.Add(current.ToString().Trim());
-                current.Clear();
-                currentLength = 0;
-            }
-
-            if (current.Length > 0) current.Append(' ');
-            current.Append(sentence);
-            currentLength += sentenceLength + 1;
-        }
-
-        if (currentLength > 0) segments.Add(current.ToString().Trim());
-        return segments;
+    /// <summary>Check if text is only a markdown header line</summary>
+    private static bool IsOnlyHeader(string text)
+    {
+        var trimmed = text.Trim();
+        return trimmed.StartsWith('#') ||
+               System.Text.RegularExpressions.Regex.IsMatch(trimmed,
+                   @"^\s*(?:Opening Hook|Kontekstualisasi|Multi-Dimensi|Climax|Eschatology|Contextualization|Content|Refleksi)\s*$",
+                   System.Text.RegularExpressions.RegexOptions.IgnoreCase);
     }
 
     private static int EstimateDuration(string text)
@@ -1443,7 +1512,7 @@
         var baseDuration = words.Length / 2.5; // 150 wpm = 2.5 wps
         var ellipsisCount = System.Text.RegularExpressions.Regex.Matches(text, @"\.\.\.").Count;
         var totalDuration = baseDuration + (ellipsisCount * 0.5);
-        return (int)Math.Ceiling(Math.Max(3, Math.Min(15, totalDuration)));
+        return (int)Math.Ceiling(Math.Max(3, totalDuration));
     }
 
     private static string CleanSubtitleText(string text)
@@ -1457,9 +1526,9 @@
         // 2. Remove common phase headers (without hashes) at start of lines
         result = System.Text.RegularExpressions.Regex.Replace(result, @"^\s*(?:Opening Hook|Kontekstualisasi|Multi-Dimensi|Climax|Eschatology|Contextualization|Content|Segment \d+):?\s*$", "", System.Text.RegularExpressions.RegexOptions.Multiline | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 
-        // 3. Remove embedded timestamps like 00:00, 01:25, or [00:15]
-        result = System.Text.RegularExpressions.Regex.Replace(result, @"\b\d{1,2}:\d{2}(?::\d{2})?\b", "");
-        result = System.Text.RegularExpressions.Regex.Replace(result, @"\[\d{1,2}:\d{2}(?::\d{2})?\]", "");
+        // 3. Remove embedded timestamps like 00:00, 01:25, 000:58, or [00:15]
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"\[\d{1,3}:\d{2}(?::\d{2})?\]", "");
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"\b\d{1,3}:\d{2}(?::\d{2})?\b", "");
 
         // 4. Remove visual/production markers in brackets
         result = System.Text.RegularExpressions.Regex.Replace(result, @"\[(?:Visual|Musik|Music|Efek|Effect|SFX|Audio|PAUSE)[^\]]*\]", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
@@ -1480,38 +1549,6 @@
         return result.Trim();
     }
 
-    /// <summary>
-    /// Normalize timestamps so they always appear at the START of sentences/paragraphs.
-    /// Moves trailing [MM:SS] or MM:SS timestamps to the beginning of the next line/sentence.
-    /// </summary>
-    private static string NormalizeTimestamps(string content)
-    {
-        if (string.IsNullOrWhiteSpace(content)) return content;
-
-        // Pattern: text followed by a timestamp at the end of line → move timestamp to next line start
-        // e.g. "some text. [01:25]\n\nNext paragraph" → "some text.\n\n[01:25] Next paragraph"
-        var result = content;
-
-        // 1. Remove timestamps that appear at end of a line/paragraph and re-attach to the start of next content
-        //    Match: [MM:SS] at end of line (possibly before newlines)
-        result = System.Text.RegularExpressions.Regex.Replace(
-            result,
-            @"\s*\[(\d{1,2}:\d{2})\]\s*\n",
-            m => $"\n\n[{m.Groups[1].Value}] ",
-            System.Text.RegularExpressions.RegexOptions.Multiline);
-
-        // 2. Handle mid-sentence timestamps: "text [01:25] more text" → newline before timestamp
-        //    Only if preceded by sentence-ending punctuation
-        result = System.Text.RegularExpressions.Regex.Replace(
-            result,
-            @"([.!?])\s*\[(\d{1,2}:\d{2})\]\s*",
-            m => $"{m.Groups[1].Value}\n\n[{m.Groups[2].Value}] ");
-
-        // 3. Clean up excessive newlines
-        result = System.Text.RegularExpressions.Regex.Replace(result, @"\n{3,}", "\n\n");
-
-        return result.Trim();
-    }
 
     private string FormatDate(DateTime date)
     {

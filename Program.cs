@@ -42,6 +42,8 @@ builder.Services.AddSingleton<IPatternRegistry, PatternRegistry>();
 builder.Services.AddScoped<IScriptOrchestrator, ScriptOrchestrator>();
 builder.Services.AddScoped<IScriptGenerationService, ScriptGenerationService>();
 builder.Services.AddScoped<ConfigBatchGenerator>();
+builder.Services.AddSingleton<GenerationEventBus>();
+builder.Services.AddSingleton<BackgroundGenerationService>();
 
 // Toast notification service
 builder.Services.AddScoped<BunbunBroll.Services.ToastService>();
