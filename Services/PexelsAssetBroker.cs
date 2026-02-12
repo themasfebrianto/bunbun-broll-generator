@@ -110,7 +110,7 @@ public class PexelsAssetBroker : IAssetBroker
             // Find the best video file (prefer HD, avoid 4K)
             var bestFile = video.VideoFiles
                 .Where(f => f.FileType == "video/mp4")
-                .Where(f => PreferredQualities.Contains(f.Quality.ToLower()))
+                .Where(f => f.Quality != null && PreferredQualities.Contains(f.Quality.ToLower()))
                 .Where(f => f.Width >= MinWidth)
                 .OrderByDescending(f => f.Width)
                 .ThenBy(f => f.Quality == "hd" ? 0 : 1)

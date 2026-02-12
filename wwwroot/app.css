@@ -2,6 +2,42 @@
    BunBun B-Roll Generator - Vercel-Style CSS
    ================================================ */
 
+/* ================================================
+   Breadcrumb Navigation
+   ================================================ */
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.875rem;
+}
+
+.breadcrumb-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  color: hsl(var(--muted-foreground));
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.breadcrumb-item:hover {
+  color: hsl(var(--foreground));
+}
+
+.breadcrumb-sep {
+  color: hsl(var(--muted-foreground) / 0.4);
+  font-size: 0.875rem;
+  margin: 0 0.125rem;
+  user-select: none;
+}
+
+.breadcrumb-current {
+  font-weight: 500;
+  color: hsl(var(--foreground));
+}
+
 /* Base Reset */
 * {
   box-sizing: border-box;
