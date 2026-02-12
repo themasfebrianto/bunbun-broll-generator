@@ -11,8 +11,8 @@
         "max": 90
       },
       "wordCountTarget": {
-        "min": 180,
-        "max": 320
+        "min": 150,
+        "max": 225
       },
       "requiredElements": [
         "Salam pembuka (Assalamualaikum)",
@@ -42,8 +42,8 @@
         "max": 240
       },
       "wordCountTarget": {
-        "min": 600,
-        "max": 900
+        "min": 450,
+        "max": 600
       },
       "requiredElements": [
         "Tahun/angka spesifik (1–3 data numerik relevan)",
@@ -69,7 +69,7 @@
       },
       "wordCountTarget": {
         "min": 1200,
-        "max": 2000
+        "max": 1500
       },
       "requiredElements": [
         "Dimensi Religius atau Psikologis sebagai poros utama",
@@ -96,8 +96,8 @@
         "max": 300
       },
       "wordCountTarget": {
-        "min": 800,
-        "max": 1200
+        "min": 600,
+        "max": 750
       },
       "requiredElements": [
         "Pertanyaan retoris penantang",
@@ -123,8 +123,8 @@
         "max": 300
       },
       "wordCountTarget": {
-        "min": 300,
-        "max": 700
+        "min": 450,
+        "max": 750
       },
       "requiredElements": [
         "Perbandingan masa lalu → kini → masa depan",

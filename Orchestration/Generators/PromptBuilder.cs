@@ -121,7 +121,8 @@ public class PromptBuilder
             $"### PHASE: {phase.Name} (Order {phase.Order})",
             $"Phase ID: {phase.Id}",
             $"Durasi Target: {phase.DurationTarget.Min}-{phase.DurationTarget.Max} detik",
-            $"Target Kata: {phase.WordCountTarget.Min}-{phase.WordCountTarget.Max} kata"
+            $"Target Kata: {phase.WordCountTarget.Min}-{phase.WordCountTarget.Max} kata",
+            $"⚠️ BATAS KATA KERAS: JANGAN melebihi {phase.WordCountTarget.Max} kata. Konten yang melebihi batas akan DITOLAK. Lebih baik padat dan bermakna daripada panjang bertele-tele."
         };
 
         if (!string.IsNullOrWhiteSpace(phase.GuidanceTemplate))
