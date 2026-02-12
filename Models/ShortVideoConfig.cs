@@ -123,10 +123,11 @@ public record VideoClip
 {
     public string SourcePath { get; init; } = "";
     public string SourceUrl { get; init; } = "";
+    public string ImagePath { get; init; } = "";
+    public bool IsImage => !string.IsNullOrEmpty(ImagePath);
+    public KenBurnsMotionType MotionType { get; init; } = KenBurnsMotionType.SlowZoomIn;
     public string AssociatedText { get; init; } = "";
     public double DurationSeconds { get; init; }
-    public double TrimStart { get; init; } = 0;
-    public double TrimEnd { get; init; } = 0;
 
     public VideoClip() { }
 
@@ -142,5 +143,16 @@ public record VideoClip
         SourceUrl = sourceUrl;
         AssociatedText = text;
         DurationSeconds = duration;
+    }
+
+    public static VideoClip FromImage(string imagePath, string text, double duration, KenBurnsMotionType motion = KenBurnsMotionType.SlowZoomIn)
+    {
+        return new VideoClip
+        {
+            ImagePath = imagePath,
+            AssociatedText = text,
+            DurationSeconds = duration,
+            MotionType = motion
+        };
     }
 }

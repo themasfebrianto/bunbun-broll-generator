@@ -89,7 +89,10 @@ public class ProjectService(AppDbContext db) : IProjectService
                     VideoPreviewUrl = jobSentence.SelectedVideo?.PreviewUrl,
                     VideoThumbUrl = jobSentence.SelectedVideo?.ThumbnailUrl,
                     // CRITICAL: Duration for accurate % match calculation
-                    VideoDuration = jobSentence.SelectedVideo?.DurationSeconds ?? 0
+                    VideoDuration = jobSentence.SelectedVideo?.DurationSeconds ?? 0,
+                    // Whisk Image
+                    WhiskImagePath = jobSentence.WhiskImagePath,
+                    WhiskMotionType = jobSentence.WhiskMotionType.ToString()
                 });
             }
         }

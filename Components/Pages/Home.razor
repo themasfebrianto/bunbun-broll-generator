@@ -9,6 +9,7 @@
 @inject ILogger<Home> Logger
 @inject IJSRuntime JS
 @inject BunbunBroll.Services.ToastService ToastService
+@inject BunbunBroll.Services.WhiskImageGenerator WhiskGenerator
 @implements IDisposable
 
 <PageTitle>Sequence Generator</PageTitle>
@@ -455,7 +456,7 @@
                                 <div class="space-y-12">
                                     @foreach (var sentence in segment.Sentences)
                                     {
-                                        <div class="flex flex-col md:flex-row gap-8 items-start relative group">
+                                        <div class="flex flex-col md:flex-row gap-8 items-start relative group @(_isRegeneratingKeywords == sentence.Id || _researchingSentenceId == sentence.Id || _isGeneratingWhisk == sentence.Id ? "shimmer-effect" : "")">
                                             <!-- Indicator Line -->
                                             <div class="absolute -left-6 top-1 bottom-1 w-0.5 bg-border/30 group-hover:bg-primary/50 transition-colors hidden lg:block"></div>
                                             
@@ -559,11 +560,71 @@
                                                         </div>
                                                     </div>
                                                 }
-                                                else if (sentence.Status == SentenceStatus.NoResults)
+                                                 else if (!string.IsNullOrEmpty(sentence.WhiskImagePath) && File.Exists(sentence.WhiskImagePath))
                                                 {
-                                                    <div class="aspect-video rounded-xl border border-dashed flex flex-col items-center justify-center space-y-2 bg-muted/20">
-                                                        <span class="text-[10px] text-muted-foreground font-medium uppercase tracking-tighter">Gak ada video yang cocok</span>
-                                                        <button class="inline-flex items-center justify-center rounded-md text-[10px] font-semibold h-7 px-3 border border-input shadow-sm hover:bg-accent" @onclick="() => ResearchSentence(sentence)">Cari Lagi</button>
+                                                    <div class="rounded-xl border bg-card overflow-hidden shadow group/video">
+                                                        <div class="aspect-video relative bg-black">
+                                                            <img src="@GetWhiskDisplayUrl(sentence.WhiskImagePath)" class="absolute inset-0 w-full h-full object-cover" />
+                                                            <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover/video:opacity-100 transition-opacity">
+                                                                <span class="text-xs text-white font-medium bg-black/60 px-2 py-1 rounded">Ken Burns Effect applied on export</span>
+                                                            </div>
+                                                        </div>
+
+                                                        <div class="flex items-center justify-between px-2 py-1 bg-muted/80 text-[10px] border-t">
+                                                            <div class="flex items-center gap-2">
+                                                                <span class="text-purple-600 font-medium">✨ AI Image</span>
+                                                                <select class="bg-transparent border-none p-0 text-[10px] focus:ring-0 cursor-pointer" 
+                                                                        @bind="sentence.WhiskMotionType">
+                                                                    @foreach (var motion in Enum.GetValues<KenBurnsMotionType>())
+                                                                    {
+                                                                        <option value="@motion">@motion</option>
+                                                                    }
+                                                                </select>
+                                                            </div>
+                                                        </div>
+
+                                                        <div class="flex items-center justify-between p-1 bg-muted/30 border-t">
+                                                            <button class="inline-flex items-center justify-center rounded-md text-xs font-medium transition-colors h-8 w-8 hover:bg-black/10 dark:hover:bg-white/10"
+                                                                    title="Regenerate Image"
+                                                                    @onclick="() => HandleGenerateWhiskImage(sentence)">
+                                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.85.99 6.57 2.57L21 8M21 3v5h-5"/></svg>
+                                                            </button>
+                                                            <button class="inline-flex items-center justify-center rounded-md text-[10px] font-semibold h-7 px-3 border border-input opacity-70 hover:opacity-100 transition-opacity"
+                                                                    @onclick="() => sentence.WhiskImagePath = null">
+                                                                Cari Video Lagi
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                }
+                                                else if (sentence.Status == SentenceStatus.NoResults || sentence.SelectedVideo == null)
+                                                {
+                                                    <div class="aspect-video rounded-xl border border-dashed flex flex-col items-center justify-center space-y-3 bg-muted/20 p-4">
+                                                        <span class="text-[10px] text-muted-foreground font-medium uppercase tracking-tighter text-center">
+                                                            @(sentence.Status == SentenceStatus.NoResults ? "Gak ada video yang cocok" : "Pilih visual untuk kalimat ini")
+                                                        </span>
+                                                        <div class="flex gap-2">
+                                                            <button class="inline-flex items-center justify-center rounded-md text-[10px] font-semibold h-7 px-3 border border-input shadow-sm hover:bg-accent" 
+                                                                    @onclick="() => ResearchSentence(sentence)">
+                                                                Cari Video
+                                                            </button>
+                                                            <button class="inline-flex items-center justify-center rounded-md text-[10px] font-semibold h-7 px-3 bg-purple-600 text-white shadow-sm hover:bg-purple-700 disabled:opacity-50" 
+                                                                    disabled="@(_isGeneratingWhisk == sentence.Id)"
+                                                                    @onclick="() => HandleGenerateWhiskImage(sentence)">
+                                                                @if (_isGeneratingWhisk == sentence.Id)
+                                                                {
+                                                                    <svg class="animate-spin h-3 w-3 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                                    </svg>
+                                                                    <span>Generating...</span>
+                                                                }
+                                                                else
+                                                                {
+                                                                    <svg class="mr-1 h-3 w-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+                                                                    <span>Generate Image</span>
+                                                                }
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 }
                                                 else
@@ -596,6 +657,7 @@
     private string _statusMessage = "";
     private bool _isSearching = false;
     private bool _isDownloading = false;
+    private int? _isGeneratingWhisk = null;
     private bool _halalFilterEnabled = true;
     private ProcessingJob? _currentJob;
     private CancellationTokenSource? _cts;
@@ -703,6 +765,14 @@
                             DurationSeconds = sent.VideoDuration
                         };
                     }
+
+                    // Restore Whisk Image
+                    sentence.WhiskImagePath = sent.WhiskImagePath;
+                    if (Enum.TryParse<KenBurnsMotionType>(sent.WhiskMotionType, out var motion))
+                    {
+                        sentence.WhiskMotionType = motion;
+                    }
+
                     segment.Sentences.Add(sentence);
                 }
                 _currentJob.Segments.Add(segment);
@@ -1100,6 +1170,43 @@
         _shortVideoResult = null; // Clear previous result when ratio changes
     }
 
+    private async Task HandleGenerateWhiskImage(ScriptSentence sentence)
+    {
+        if (_currentJob == null) return;
+        _isGeneratingWhisk = sentence.Id;
+        StateHasChanged();
+
+        try
+        {
+            var outputDir = Path.Combine(Directory.GetCurrentDirectory(), "output", _currentJob.Id, "whisk_images");
+            
+            // Use the LLM-generated image prompt if available, otherwise fall back to raw script text
+            var prompt = sentence.WhiskPrompt ?? sentence.Text;
+            var result = await WhiskGenerator.GenerateImageAsync(prompt, outputDir, $"sent_{sentence.Id}");
+            if (result.Success)
+            {
+                sentence.WhiskImagePath = result.ImagePath;
+                sentence.SelectedVideo = null; // Clear video if image is chosen
+                await ProjectService.SaveJobAsProjectAsync(_currentJob);
+                ToastService.ShowSuccess("AI Image generated!");
+            }
+            else
+            {
+                ToastService.ShowError($"Whisk Error: {result.Error}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to generate whisk image for sentence {Id}", sentence.Id);
+            ToastService.ShowError($"Generation failed: {ex.Message}");
+        }
+        finally
+        {
+            _isGeneratingWhisk = null;
+            StateHasChanged();
+        }
+    }
+
     private async Task GenerateShortVideo()
     {
         if (_currentJob == null) return;
@@ -1128,17 +1235,30 @@
         try
         {
             // Collect clips from the current job
-            var clips = _currentJob.Segments
-                .SelectMany(s => s.Sentences)
-                .Where(s => s.SelectedVideo != null)
-                .Select(s => new VideoClip
+            var clips = new List<VideoClip>();
+            foreach (var sentence in _currentJob.Segments.SelectMany(s => s.Sentences))
+            {
+                if (sentence.SelectedVideo != null)
                 {
-                    SourceUrl = s.SelectedVideo!.DownloadUrl,
-                    SourcePath = s.SelectedVideo.LocalPath ?? "",
-                    AssociatedText = s.Text,
-                    DurationSeconds = s.SelectedVideo.DurationSeconds
-                })
-                .ToList();
+                    clips.Add(new VideoClip
+                    {
+                        SourceUrl = sentence.SelectedVideo.DownloadUrl,
+                        SourcePath = sentence.SelectedVideo.LocalPath ?? "",
+                        AssociatedText = sentence.Text,
+                        DurationSeconds = sentence.SelectedVideo.DurationSeconds
+                    });
+                }
+                else if (!string.IsNullOrEmpty(sentence.WhiskImagePath))
+                {
+                    // Add as Image clip with Ken Burns effect
+                    clips.Add(VideoClip.FromImage(
+                        sentence.WhiskImagePath,
+                        sentence.Text,
+                        sentence.EstimatedDurationSeconds,
+                        sentence.WhiskMotionType
+                    ));
+                }
+            }
 
             if (clips.Count == 0)
             {
@@ -1237,5 +1357,21 @@
             len /= 1024;
         }
         return $"{len:0.##} {sizes[order]}";
+    }
+
+    private string GetWhiskDisplayUrl(string absolutePath)
+    {
+        if (string.IsNullOrEmpty(absolutePath)) return "";
+        
+        // Convert /home/user/Documents/BunbunBroll/WhiskImages/ID/file.png to /WhiskImages/ID/file.png
+        var baseDir = Path.Combine(Directory.GetCurrentDirectory(), "output");
+        if (absolutePath.StartsWith(baseDir))
+        {
+            var relative = absolutePath.Substring(baseDir.Length).Replace("\\", "/");
+            if (!relative.StartsWith("/")) relative = "/" + relative;
+            return "/project-assets" + relative;
+        }
+        
+        return absolutePath;
     }
 }

@@ -20,7 +20,7 @@ public static class ImageVisualStyle
     /// Additional suffix for prophet characters (MANDATORY)
     /// </summary>
     public const string PROPHET_SUFFIX =
-        ", face completely veiled in soft white-golden divine light, " +
+        ", face replaced by intense white-golden divine light, " +
         "facial features not visible, reverent depiction";
 }
 
@@ -46,10 +46,10 @@ PROHIBITED:
 
     public const string PROPHET_RULES = @"
 PROPHET DEPICTION (MANDATORY):
-- Face MUST be completely obscured/hidden
-- Soft white-golden divine light (nur) covering face area
+- Face MUST be completely obscured/hidden by BRIGHT LIGHT
+- Intense white-golden divine light (nur) radiating from where the face should be
 - Back view or side view preferred
-- Add ALWAYS: ', face completely veiled in soft white-golden divine light, facial features not visible'
+- Add ALWAYS: ', face replaced by intense white-golden divine light, facial features not visible'
 - NEVER show any facial features of prophets
 - Reverent and respectful depiction at all times";
 }

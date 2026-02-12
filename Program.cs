@@ -3,6 +3,7 @@ using BunbunBroll.Services;
 using BunbunBroll.Orchestration;
 using BunbunBroll.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.AspNetCore.Components.Authorization;
 using Polly;
 using Polly.Extensions.Http;
@@ -32,10 +33,13 @@ builder.Services.Configure<PixabaySettings>(builder.Configuration.GetSection("Pi
 builder.Services.Configure<DownloaderSettings>(builder.Configuration.GetSection("Downloader"));
 
 // Register core services
+builder.Services.AddScoped<IProjectService, ProjectService>();
+
+// Video services
+builder.Services.AddSingleton<KenBurnsService>();
+builder.Services.AddScoped<IShortVideoComposer, ShortVideoComposer>();
 builder.Services.AddScoped<IScriptProcessor, ScriptProcessor>();
 builder.Services.AddScoped<IPipelineOrchestrator, PipelineOrchestrator>();
-builder.Services.AddScoped<IProjectService, ProjectService>();
-builder.Services.AddScoped<IShortVideoComposer, ShortVideoComposer>();
 
 // Script Generation services
 builder.Services.AddSingleton<IPatternRegistry, PatternRegistry>();
@@ -128,6 +132,17 @@ if (!app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
+
+// Serve project output assets (images, videos) from local output folder
+var outputPath = Path.Combine(Directory.GetCurrentDirectory(), "output");
+Directory.CreateDirectory(outputPath);
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(outputPath),
+    RequestPath = "/project-assets"
+});
+
 app.UseAntiforgery();
 
 app.MapRazorComponents<App>()
@@ -236,6 +251,24 @@ using (var scope = app.Services.CreateScope())
             ";
             await alterCommand.ExecuteNonQueryAsync();
             Console.WriteLine("Added VideoDuration column to existing database.");
+        }
+
+        // Check if WhiskImagePath column exists
+        command.CommandText = @"
+            SELECT COUNT(*) FROM pragma_table_info('Sentences') WHERE name='WhiskImagePath'
+        ";
+        result = await command.ExecuteScalarAsync();
+        columnExists = Convert.ToInt32(result) > 0;
+
+        if (!columnExists)
+        {
+            using var alterCommand = connection.CreateCommand();
+            alterCommand.CommandText = @"
+                ALTER TABLE Sentences ADD COLUMN WhiskImagePath TEXT;
+                ALTER TABLE Sentences ADD COLUMN WhiskMotionType TEXT DEFAULT 'Random';
+            ";
+            await alterCommand.ExecuteNonQueryAsync();
+            Console.WriteLine("Added Whisk image columns to existing database.");
         }
 
         // Check if ChannelName column exists in ScriptGenerationSessions

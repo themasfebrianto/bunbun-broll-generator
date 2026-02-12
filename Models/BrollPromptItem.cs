@@ -37,6 +37,13 @@ public class BrollPromptItem
     
     /// <summary>User-selected video URL from search results</summary>
     public string? SelectedVideoUrl { get; set; }
+    
+    /// <summary>Current search page for cycling through results</summary>
+    public int SearchPage { get; set; }
+    
+    /// <summary>Full cached results from last API call, used for cycling pages</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public List<VideoAsset> AllSearchResults { get; set; } = new();
 
     // === Phase 2: Whisk Image Generation ===
     
@@ -51,6 +58,41 @@ public class BrollPromptItem
     
     /// <summary>Whether this segment is currently generating via Whisk</summary>
     public bool IsGenerating { get; set; }
+
+    /// <summary>Progress of combined Regen Prompt & Image action (0-100)</summary>
+    public int CombinedRegenProgress { get; set; }
+
+    /// <summary>Ken Burns motion type for generated images. Auto-assigned randomly on creation, user can override.</summary>
+    public KenBurnsMotionType KenBurnsMotion { get; set; } = GetRandomMotion();
+
+    // === Phase 3: Ken Burns Video Conversion ===
+    
+    /// <summary>Status of video conversion from image</summary>
+    public WhiskGenerationStatus WhiskVideoStatus { get; set; } = WhiskGenerationStatus.Pending;
+    
+    /// <summary>Path to generated Ken Burns video file</summary>
+    public string? WhiskVideoPath { get; set; }
+    
+    /// <summary>Video conversion error message</summary>
+    public string? WhiskVideoError { get; set; }
+    
+    /// <summary>Whether this segment is currently converting to video</summary>
+    public bool IsConvertingVideo { get; set; }
+
+    private static readonly Random _random = new();
+    public static KenBurnsMotionType GetRandomMotion()
+    {
+        var types = new[]
+        {
+            KenBurnsMotionType.SlowZoomIn,
+            KenBurnsMotionType.SlowZoomOut,
+            KenBurnsMotionType.PanLeftToRight,
+            KenBurnsMotionType.PanRightToLeft,
+            KenBurnsMotionType.DiagonalZoomIn,
+            KenBurnsMotionType.DiagonalZoomOut,
+        };
+        return types[_random.Next(types.Length)];
+    }
 }
 
 /// <summary>

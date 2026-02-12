@@ -30,6 +30,17 @@ public interface IShortVideoComposer
     );
 
     /// <summary>
+    /// Convert an image to a video clip with Ken Burns motion.
+    /// </summary>
+    Task<string?> ConvertImageToVideoAsync(
+        string imagePath,
+        double durationSeconds,
+        ShortVideoConfig config,
+        KenBurnsMotionType motionType = KenBurnsMotionType.SlowZoomIn,
+        CancellationToken cancellationToken = default
+    );
+
+    /// <summary>
     /// Get video duration.
     /// </summary>
     Task<double> GetVideoDurationAsync(string videoPath, CancellationToken cancellationToken = default);
@@ -42,6 +53,7 @@ public class ShortVideoComposer : IShortVideoComposer
 {
     private readonly ILogger<ShortVideoComposer> _logger;
     private readonly IConfiguration _config;
+    private readonly KenBurnsService _kenBurnsService;
     private readonly string _ffmpegDirectory;
     private readonly string _tempDirectory;
     private readonly string _outputDirectory;
@@ -55,10 +67,14 @@ public class ShortVideoComposer : IShortVideoComposer
     private string? _hwEncoder = null;
     private bool _hwEncoderChecked = false;
 
-    public ShortVideoComposer(ILogger<ShortVideoComposer> logger, IConfiguration config)
+    public ShortVideoComposer(
+        ILogger<ShortVideoComposer> logger, 
+        IConfiguration config,
+        KenBurnsService kenBurnsService)
     {
         _logger = logger;
         _config = config;
+        _kenBurnsService = kenBurnsService;
         
         // FFmpeg binaries directory - use absolute paths
         _ffmpegDirectory = Path.GetFullPath(config["FFmpeg:BinaryDirectory"] 
@@ -269,6 +285,33 @@ public class ShortVideoComposer : IShortVideoComposer
         }
     }
 
+    public async Task<string?> ConvertImageToVideoAsync(
+        string imagePath,
+        double durationSeconds,
+        ShortVideoConfig config,
+        KenBurnsMotionType motionType = KenBurnsMotionType.SlowZoomIn,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            if (!await EnsureFFmpegAsync()) return null;
+
+            return await _kenBurnsService.ConvertImageToVideoAsync(
+                imagePath,
+                durationSeconds,
+                config.Width,
+                config.Height,
+                motionType,
+                cancellationToken
+            );
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to convert image to video: {Path}", imagePath);
+            return null;
+        }
+    }
+
     public async Task<ShortVideoResult> ComposeAsync(
         List<VideoClip> clips,
         ShortVideoConfig config,
@@ -344,17 +387,48 @@ public class ShortVideoComposer : IShortVideoComposer
                 },
                 async (task, ct) =>
                 {
-                    await ProcessSingleClipAsync(
-                        task.Clip.LocalPath,
-                        task.OutputPath,
-                        task.Duration,
-                        config,
-                        ct
-                    );
+                    string? inputPath = task.Clip.LocalPath;
+                    string? tempImageVideo = null;
 
-                    if (File.Exists(task.OutputPath))
+                    // Support image-to-video with Ken Burns if it's an image
+                    if (task.Clip.Original.IsImage)
                     {
-                        processedClips[task.Index] = task.OutputPath;
+                        tempImageVideo = await ConvertImageToVideoAsync(
+                            task.Clip.Original.ImagePath,
+                            task.Duration,
+                            config,
+                            task.Clip.Original.MotionType,
+                            ct
+                        );
+
+                        if (string.IsNullOrEmpty(tempImageVideo) || !File.Exists(tempImageVideo))
+                        {
+                            _logger.LogWarning("Failed to convert image to video: {Path}", task.Clip.Original.ImagePath);
+                            return;
+                        }
+                        inputPath = tempImageVideo;
+                    }
+
+                    if (!string.IsNullOrEmpty(inputPath))
+                    {
+                        await ProcessSingleClipAsync(
+                            inputPath,
+                            task.OutputPath,
+                            task.Duration,
+                            config,
+                            ct
+                        );
+
+                        if (File.Exists(task.OutputPath))
+                        {
+                            processedClips[task.Index] = task.OutputPath;
+                        }
+                    }
+
+                    // Cleanup the temporary image-video if created
+                    if (!string.IsNullOrEmpty(tempImageVideo) && File.Exists(tempImageVideo))
+                    {
+                        try { File.Delete(tempImageVideo); } catch { }
                     }
 
                     var processed = Interlocked.Increment(ref processedCount);

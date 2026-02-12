@@ -60,7 +60,7 @@ public class IntelligenceService : IIntelligenceService
     private readonly ILogger<IntelligenceService> _logger;
     private readonly GeminiSettings _settings;
 
-    private const string SystemPrompt = @"B-Roll keyword extractor. Convert script to English stock footage keywords.
+    private const string SystemPrompt = @"B-Roll keyword extractor for nature cinematic footage. Convert script to English stock footage keywords.
 
 OUTPUT (JSON only, no markdown):
 {
@@ -68,17 +68,18 @@ OUTPUT (JSON only, no markdown):
   ""moodKeywords"": [""emotion + visual""],
   ""contextualKeywords"": [""setting + time""],
   ""actionKeywords"": [""movement""],
-  ""fallbackKeywords"": [""clouds timelapse"", ""city skyline""],
-  ""suggestedCategory"": ""People|Nature|Urban|Business|Abstract"",
+  ""fallbackKeywords"": [""clouds timelapse"", ""mountain sunrise""],
+  ""suggestedCategory"": ""Nature|Abstract|Urban"",
   ""detectedMood"": ""melancholic|anxious|hopeful|calm|energetic""
 }
 
 RULES:
 - Translate ALL to English
 - 2-3 words per keyword (not single words)
-- Add context: ""bedroom ceiling"" not ""ceiling""
+- Focus exclusively on NATURE LANDSCAPES and ATMOSPHERIC CINEMATIC shots.
+- STRICT RULE: NO PEOPLE, NO HUMAN FACES, NO HUMAN BODY PARTS.
 - Avoid religious/sensitive triggers
-- fallbackKeywords: always include safe universals
+- fallbackKeywords: always include safe universals like ""ocean waves"", ""sunset clouds""
 
 VISUAL STYLE GUIDELINES (apply to ALL keyword layers when style is specified):
 - Cinematic: Use keywords like ""cinematic lighting"", ""film grain"", ""dramatic shadows"", ""slow motion"", ""wide shot"", ""depth of field"", ""golden hour"", ""lens flare"", ""movie scene""
@@ -87,9 +88,9 @@ VISUAL STYLE GUIDELINES (apply to ALL keyword layers when style is specified):
 - Auto: No specific style modifiers, let content dictate
 
 EMOTIONAL MOOD DETECTION (separate from visual style):
-melancholic=rain window, anxious=clock ticking, hopeful=sunrise, calm=lake reflection, energetic=city traffic
+melancholic=rain window, anxious=storm clouds, hopeful=sunrise, calm=placid lake, energetic=crashing waves
 
-IMPORTANT: When user specifies a Visual Style, weave those terms into PRIMARY, MOOD, and CONTEXTUAL keywords. Example for Cinematic: ""person walking cinematic lighting"" not just ""person walking"".";
+IMPORTANT: When user specifies a Visual Style, weave those terms into PRIMARY, MOOD, and CONTEXTUAL keywords. Use high-end nature cinematic terms.";
 
     public IntelligenceService(
         HttpClient httpClient, 
@@ -629,24 +630,23 @@ IMPORTANT: When user specifies a Visual Style, weave those terms into PRIMARY, M
         var classifySystemPrompt = $@"You are a visual content classifier for Islamic video essays. Your job is to analyze script segments and decide the best visual approach for each.
 
 For each segment, classify as:
-1. **BROLL** - Use stock footage (Pexels/Pixabay) when the content depicts:
-   - Real-world landscapes, nature, cityscapes, urban
-   - General human activities (working, walking, talking, studying)
-   - Modern/contemporary scenes
-   - Objects, food, technology, daily life
-   - Atmospheric footage (rain, clouds, sunrise, ocean)
+1. **BROLL** - Use nature stock footage (Pexels/Pixabay) when the content depicts:
+   - Real-world landscapes, nature, atmospheric shots, cityscapes (empty), urban (architectural)
+   - Atmospheric footage (rain, clouds, sunrise, ocean, forest, mountains)
+   - Objects, technology, textures, abstract light
+   - STRICT RULE: NO PEOPLE. If the script implies human action, use a NATURE METAPHOR (e.g., 'faith grows' -> 'growing plant timelapse')
 
 2. **IMAGE_GEN** - Use AI image generation (Whisk / Imagen) when the content depicts:
    - Historical/ancient scenes (7th century Arabia, ancient civilizations)
    - Prophets or religious figures (requires divine light, no face)
    - Supernatural/eschatological events (Day of Judgment, afterlife, angels)
+   - Human characters in specific Islamic historical contexts
    - Abstract spiritual concepts (soul, faith, divine light)
    - Scenes that stock footage cannot realistically portray
-   - Specific artistic scenes needing cultural/historical accuracy
 
 {EraLibrary.GetEraSelectionInstructions()}
 
-CHARACTER RULES (ISLAMIC SYAR'I):
+CHARACTER RULES (ISLAMIC SYAR'I - ONLY for IMAGE_GEN):
 {Models.CharacterRules.GENDER_RULES}
 
 {Models.CharacterRules.PROPHET_RULES}
@@ -654,12 +654,14 @@ CHARACTER RULES (ISLAMIC SYAR'I):
 LOCKED VISUAL STYLE (REQUIRED FOR ALL IMAGE_GEN PROMPTS):
 {Models.ImageVisualStyle.BASE_STYLE_SUFFIX}
 
-For BROLL segments: Generate a concise English search query for stock footage (2-5 words).
+For BROLL segments: Generate a concise English search query for cinematic nature/landscape footage (2-5 words). 
+STRICT RULE for BROLL: DO NOT INCLUDE PEOPLE, HUMANS, OR FACES in the prompt. Use metaphors if needed.
+
 For IMAGE_GEN segments: Generate a detailed Whisk-style prompt following this structure:
   [ERA PREFIX] [Detailed scene description: setting, action, lighting, atmosphere, characters]{{LOCKED_STYLE}}
   - Start with one era prefix from the list above
   - Include character descriptions with syar'i dress for females
-  - If prophets appear: add 'face completely veiled in soft white-golden divine light, facial features not visible'
+  - If prophets appear: add 'face replaced by intense white-golden divine light, facial features not visible'
   - End with style suffix: '{Models.ImageVisualStyle.BASE_STYLE_SUFFIX}'
 
 RESPOND WITH JSON ONLY (no markdown):
@@ -667,14 +669,14 @@ RESPOND WITH JSON ONLY (no markdown):
   {{
     ""index"": 0,
     ""mediaType"": ""BROLL"" or ""IMAGE_GEN"",
-    ""prompt"": ""the generated prompt"",
-    ""reasoning"": ""brief reason for classification (in Bahasa Indonesia)""  
+    ""prompt"": ""the generated prompt""
   }}
 ]
 
 RULES:
 - Translate all prompts to English
-- For BROLL: Keep prompts short (2-5 words), focused on searchable stock footage terms
+- For BROLL: Keep prompts short (2-5 words), focused on NATURE and LANDSCAPES.
+- For BROLL: NEVER mention terms like 'person', 'man', 'woman', 'people', 'crowd', 'face'.
 - For IMAGE_GEN: Include era prefix, detailed scene, locked style suffix
 - Never depict prophet faces
 - Avoid sensitive/haram visual triggers";
@@ -754,8 +756,7 @@ RULES:
                                         MediaType = item.MediaType?.ToUpperInvariant() == "IMAGE_GEN"
                                             ? BrollMediaType.ImageGeneration
                                             : BrollMediaType.BrollVideo,
-                                        Prompt = item.Prompt ?? string.Empty,
-                                        Reasoning = item.Reasoning ?? string.Empty
+                                        Prompt = item.Prompt ?? string.Empty
                                     });
                                 }
                             }
@@ -777,8 +778,7 @@ RULES:
                                     Timestamp = segments[globalIdx].Timestamp,
                                     ScriptText = segments[globalIdx].ScriptText,
                                     MediaType = BrollMediaType.BrollVideo,
-                                    Prompt = "atmospheric cinematic footage",
-                                    Reasoning = $"Fallback: JSON parse error batch {batchIdx + 1}"
+                                    Prompt = "atmospheric cinematic footage"
                                 });
                             }
                         }
@@ -805,8 +805,7 @@ RULES:
                             Timestamp = segments[globalIdx].Timestamp,
                             ScriptText = segments[globalIdx].ScriptText,
                             MediaType = BrollMediaType.BrollVideo,
-                            Prompt = "atmospheric cinematic footage",
-                            Reasoning = $"Batch {batchIdx + 1} error: {ex.Message}"
+                            Prompt = "atmospheric cinematic footage"
                         });
                     }
                 }
@@ -827,8 +826,7 @@ RULES:
                     Timestamp = segments[i].Timestamp,
                     ScriptText = segments[i].ScriptText,
                     MediaType = BrollMediaType.BrollVideo,
-                    Prompt = "atmospheric cinematic footage",
-                    Reasoning = "Fallback: LLM tidak mengembalikan klasifikasi"
+                    Prompt = "atmospheric cinematic footage"
                 });
             }
         }
@@ -856,8 +854,7 @@ RULES:
         [JsonPropertyName("prompt")]
         public string? Prompt { get; set; }
 
-        [JsonPropertyName("reasoning")]
-        public string? Reasoning { get; set; }
+
     }
 }
 

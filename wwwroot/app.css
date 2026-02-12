@@ -60,6 +60,42 @@ html, body {
   100% { transform: translateX(100%); }
 }
 
+@keyframes shimmer {
+  0% { transform: translateX(-150%); }
+  50%, 100% { transform: translateX(150%); }
+}
+
+.shimmer-effect {
+  position: relative;
+  overflow: hidden;
+}
+
+.shimmer-effect::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.08),
+    transparent
+  );
+  animation: shimmer 2s infinite linear;
+  pointer-events: none;
+}
+
+:root:not(.dark) .shimmer-effect::after {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.4),
+    transparent
+  );
+}
+
 /* ================================================
    Custom Scrollbar - Minimal (Vercel-style)
    ================================================ */

@@ -41,6 +41,12 @@ public class ScriptSentence
     // User actions
     public bool IsApproved { get; set; } = false;
     public bool IsSkipped { get; set; } = false;
+
+    // Image Generation (Whisk/Imagen)
+    /// <summary>LLM-generated image prompt for Whisk generation (from classification)</summary>
+    public string? WhiskPrompt { get; set; }
+    public string? WhiskImagePath { get; set; }
+    public KenBurnsMotionType WhiskMotionType { get; set; } = KenBurnsMotionType.Random;
     
     // Helpers
     public bool HasSearchResults => SearchResults.Count > 0;

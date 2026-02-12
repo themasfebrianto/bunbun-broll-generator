@@ -102,6 +102,10 @@ public class ProjectSentence
     public string? SuggestedCategory { get; set; }
     public string? DetectedMood { get; set; }
 
+    // Whisk Image Generation
+    public string? WhiskImagePath { get; set; }
+    public string? WhiskMotionType { get; set; } = "Random";
+
     // CRITICAL: Duration of selected video for accurate % match calculation on load
     public int VideoDuration { get; set; }
 

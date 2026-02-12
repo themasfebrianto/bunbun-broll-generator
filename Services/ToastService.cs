@@ -14,6 +14,11 @@ public class ToastService
     {
         OnToast?.Invoke(new ToastMessage(message, type));
     }
+
+    public void ShowSuccess(string message) => Show(message, ToastType.Success);
+    public void ShowError(string message) => Show(message, ToastType.Error);
+    public void ShowWarning(string message) => Show(message, ToastType.Warning);
+    public void ShowInfo(string message) => Show(message, ToastType.Info);
 }
 
 /// <summary>
