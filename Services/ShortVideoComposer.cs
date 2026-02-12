@@ -296,14 +296,20 @@ public class ShortVideoComposer : IShortVideoComposer
         {
             if (!await EnsureFFmpegAsync()) return null;
 
-            return await _kenBurnsService.ConvertImageToVideoAsync(
+            // Generate output path in temp directory
+            var outputPath = Path.Combine(_tempDirectory, $"kb_{Guid.NewGuid():N}.mp4");
+
+            var success = await _kenBurnsService.ConvertImageToVideoAsync(
                 imagePath,
+                outputPath,
                 durationSeconds,
                 config.Width,
                 config.Height,
                 motionType,
                 cancellationToken
             );
+
+            return success ? outputPath : null;
         }
         catch (Exception ex)
         {

@@ -24,11 +24,10 @@ namespace BunbunBroll.Services;
 public class KenBurnsService
 {
     private readonly ILogger<KenBurnsService> _logger;
-    private readonly IConfiguration _config;
     private readonly string _ffmpegDirectory;
-    private readonly string _tempDirectory;
 
     private const int DefaultFps = 30;
+    private const long MinValidFileSize = 1024; // 1KB minimum for valid video
 
     // Default motion parameters
     private const double DefaultStartScale = 100.0;
@@ -40,28 +39,26 @@ public class KenBurnsService
     public KenBurnsService(ILogger<KenBurnsService> logger, IConfiguration config)
     {
         _logger = logger;
-        _config = config;
 
         _ffmpegDirectory = Path.GetFullPath(config["FFmpeg:BinaryDirectory"]
             ?? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ffmpeg-binaries"));
-        _tempDirectory = Path.GetFullPath(config["FFmpeg:TempDirectory"]
-            ?? Path.Combine(Path.GetTempPath(), "bunbun_ffmpeg"));
-
-        Directory.CreateDirectory(_tempDirectory);
     }
 
     /// <summary>
     /// Convert a static image to an animated video clip with Ken Burns effect.
+    /// Output is written directly to outputPath with -movflags +faststart for web playback.
     /// </summary>
     /// <param name="imagePath">Path to the source image</param>
+    /// <param name="outputPath">Path where the output .mp4 will be written</param>
     /// <param name="durationSeconds">Duration of the output video</param>
     /// <param name="outputWidth">Output video width</param>
     /// <param name="outputHeight">Output video height</param>
     /// <param name="motionType">Ken Burns motion type</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Path to generated video clip, or null on failure</returns>
-    public async Task<string?> ConvertImageToVideoAsync(
+    /// <returns>True if video was generated and validated successfully</returns>
+    public async Task<bool> ConvertImageToVideoAsync(
         string imagePath,
+        string outputPath,
         double durationSeconds,
         int outputWidth,
         int outputHeight,
@@ -71,7 +68,7 @@ public class KenBurnsService
         if (!File.Exists(imagePath))
         {
             _logger.LogWarning("Image not found: {Path}", imagePath);
-            return null;
+            return false;
         }
 
         if (durationSeconds < 1) durationSeconds = 3; // Minimum 3 seconds
@@ -82,40 +79,44 @@ public class KenBurnsService
             motionType = GetRandomMotionType();
         }
 
-        var outputPath = Path.Combine(_tempDirectory,
-            $"kenburns_{Guid.NewGuid():N}.mp4");
+        // Ensure output directory exists
+        var outputDir = Path.GetDirectoryName(outputPath);
+        if (!string.IsNullOrEmpty(outputDir)) Directory.CreateDirectory(outputDir);
+
+        // Delete existing file to avoid stale data
+        if (File.Exists(outputPath)) File.Delete(outputPath);
 
         var filter = GetZoomPanFilter(
             durationSeconds, motionType,
             outputWidth, outputHeight);
 
         _logger.LogInformation(
-            "Ken Burns: {Image} -> {Motion}, {Duration:F1}s, {W}x{H}",
-            Path.GetFileName(imagePath), motionType, durationSeconds,
-            outputWidth, outputHeight);
+            "Ken Burns: {Image} -> {Output}, {Motion}, {Duration:F1}s, {W}x{H}",
+            Path.GetFileName(imagePath), Path.GetFileName(outputPath),
+            motionType, durationSeconds, outputWidth, outputHeight);
 
         var ffmpegPath = await FindFFmpegExecutablePathAsync();
         if (string.IsNullOrEmpty(ffmpegPath))
         {
             _logger.LogError("FFmpeg executable not found");
-            return null;
+            return false;
         }
 
-        // Build FFmpeg command - same structure as ScriptFlow's GenerateSceneVideoAsync
+        // Build FFmpeg command
+        // -movflags +faststart: moves moov atom to front for instant browser playback
         var args = new StringBuilder();
         args.Append("-loop 1");
         args.Append($" -i \"{imagePath}\"");
         args.Append($" -t {durationSeconds.ToString("F3", CultureInfo.InvariantCulture)}");
         args.Append($" -vf \"{filter}\"");
-
-        // Software encoding - libx264 ultrafast for speed
         args.Append(" -c:v libx264");
         args.Append(" -preset ultrafast");
         args.Append(" -crf 28");
         args.Append(" -pix_fmt yuv420p");
         args.Append($" -r {DefaultFps}");
-        args.Append(" -vsync cfr");
+        args.Append(" -fps_mode cfr");
         args.Append(" -threads 0");
+        args.Append(" -movflags +faststart");
         args.Append($" -y \"{outputPath}\"");
 
         try
@@ -142,25 +143,37 @@ public class KenBurnsService
                 _logger.LogWarning(
                     "Ken Burns FFmpeg failed. Exit: {Code}. Error: {Err}",
                     process.ExitCode, stderr);
-                return null;
+                return false;
             }
 
-            if (File.Exists(outputPath))
+            // Validate output: file must exist and be larger than minimum size
+            if (!File.Exists(outputPath))
             {
-                var fileInfo = new FileInfo(outputPath);
-                _logger.LogInformation(
-                    "Ken Burns done: {Output} ({Size} bytes)",
-                    Path.GetFileName(outputPath), fileInfo.Length);
-                return outputPath;
+                _logger.LogWarning("Ken Burns output not created: {Path}", outputPath);
+                return false;
             }
 
-            _logger.LogWarning("Ken Burns output not created: {Path}", outputPath);
-            return null;
+            var fileInfo = new FileInfo(outputPath);
+            if (fileInfo.Length < MinValidFileSize)
+            {
+                _logger.LogWarning(
+                    "Ken Burns output too small ({Size} bytes), likely corrupt: {Path}",
+                    fileInfo.Length, outputPath);
+                File.Delete(outputPath);
+                return false;
+            }
+
+            _logger.LogInformation(
+                "Ken Burns done: {Output} ({Size} bytes)",
+                Path.GetFileName(outputPath), fileInfo.Length);
+            return true;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Ken Burns conversion failed: {Path}", imagePath);
-            return null;
+            // Clean up partial output
+            if (File.Exists(outputPath)) try { File.Delete(outputPath); } catch { }
+            return false;
         }
     }
 

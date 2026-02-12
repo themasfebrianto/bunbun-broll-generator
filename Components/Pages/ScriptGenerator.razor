@@ -1048,13 +1048,7 @@
                                                 else if (System.IO.File.Exists(item.WhiskImagePath))
                                                 {
                                                     <div class="rounded-lg overflow-hidden border border-border/30">
-                                                        @{
-                                                            var imgBytes = System.IO.File.ReadAllBytes(item.WhiskImagePath!);
-                                                            var ext = System.IO.Path.GetExtension(item.WhiskImagePath).TrimStart('.').ToLower();
-                                                            var mime = ext == "png" ? "image/png" : ext == "webp" ? "image/webp" : "image/jpeg";
-                                                            var b64 = Convert.ToBase64String(imgBytes);
-                                                        }
-                                                        <img src="data:@(mime);base64,@b64" alt="Generated image" class="w-full h-auto" />
+                                                        <img src="@GetAssetUrl(item.WhiskImagePath!)" alt="Generated image" class="w-full h-auto" />
                                                     </div>
                                                 }
                                                 else
@@ -2206,29 +2200,12 @@
             item.CombinedRegenProgress = 50;
             StateHasChanged();
 
-            // Step 2: Regen Image (Whisk)
-            var outputDir = Path.Combine(
-                Directory.GetCurrentDirectory(),
-                "output", _sessionId, "whisk_images" ?? "unknown");
-            Directory.CreateDirectory(outputDir);
-
-            item.WhiskStatus = WhiskGenerationStatus.Generating;
+            // Step 2: Regen Image (Whisk) — uses shared helper
             item.CombinedRegenProgress = 70;
             StateHasChanged();
 
-            var whiskResult = await WhiskGenerator.GenerateImageAsync(item.Prompt, outputDir);
-            
-            if (whiskResult.Success)
-            {
-                item.WhiskStatus = WhiskGenerationStatus.Done;
-                item.WhiskImagePath = whiskResult.ImagePath;
-                item.CombinedRegenProgress = 100;
-            }
-            else
-            {
-                item.WhiskStatus = WhiskGenerationStatus.Failed;
-                item.WhiskError = whiskResult.Error ?? "Whisk generation failed";
-            }
+            await GenerateWhiskImageForItem(item);
+            item.CombinedRegenProgress = 100;
         }
         catch (Exception ex)
         {
@@ -2258,34 +2235,14 @@
         _whiskGeneratedCount = 0;
         StateHasChanged();
 
-        var outputDir = Path.Combine(Directory.GetCurrentDirectory(), "output", _sessionId, "whisk_images" ?? "unknown");
-        Directory.CreateDirectory(outputDir);
-
         foreach (var item in imageGenItems)
         {
-            item.WhiskStatus = WhiskGenerationStatus.Generating;
             item.IsGenerating = true;
-            item.WhiskError = null;
             StateHasChanged();
 
             try
             {
-                var result = await WhiskGenerator.GenerateImageAsync(item.Prompt, outputDir);
-                if (result.Success)
-                {
-                    item.WhiskStatus = WhiskGenerationStatus.Done;
-                    item.WhiskImagePath = result.ImagePath;
-                }
-                else
-                {
-                    item.WhiskStatus = WhiskGenerationStatus.Failed;
-                    item.WhiskError = result.Error ?? "Unknown error";
-                }
-            }
-            catch (Exception ex)
-            {
-                item.WhiskStatus = WhiskGenerationStatus.Failed;
-                item.WhiskError = ex.Message;
+                await GenerateWhiskImageForItem(item);
             }
             finally
             {
@@ -2316,25 +2273,23 @@
             var fileName = Path.GetFileNameWithoutExtension(item.WhiskImagePath) + "_kb.mp4";
             var outputPath = Path.Combine(outputDir, fileName);
 
-            // 1920x1080 is standard for Landscape (16:9)
-            var tempVideoPath = await KenBurnsService.ConvertImageToVideoAsync(
+            // Service writes directly to outputPath with -movflags +faststart
+            var success = await KenBurnsService.ConvertImageToVideoAsync(
                 item.WhiskImagePath,
+                outputPath,
                 duration,
                 1920, 1080,
                 item.KenBurnsMotion);
 
-            if (!string.IsNullOrEmpty(tempVideoPath) && File.Exists(tempVideoPath))
+            if (success)
             {
-                if (File.Exists(outputPath)) File.Delete(outputPath);
-                File.Move(tempVideoPath, outputPath);
-                
                 item.WhiskVideoPath = outputPath;
                 item.WhiskVideoStatus = WhiskGenerationStatus.Done;
             }
             else
             {
                 item.WhiskVideoStatus = WhiskGenerationStatus.Failed;
-                item.WhiskVideoError = "Failed to generate video";
+                item.WhiskVideoError = "FFmpeg conversion failed — check logs";
             }
         }
         catch (Exception ex)
@@ -2369,16 +2324,37 @@
 
     private async Task HandleGenerateSingleWhisk(BrollPromptItem item)
     {
-        item.WhiskStatus = WhiskGenerationStatus.Generating;
         item.IsGenerating = true;
+        StateHasChanged();
+
+        try
+        {
+            await GenerateWhiskImageForItem(item);
+        }
+        finally
+        {
+            item.IsGenerating = false;
+            await SaveBrollPromptsToDisk();
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>Shared helper: generate a Whisk image for one item. Sets status/path/error.</summary>
+    private async Task GenerateWhiskImageForItem(BrollPromptItem item)
+    {
+        item.WhiskStatus = WhiskGenerationStatus.Generating;
         item.WhiskError = null;
+        // Reset video state since image is changing
+        item.WhiskVideoStatus = WhiskGenerationStatus.Pending;
+        item.WhiskVideoPath = null;
+        item.WhiskVideoError = null;
         StateHasChanged();
 
         try
         {
             var outputDir = Path.Combine(
                 Directory.GetCurrentDirectory(),
-                "output", _sessionId, "whisk_images" ?? "unknown");
+                "output", _sessionId, "whisk_images");
             Directory.CreateDirectory(outputDir);
 
             var result = await WhiskGenerator.GenerateImageAsync(item.Prompt, outputDir);
@@ -2397,12 +2373,6 @@
         {
             item.WhiskStatus = WhiskGenerationStatus.Failed;
             item.WhiskError = ex.Message;
-        }
-        finally
-        {
-            item.IsGenerating = false;
-            await SaveBrollPromptsToDisk();
-            StateHasChanged();
         }
     }
 
@@ -2689,6 +2659,13 @@
                System.Text.RegularExpressions.Regex.IsMatch(trimmed,
                    @"^\s*(?:Opening Hook|Kontekstualisasi|Multi-Dimensi|Climax|Eschatology|Contextualization|Content|Refleksi)\s*$",
                    System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+    }
+
+    private string GetAssetUrl(string absolutePath)
+    {
+        var baseDir = Path.Combine(Directory.GetCurrentDirectory(), "output");
+        var relative = Path.GetRelativePath(baseDir, absolutePath).Replace("\\", "/");
+        return $"/project-assets/{relative}";
     }
 
     private static int EstimateDuration(string text)
