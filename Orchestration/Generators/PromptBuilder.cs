@@ -130,6 +130,13 @@ public class PromptBuilder
             parts.Add($"\nGuidance:\n{phase.GuidanceTemplate}");
         }
 
+        if (!string.IsNullOrWhiteSpace(phase.EmotionalArc))
+        {
+            parts.Add($"\n### ALUR EMOSI FASE INI");
+            parts.Add($"Ikuti kurva emosi berikut dalam penulisan: {phase.EmotionalArc}");
+            parts.Add("Setiap transisi emosi (→) harus terasa NATURAL, bukan tiba-tiba. Gunakan kalimat jembatan emosional.");
+        }
+
         if (!string.IsNullOrWhiteSpace(phase.TransitionHint) && !phase.IsFirstPhase)
         {
             parts.Add($"\n⚠️ TRANSISI WAJIB: Mulai fase ini dengan kalimat jembatan yang alami.");
@@ -358,6 +365,14 @@ Gunakan (dengan suara bergetar), (tertawa) untuk TTS emotion.
             "- Gunakan jeda dramatis (...) SEBELUM momen puncak atau pengungkapan penting.",
             "- Turunkan intensitas sebelum klimaks, lalu naikkan tajam — buat kontras emosional.",
             "- Contoh: '...dan di sinilah... kebenaran itu terungkap.' (jeda → pengungkapan)",
+            "",
+            "#### JEDA NAFAS EMOSIONAL (BREATHING MARKS)",
+            "- WAJIB: Setelah setiap 2-3 paragraf dengan intensitas tinggi, sisipkan 1-2 kalimat PELAN dan REFLEKTIF sebagai 'nafas' bagi pendengar.",
+            "- WAJIB: Setelah kutipan ayat/hadits yang berat, beri 1 kalimat jeda perenungan sebelum melanjutkan.",
+            "- WAJIB: Sebelum momen puncak (climax statement), TURUNKAN nada terlebih dahulu agar kontrasnya terasa kuat.",
+            "- JANGAN: 5+ paragraf berturut-turut dengan intensitas tinggi — pendengar akan kebal dan kehilangan dampak.",
+            "- Teknik jeda: kalimat pendek bernada tenang, pertanyaan retoris lembut, atau deskripsi visual yang menenangkan.",
+            "- Contoh jeda: 'Mari kita berhenti sejenak dan resapi itu.' atau 'Bayangkan keheningan di saat itu...'",
             "",
             "#### KONSOLIDASI KUTIPAN",
             "- Kutip ayat Al-Quran, hadits, atau sumber referensi secara LENGKAP hanya SATU KALI di posisi paling strategis.",

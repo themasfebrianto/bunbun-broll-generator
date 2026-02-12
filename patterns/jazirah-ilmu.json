@@ -31,7 +31,8 @@
         "mustHaveGreeting": "true",
         "mustHaveAudienceAddress": "true",
         "cognitiveDisturbance": "moderate"
-      }
+      },
+      "emotionalArc": "Tenang (salam) → Rasa ingin tahu (pertanyaan provokatif) → Gelisah/terusik (paradoks terungkap) → Penasaran tinggi (hook ke fase berikut)"
     },
     {
       "id": "contextualization",
@@ -57,7 +58,8 @@
       "customRules": {
         "minNumericData": "1",
         "mustHaveHistoricalContext": "true"
-      }
+      },
+      "emotionalArc": "Analitis/tenang (konteks historis) → Perlahan membangun ketegangan (fakta mengejutkan) → Jeda reflektif → Antisipasi meningkat (mengarah ke pendalaman)"
     },
     {
       "id": "multi-dimensi",
@@ -85,7 +87,8 @@
         "minDimensions": "2",
         "mustUseLayering": "optional",
         "mustHaveRhetoricalQuestions": "true"
-      }
+      },
+      "emotionalArc": "Tegang↗ (masuk dimensi pertama) → Jeda nafas↘ (kalimat reflektif pelan) → Lebih tegang↗↗ (dimensi kedua) → Brief relief↘ (pertanyaan retoris) → Puncak kecil↗ (menuju climax)"
     },
     {
       "id": "climax",
@@ -112,7 +115,8 @@
         "emotionalIntensity": "high",
         "mustHaveDarkMetaphor": "preferred",
         "mustRevealHidden": "true"
-      }
+      },
+      "emotionalArc": "Turunkan nada↘ (tenang sebelum badai) → Naikkan perlahan↗ (membangun ke momen puncak) → PUNCAK EMOSI↗↗↗ (pengungkapan/pukulan keras) → Hening sejenak↘↘ (biarkan dampak meresap) → Pelan naik kembali↗ (refleksi pasca-puncak)"
     },
     {
       "id": "eschatology",
@@ -143,7 +147,8 @@
         "mustHaveClosing": "true",
         "mustConnectToUmmah": "true",
         "openEnded": "true"
-      }
+      },
+      "emotionalArc": "Kontemplatif/tenang (refleksi lembut) → Hangat↗ (koneksi personal dengan pendengar) → Lembut menggugah (pertanyaan terbuka) → Damai↘ (penutup salam dengan ketenangan)"
     }
   ],
   "globalRules": {

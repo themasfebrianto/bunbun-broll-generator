@@ -34,6 +34,9 @@ public class PhaseDefinition
     [JsonPropertyName("customRules")]
     public Dictionary<string, string> CustomRules { get; set; } = new();
 
+    [JsonPropertyName("emotionalArc")]
+    public string? EmotionalArc { get; set; }
+
     /// <summary>
     /// Whether this is the first phase
     /// </summary>
