@@ -248,8 +248,11 @@ public class ScriptOrchestrator : IScriptOrchestrator
         // Create PhaseCoordinator (ScriptFlow's architecture)
         var coordinator = new PhaseCoordinator(_intelligenceService, _logger);
 
-        // Distribute outline across phases if provided
-        if (!string.IsNullOrWhiteSpace(context.Config.Outline))
+        // Distribute outline and beats across phases
+        var hasOutline = !string.IsNullOrWhiteSpace(context.Config.Outline);
+        var hasBeats = context.Config.MustHaveBeats?.Count > 0;
+
+        if (hasOutline || hasBeats)
         {
             OnSessionProgress?.Invoke(this, new SessionProgressEventArgs
             {
@@ -257,30 +260,43 @@ public class ScriptOrchestrator : IScriptOrchestrator
                 Status = "Planning",
                 CompletedPhases = 0,
                 TotalPhases = orderedPhases.Count,
-                Message = "📋 Mendistribusikan outline ke setiap fase..."
+                Message = "📋 Mendistribusikan outline dan story beats ke setiap fase..."
             });
 
-            var outlinePlanner = new OutlinePlanner(_intelligenceService, _logger);
-            var distribution = await outlinePlanner.DistributeAsync(
-                context.Config.Outline,
-                orderedPhases,
-                context.Config.Topic);
-
-            if (distribution.Count > 0)
+            if (hasOutline)
             {
-                context.SetSharedData("outlineDistribution", distribution);
-                session.OutlineDistributionJson = JsonSerializer.Serialize(distribution);
-                _logger.LogInformation("Outline distributed across {Count} phases", distribution.Count);
+                var outlinePlanner = new OutlinePlanner(_intelligenceService, _logger);
+                var distribution = await outlinePlanner.DistributeAsync(
+                    context.Config.Outline!,
+                    orderedPhases,
+                    context.Config.Topic,
+                    context.Config.MustHaveBeats);
 
-                OnSessionProgress?.Invoke(this, new SessionProgressEventArgs
+                if (distribution.Count > 0)
                 {
-                    SessionId = session.Id,
-                    Status = "Planning",
-                    CompletedPhases = 0,
-                    TotalPhases = orderedPhases.Count,
-                    Message = $"✅ Outline terdistribusi ke {distribution.Count} fase"
-                });
+                    context.SetSharedData("outlineDistribution", distribution);
+                    session.OutlineDistributionJson = JsonSerializer.Serialize(distribution);
+                    _logger.LogInformation("Outline distributed across {Count} phases", distribution.Count);
+                }
             }
+
+            // Distribute beats proportionally across phases
+            if (hasBeats)
+            {
+                var beatDistribution = DistributeBeatsAcrossPhases(context.Config.MustHaveBeats!, orderedPhases);
+                context.SetSharedData("beatDistribution", beatDistribution);
+                _logger.LogInformation("Distributed {BeatCount} beats across {PhaseCount} phases",
+                    context.Config.MustHaveBeats!.Count, beatDistribution.Count);
+            }
+
+            OnSessionProgress?.Invoke(this, new SessionProgressEventArgs
+            {
+                SessionId = session.Id,
+                Status = "Planning",
+                CompletedPhases = 0,
+                TotalPhases = orderedPhases.Count,
+                Message = $"✅ Outline & beats terdistribusi ke {orderedPhases.Count} fase"
+            });
         }
 
         // Update session status
@@ -336,6 +352,16 @@ public class ScriptOrchestrator : IScriptOrchestrator
                 // To avoid changing PhaseCoordinator signature too much, let's use SharedData to pass transient phase-specific data
                 context.SetSharedData("currentPhaseOutline", phaseOutlinePoints);
                 context.SetSharedData("currentGlobalContext", globalContext);
+
+                // Look up assigned beats for this phase
+                List<string>? phaseBeats = null;
+                if (context.SharedData.TryGetValue("beatDistribution", out var beatDistObj)
+                    && beatDistObj is Dictionary<string, List<string>> beatDist
+                    && beatDist.TryGetValue(phaseDef.Id, out var beats))
+                {
+                    phaseBeats = beats;
+                }
+                context.SetSharedData("currentPhaseBeats", phaseBeats);
 
                 OnPhaseProgress?.Invoke(this, new PhaseProgressEventArgs
                 {
@@ -455,6 +481,17 @@ public class ScriptOrchestrator : IScriptOrchestrator
 
         _logger.LogInformation("Session {SessionId} completed: {TotalWords} words, {TotalDuration:F0}s",
             session.Id, result.TotalWordCount, result.TotalDurationSeconds);
+
+        // Auto-export session to git-tracked JSON
+        try
+        {
+            var syncService = _serviceProvider.GetRequiredService<SessionSyncService>();
+            await syncService.ExportSessionAsync(session.Id);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to auto-export session {SessionId} after completion", session.Id);
+        }
 
         return result;
     }
@@ -579,6 +616,17 @@ public class ScriptOrchestrator : IScriptOrchestrator
         _logger.LogInformation("Regenerated phase {PhaseId} for session {SessionId}: {WordCount} words",
             phaseId, sessionId, generatedPhase.WordCount);
 
+        // Auto-export session after phase regeneration
+        try
+        {
+            var syncService = _serviceProvider.GetRequiredService<SessionSyncService>();
+            await syncService.ExportSessionAsync(sessionId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to auto-export session {SessionId} after regeneration", sessionId);
+        }
+
         return generatedPhase;
     }
 
@@ -604,5 +652,51 @@ public class ScriptOrchestrator : IScriptOrchestrator
         await db.SaveChangesAsync();
 
         _logger.LogInformation("Deleted session {SessionId}", sessionId);
+    }
+
+    /// <summary>
+    /// Distribute story beats proportionally across phases based on their duration weights.
+    /// Opening/closing get fewer beats; core content phases get more.
+    /// </summary>
+    private static Dictionary<string, List<string>> DistributeBeatsAcrossPhases(
+        List<string> beats, List<PhaseDefinition> phases)
+    {
+        var result = new Dictionary<string, List<string>>();
+        if (beats.Count == 0 || phases.Count == 0) return result;
+
+        // Calculate weight for each phase based on avg duration
+        var phaseWeights = phases.Select(p =>
+            (p.DurationTarget.Min + p.DurationTarget.Max) / 2.0).ToList();
+        var totalWeight = phaseWeights.Sum();
+
+        // Distribute beats proportionally
+        int beatIndex = 0;
+        for (int i = 0; i < phases.Count; i++)
+        {
+            var proportion = phaseWeights[i] / totalWeight;
+            var count = (int)Math.Round(beats.Count * proportion);
+
+            // Ensure at least 1 beat per phase if beats remain, and don't exceed total
+            if (count == 0 && beatIndex < beats.Count) count = 1;
+            count = Math.Min(count, beats.Count - beatIndex);
+
+            if (count > 0)
+            {
+                result[phases[i].Id] = beats.Skip(beatIndex).Take(count).ToList();
+                beatIndex += count;
+            }
+        }
+
+        // Assign any remaining beats to the largest phase
+        if (beatIndex < beats.Count)
+        {
+            var largestPhase = phases.OrderByDescending(p =>
+                (p.DurationTarget.Min + p.DurationTarget.Max) / 2.0).First();
+            if (!result.ContainsKey(largestPhase.Id))
+                result[largestPhase.Id] = new List<string>();
+            result[largestPhase.Id].AddRange(beats.Skip(beatIndex));
+        }
+
+        return result;
     }
 }

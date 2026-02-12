@@ -10,4 +10,5 @@ public class ScriptConfig
     public int TargetDurationMinutes { get; set; } = 30;
     public string? SourceReferences { get; set; }
     public string ChannelName { get; set; } = string.Empty;
+    public List<string>? MustHaveBeats { get; set; }
 }

@@ -75,6 +75,19 @@ public class PhaseCoordinator
                     phaseContext.GlobalContext = globalCtx;
                 }
 
+                // Populate assigned beats from SharedData (set by Orchestrator)
+                if (context.SharedData.TryGetValue("currentPhaseBeats", out var beatObj) && beatObj is List<string> phaseBeats)
+                {
+                    phaseContext.AssignedBeats = phaseBeats;
+                }
+                // Fallback to full beat distribution map
+                else if (context.SharedData.TryGetValue("beatDistribution", out var beatDistObj2)
+                    && beatDistObj2 is Dictionary<string, List<string>> beatDist2
+                    && beatDist2.TryGetValue(phase.Id, out var beatPoints))
+                {
+                    phaseContext.AssignedBeats = beatPoints;
+                }
+
                 // Build prompt
                 string prompt;
                 if (attempt == 0)

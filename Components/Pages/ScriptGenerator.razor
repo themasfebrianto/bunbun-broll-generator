@@ -1793,9 +1793,14 @@
 
                 if (entries.Count > 0)
                 {
+                    // Normalize timestamps to zero-based (same fix as LRC export)
+                    var phaseBase = entries[0].Timestamp;
+
                     foreach (var entry in entries)
                     {
-                        var absoluteTime = globalOffset.Add(entry.Timestamp);
+                        var normalizedTime = entry.Timestamp - phaseBase;
+                        if (normalizedTime < TimeSpan.Zero) normalizedTime = TimeSpan.Zero;
+                        var absoluteTime = globalOffset.Add(normalizedTime);
                         var cleaned = CleanSubtitleText(entry.Text);
                         if (string.IsNullOrWhiteSpace(cleaned)) continue;
 
@@ -1804,10 +1809,12 @@
                         segments.Add(($"[{mins:D2}:{secs:D2}]", cleaned));
                     }
 
-                    // Advance global offset
+                    // Advance global offset using normalized last entry
                     var lastEntry = entries.Last();
+                    var normalizedLastTime = lastEntry.Timestamp - phaseBase;
+                    if (normalizedLastTime < TimeSpan.Zero) normalizedLastTime = TimeSpan.Zero;
                     var lastDuration = EstimateDuration(lastEntry.Text);
-                    globalOffset = globalOffset.Add(lastEntry.Timestamp).Add(TimeSpan.FromSeconds(lastDuration));
+                    globalOffset = globalOffset.Add(normalizedLastTime).Add(TimeSpan.FromSeconds(lastDuration));
                 }
                 else
                 {
@@ -2237,9 +2244,15 @@
                 continue;
             }
 
+            // Normalize: subtract the first entry's timestamp so all entries are zero-based
+            // This handles cases where LLM generates non-zero-starting timestamps per phase
+            var phaseBase = entries[0].Timestamp;
+
             foreach (var entry in entries)
             {
-                var absoluteTime = globalOffset.Add(entry.Timestamp);
+                var normalizedTime = entry.Timestamp - phaseBase;
+                if (normalizedTime < TimeSpan.Zero) normalizedTime = TimeSpan.Zero;
+                var absoluteTime = globalOffset.Add(normalizedTime);
                 var cleaned = CleanSubtitleText(entry.Text);
                 if (string.IsNullOrWhiteSpace(cleaned)) continue;
 
@@ -2253,13 +2266,14 @@
                 sb.AppendLine($"[{minutes:D2}:{seconds:D2}.{centiseconds:D2}]{singleLine}");
             }
 
-            // Advance global offset by this phase's actual duration derived from its entries
+            // Advance global offset by this phase's normalized duration
             if (entries.Count > 0)
             {
-                // The new offset is the absolute time of the last entry plus its estimated duration
                 var lastEntry = entries.Last();
+                var normalizedLastTime = lastEntry.Timestamp - phaseBase;
+                if (normalizedLastTime < TimeSpan.Zero) normalizedLastTime = TimeSpan.Zero;
                 var lastDuration = EstimateDuration(lastEntry.Text);
-                globalOffset = globalOffset.Add(lastEntry.Timestamp).Add(TimeSpan.FromSeconds(lastDuration));
+                globalOffset = globalOffset.Add(normalizedLastTime).Add(TimeSpan.FromSeconds(lastDuration));
             }
             else if (section.DurationSeconds > 0)
             {

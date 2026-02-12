@@ -44,6 +44,7 @@ builder.Services.AddScoped<IScriptGenerationService, ScriptGenerationService>();
 builder.Services.AddScoped<ConfigBatchGenerator>();
 builder.Services.AddSingleton<GenerationEventBus>();
 builder.Services.AddSingleton<BackgroundGenerationService>();
+builder.Services.AddSingleton<SessionSyncService>();
 
 // Toast notification service
 builder.Services.AddScoped<BunbunBroll.Services.ToastService>();
@@ -276,6 +277,17 @@ using (var scope = app.Services.CreateScope())
     catch (Exception ex)
     {
         Console.WriteLine($"Note: Database migration info: {ex.Message}");
+    }
+
+    // Session Sync: Import sessions from git-tracked JSON files
+    var syncService = scope.ServiceProvider.GetRequiredService<SessionSyncService>();
+    await syncService.ImportAllAsync();
+
+    // One-time: Export existing completed sessions that haven't been exported yet
+    var sessionsDir = Path.Combine(Directory.GetCurrentDirectory(), "sessions");
+    if (!Directory.Exists(sessionsDir) || Directory.GetDirectories(sessionsDir).Length == 0)
+    {
+        await syncService.ExportAllAsync();
     }
 }
 

@@ -73,6 +73,13 @@ $RECYCLE.BIN/
 Broll_Workspace/
 output/
 
+# Session sync (git-tracked for cross-machine sync)
+# sessions/ directory is TRACKED — do NOT add it to gitignore
+# But exclude video files within sessions
+sessions/**/*.mp4
+sessions/**/*.webm
+sessions/**/*.mov
+
 # FFmpeg binaries (downloaded locally)
 ffmpeg-binaries/
 

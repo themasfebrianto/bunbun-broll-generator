@@ -140,11 +140,12 @@ public class ConfigBatchGenerator
 
 3. OUTLINE: Brief 2-3 sentence outline of the narrative arc
 
-4. MUST HAVE BEATS (7-12 specific story points per config):
-   - Include specific references/sources
-   - Add surprising facts or rarely discussed details
-   - Connect to modern relevance
-   - End with practical takeaway
+4. MUST HAVE BEATS: Generate story beats PROPORTIONAL to duration.
+   - Use this formula: number of beats = targetDurationMinutes / 2.5 (rounded to nearest integer)
+   - For example: 20 min = 8 beats, 30 min = 12 beats, 48 min = 19 beats, 60 min = 24 beats
+   - Each beat MUST be SPECIFIC and SUBSTANTIVE (reference a hadith, event, statistic, or concrete example)
+   - NEVER use vague filler beats like ""Explore the topic further"" or ""Discuss the implications""
+   - Beats should give the writer ENOUGH MATERIAL so they don't need to fill with empty words
 
 5. DURATION: 45-75 minutes (vary the durations)
 

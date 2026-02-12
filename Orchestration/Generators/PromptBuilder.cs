@@ -284,7 +284,15 @@ Gunakan (dengan suara bergetar), (tertawa) untuk TTS emotion.
 ### WRITING STYLE
 - Bahasa Indonesia conversational, bukan formal
 - Gunakan marker: 'mari kita', 'sahabat', 'simak'
-- Hormati honorifics lengkap (SAW, AS, SWT)"
+- Hormati honorifics lengkap (SAW, AS, SWT)
+
+### KESEIMBANGAN PUITIS
+- MAYORITAS kalimat (80-90%) harus NATURAL dan TO THE POINT seperti orang bicara biasa
+- Kalimat puitis/metaforis BOLEH digunakan SESEKALI (1-2 kali per fase) di momen puncak emosi atau penutup paragraf
+- JANGAN membuka kalimat dengan metafora puitis bertumpuk — langsung ke poin
+- HINDARI frasa-frasa 'halus AI' yang berlebihan seperti: 'menelusuri jejak', 'berdenyut', 'tergelar di hadapan', 'memeluk makna', 'merangkum hikmah', 'membentang cakrawala'
+- Contoh BURUK: 'Selamat datang di ruang bagi kita untuk menelusuri jejak-jejak masa lalu yang masih berdenyut hingga hari ini.'
+- Prinsip: tulis seolah kamu BICARA ke teman yang cerdas, bukan menulis esai sastra"
         };
 
         // Add production checklist as writing guidelines
