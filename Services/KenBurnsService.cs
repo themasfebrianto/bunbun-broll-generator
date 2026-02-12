@@ -275,39 +275,43 @@ public class KenBurnsService
                 break;
 
             case KenBurnsMotionType.PanLeftToRight:
-                startScale = 120; endScale = 120;
-                startX = 30; startY = 50;
-                endX = 70; endY = 50;
+                // Needs sufficient zoom to allow panning.
+                // At 135% zoom, we have 35% slack. Safe center range is approx 37-63%.
+                startScale = 135; endScale = 135;
+                startX = 40; startY = 50;
+                endX = 60; endY = 50;
                 break;
 
             case KenBurnsMotionType.PanRightToLeft:
-                startScale = 120; endScale = 120;
-                startX = 70; startY = 50;
-                endX = 30; endY = 50;
+                startScale = 135; endScale = 135;
+                startX = 60; startY = 50;
+                endX = 40; endY = 50;
                 break;
 
             case KenBurnsMotionType.PanTopToBottom:
-                startScale = 120; endScale = 120;
-                startX = 50; startY = 30;
-                endX = 50; endY = 70;
+                startScale = 135; endScale = 135;
+                startX = 50; startY = 40;
+                endX = 50; endY = 60;
                 break;
 
             case KenBurnsMotionType.PanBottomToTop:
-                startScale = 120; endScale = 120;
-                startX = 50; startY = 70;
-                endX = 50; endY = 30;
+                startScale = 135; endScale = 135;
+                startX = 50; startY = 60;
+                endX = 50; endY = 40;
                 break;
 
             case KenBurnsMotionType.DiagonalZoomIn:
-                startScale = 100; endScale = 120;
-                startX = 35; startY = 35;
-                endX = 65; endY = 65;
+                // Start at full image (center 50), zoom in to 135% (center 40)
+                startScale = 100; endScale = 135;
+                startX = 50; startY = 50;
+                endX = 40; endY = 40;
                 break;
 
             case KenBurnsMotionType.DiagonalZoomOut:
-                startScale = 120; endScale = 100;
-                startX = 65; startY = 65;
-                endX = 35; endY = 35;
+                // Start zoomed in (center 60), zoom out to full image (center 50)
+                startScale = 135; endScale = 100;
+                startX = 60; startY = 60;
+                endX = 50; endY = 50;
                 break;
 
             case KenBurnsMotionType.None:
