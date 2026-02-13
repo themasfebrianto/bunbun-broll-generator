@@ -14,8 +14,8 @@
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
-    "Style": "Painting",
-    "FilteredVideoPath": "/media/turnasoul/3bcbc8a4-22e6-439a-8e14-8663af3c52c3/ScriptFlow_Workspace/bunbun-broll-generator/output/project-assets/filtered_1bd9797db85249b982f06531d2e02ac7.mp4"
+    "Style": "Canvas",
+    "FilteredVideoPath": null
   },
   {
     "Index": 1,
@@ -50,8 +50,8 @@
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
-    "Style": "Canvas",
-    "FilteredVideoPath": null
+    "Style": "Painting",
+    "FilteredVideoPath": "/media/turnasoul/3bcbc8a4-22e6-439a-8e14-8663af3c52c3/ScriptFlow_Workspace/bunbun-broll-generator/output/filtered_d178a72017b2405594d48ef18bd9a2e6.mp4"
   },
   {
     "Index": 3,
@@ -104,8 +104,8 @@
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
-    "Style": "None",
-    "FilteredVideoPath": null
+    "Style": "Painting",
+    "FilteredVideoPath": "/media/turnasoul/3bcbc8a4-22e6-439a-8e14-8663af3c52c3/ScriptFlow_Workspace/bunbun-broll-generator/output/filtered_afd3a1b386b7445998a24f3ed85e236b.mp4"
   },
   {
     "Index": 6,
@@ -136,7 +136,7 @@
     "WhiskImagePath": "E:\\VibeCode\\ScriptFlow_workspace\\bunbun-broll-generator\\output\\6557a577\\whisk_images\\img-3.png",
     "WhiskError": null,
     "SelectedVideoUrl": null,
-    "KenBurnsMotion": "PanRightToLeft",
+    "KenBurnsMotion": "PanBottomToTop",
     "WhiskVideoStatus": "Done",
     "WhiskVideoPath": "E:\\VibeCode\\ScriptFlow_workspace\\bunbun-broll-generator\\output\\6557a577\\whisk_images\\img-3_kb.mp4",
     "WhiskVideoError": null,

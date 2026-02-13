@@ -419,7 +419,7 @@ public class ShortVideoComposer : IShortVideoComposer
             var inputs = $"-threads 0 -i \"{inputPath}\"";
             if (style == VideoStyle.Canvas && texturePath != null)
             {
-                inputs += $" -loop 1 -i \"{texturePath}\"";
+                inputs += $" -f image2 -loop 1 -i \"{texturePath}\"";
             }
 
             // Cap preview duration to 15s to avoid long FFmpeg processing
