@@ -107,7 +107,8 @@ public enum VideoStyle
     None,
     Painting,
     Canvas,
-    Sepia
+    Sepia,
+    FilmGrain
 }
 
 /// <summary>
