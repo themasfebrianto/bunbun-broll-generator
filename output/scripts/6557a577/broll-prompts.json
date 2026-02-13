@@ -15,7 +15,9 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "Canvas",
-    "FilteredVideoPath": null
+    "Filter": "Warm",
+    "Texture": "FilmGrain",
+    "FilteredVideoPath": "E:\\VibeCode\\ScriptFlow_workspace\\bunbun-broll-generator\\output\\filtered_a6bbacc5bb574f409d759977768cd756.mp4"
   },
   {
     "Index": 1,
@@ -33,6 +35,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "Canvas",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -51,6 +55,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "Painting",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": "/media/turnasoul/3bcbc8a4-22e6-439a-8e14-8663af3c52c3/ScriptFlow_Workspace/bunbun-broll-generator/output/filtered_d178a72017b2405594d48ef18bd9a2e6.mp4"
   },
   {
@@ -69,6 +75,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -87,6 +95,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -105,6 +115,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "Painting",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": "/media/turnasoul/3bcbc8a4-22e6-439a-8e14-8663af3c52c3/ScriptFlow_Workspace/bunbun-broll-generator/output/filtered_afd3a1b386b7445998a24f3ed85e236b.mp4"
   },
   {
@@ -123,7 +135,9 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
-    "FilteredVideoPath": null
+    "Filter": "Sepia",
+    "Texture": "None",
+    "FilteredVideoPath": "E:\\VibeCode\\ScriptFlow_workspace\\bunbun-broll-generator\\output\\filtered_48e99d6717534abe85ac67e5644d85eb.mp4"
   },
   {
     "Index": 7,
@@ -141,6 +155,8 @@
     "WhiskVideoPath": "E:\\VibeCode\\ScriptFlow_workspace\\bunbun-broll-generator\\output\\6557a577\\whisk_images\\img-3_kb.mp4",
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "Painting",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -159,6 +175,8 @@
     "WhiskVideoPath": "E:\\VibeCode\\ScriptFlow_workspace\\bunbun-broll-generator\\output\\6557a577\\whisk_images\\img-4_kb.mp4",
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -177,6 +195,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -195,6 +215,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -213,6 +235,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -231,6 +255,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -249,6 +275,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -267,6 +295,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -285,6 +315,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -303,6 +335,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -321,6 +355,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -339,6 +375,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -357,6 +395,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -375,6 +415,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -393,6 +435,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -411,6 +455,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -429,6 +475,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -447,6 +495,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -465,6 +515,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -483,6 +535,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -501,6 +555,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -519,6 +575,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -537,6 +595,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -555,6 +615,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -573,6 +635,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -591,6 +655,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -609,6 +675,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -627,6 +695,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -645,6 +715,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -663,6 +735,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -681,6 +755,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -699,6 +775,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -717,6 +795,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -735,6 +815,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -753,6 +835,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -771,6 +855,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -789,6 +875,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -807,6 +895,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -825,6 +915,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -843,6 +935,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -861,6 +955,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -879,6 +975,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -897,6 +995,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -915,6 +1015,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -933,6 +1035,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -951,6 +1055,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -969,6 +1075,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -987,6 +1095,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -1005,6 +1115,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -1023,6 +1135,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -1041,6 +1155,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -1059,6 +1175,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -1077,6 +1195,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -1095,6 +1215,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -1113,6 +1235,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -1131,6 +1255,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -1149,6 +1275,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -1167,6 +1295,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -1185,6 +1315,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -1203,6 +1335,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -1221,6 +1355,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -1239,6 +1375,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -1257,6 +1395,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -1275,6 +1415,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -1293,6 +1435,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -1311,6 +1455,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -1329,6 +1475,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -1347,6 +1495,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -1365,6 +1515,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   },
   {
@@ -1383,6 +1535,8 @@
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "None",
+    "Filter": "None",
+    "Texture": "None",
     "FilteredVideoPath": null
   }
 ]

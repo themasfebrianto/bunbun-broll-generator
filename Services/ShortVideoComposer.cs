@@ -55,6 +55,18 @@ public interface IShortVideoComposer
         CancellationToken cancellationToken = default,
         bool isPreview = false
     );
+
+    /// <summary>
+    /// Apply separate filter and texture to a video.
+    /// </summary>
+    Task<string?> ApplyFilterAndTextureToVideoAsync(
+        string inputPath,
+        VideoFilter filter,
+        VideoTexture texture,
+        ShortVideoConfig config,
+        CancellationToken cancellationToken = default,
+        bool isPreview = false
+    );
 }
 
 /// <summary>
@@ -65,6 +77,7 @@ public class ShortVideoComposer : IShortVideoComposer
     private readonly ILogger<ShortVideoComposer> _logger;
     private readonly IConfiguration _config;
     private readonly KenBurnsService _kenBurnsService;
+    private readonly VideoStyleSettings _styleSettings;
     private readonly string _ffmpegDirectory;
     private readonly string _tempDirectory;
     private readonly string _outputDirectory;
@@ -81,11 +94,13 @@ public class ShortVideoComposer : IShortVideoComposer
     public ShortVideoComposer(
         ILogger<ShortVideoComposer> logger, 
         IConfiguration config,
-        KenBurnsService kenBurnsService)
+        KenBurnsService kenBurnsService,
+        VideoStyleSettings styleSettings)
     {
         _logger = logger;
         _config = config;
         _kenBurnsService = kenBurnsService;
+        _styleSettings = styleSettings;
         
         // FFmpeg binaries directory - use absolute paths
         _ffmpegDirectory = Path.GetFullPath(config["FFmpeg:BinaryDirectory"] 
@@ -115,6 +130,115 @@ public class ShortVideoComposer : IShortVideoComposer
         if (Directory.Exists(_ffmpegDirectory))
         {
             FFmpeg.SetExecutablesPath(_ffmpegDirectory);
+        }
+
+        // Ensure texture directory exists and copy sample textures if needed
+        EnsureTextureDirectory();
+    }
+
+    private void EnsureTextureDirectory()
+    {
+        var textureDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot", "assets", "textures");
+        
+        if (!Directory.Exists(textureDir))
+        {
+            Directory.CreateDirectory(textureDir);
+            _logger.LogInformation("Created texture directory: {Dir}", textureDir);
+        }
+
+        // Supported texture extensions (image + video)
+        var imageExtensions = new[] { ".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".webp" };
+        var videoExtensions = new[] { ".mp4", ".mov", ".webm", ".avi", ".mkv", ".m4v" };
+        var allExtensions = imageExtensions.Concat(videoExtensions).ToArray();
+        
+        bool IsTextureFile(string f) => allExtensions.Any(ext => 
+            f.EndsWith(ext, StringComparison.OrdinalIgnoreCase));
+
+        // Cek apakah ada texture di project root (development)
+        var sourceTextureDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "wwwroot", "assets", "textures");
+        var sourceFullPath = Path.GetFullPath(sourceTextureDir);
+        
+        if (Directory.Exists(sourceFullPath))
+        {
+            var textureFiles = Directory.GetFiles(sourceFullPath, "*.*")
+                .Where(IsTextureFile);
+            
+            foreach (var file in textureFiles)
+            {
+                var destPath = Path.Combine(textureDir, Path.GetFileName(file));
+                if (!File.Exists(destPath))
+                {
+                    try
+                    {
+                        File.Copy(file, destPath, true);
+                        _logger.LogInformation("Copied texture: {File}", Path.GetFileName(file));
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning("Failed to copy texture {File}: {Error}", Path.GetFileName(file), ex.Message);
+                    }
+                }
+            }
+        }
+
+        // Generate default canvas texture jika masih kosong (no image or video textures)
+        var existingTextures = Directory.GetFiles(textureDir, "*.*")
+            .Where(IsTextureFile)
+            .ToList();
+        
+        if (existingTextures.Count == 0)
+        {
+            _logger.LogInformation("No textures found. Generating default canvas texture...");
+            GenerateDefaultTexture(textureDir);
+        }
+        else
+        {
+            _logger.LogInformation("Found {Count} existing textures: {Files}", 
+                existingTextures.Count, 
+                string.Join(", ", existingTextures.Select(Path.GetFileName)));
+        }
+    }
+
+    private void GenerateDefaultTexture(string textureDir)
+    {
+        try
+        {
+            // Generate simple canvas texture using FFmpeg
+            var texturePath = Path.Combine(textureDir, "canvas_texture.jpg");
+            
+            // Create a simple noise pattern as texture
+            var ffmpegPath = FindFFmpegAsync().GetAwaiter().GetResult();
+            if (!string.IsNullOrEmpty(ffmpegPath))
+            {
+                var args = $"-f lavfi -i color=c=gray:s=512x512 -f lavfi -i noise=alls=20:allf=t+u " +
+                          $"-filter_complex \"[0:v][1:v]blend=all_mode=overlay,format=yuv420p\" " +
+                          $"-frames:v 1 -y \"{texturePath}\"";
+                
+                using var process = new Process
+                {
+                    StartInfo = new ProcessStartInfo
+                    {
+                        FileName = ffmpegPath,
+                        Arguments = args,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        UseShellExecute = false,
+                        CreateNoWindow = true
+                    }
+                };
+                
+                process.Start();
+                process.WaitForExit();
+                
+                if (File.Exists(texturePath))
+                {
+                    _logger.LogInformation("Generated default canvas texture: {Path}", texturePath);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning("Failed to generate default texture: {Error}", ex.Message);
         }
     }
 
@@ -335,6 +459,313 @@ public class ShortVideoComposer : IShortVideoComposer
         }
     }
 
+    /// <summary>
+    /// Apply separate filter and texture to a video.
+    /// </summary>
+    public async Task<string?> ApplyFilterAndTextureToVideoAsync(
+        string inputPath,
+        VideoFilter filter,
+        VideoTexture texture,
+        ShortVideoConfig config,
+        CancellationToken cancellationToken = default,
+        bool isPreview = false)
+    {
+        try
+        {
+            if (!await EnsureFFmpegAsync()) return null;
+
+            var outputPath = Path.Combine(_tempDirectory, $"styled_{Guid.NewGuid():N}.mp4");
+
+            var mediaInfo = await FFmpeg.GetMediaInfo(inputPath, cancellationToken);
+            var videoStream = mediaInfo.VideoStreams.FirstOrDefault();
+
+            if (videoStream == null)
+            {
+                _logger.LogWarning("No video stream found in: {Path}", inputPath);
+                return null;
+            }
+
+            var inputWidth = videoStream.Width;
+            var inputHeight = videoStream.Height;
+            var inputAspect = (double)inputWidth / inputHeight;
+            
+            // Preview Optimization: Downscale to 480p
+            int targetWidth = config.Width;
+            int targetHeight = config.Height;
+            
+            if (isPreview)
+            {
+                targetHeight = 480;
+                targetWidth = (int)(targetHeight * inputAspect);
+                targetWidth = (targetWidth / 2) * 2;
+                if (targetWidth > 854) targetWidth = 854; 
+            }
+
+            var outputAspect = (double)targetWidth / targetHeight;
+
+            // Get texture source (image or video)
+            var textureSource = GetTexturePath(texture);
+            bool hasTexture = textureSource != null && File.Exists(textureSource.Path);
+            
+            if (texture != VideoTexture.None)
+            {
+                _logger.LogInformation("Texture requested: {Texture}, Path: {Path}, IsVideo: {IsVideo}, Exists: {Exists}", 
+                    texture, textureSource?.Path ?? "null", textureSource?.IsVideo ?? false, hasTexture);
+            }
+
+            // Build blur background filter
+            var bgFilter = BuildBlurBackgroundFilter(
+                inputWidth, inputHeight, 
+                targetWidth, targetHeight,
+                inputAspect, outputAspect
+            );
+
+            // Build artistic filter with separate filter + texture
+            bool isVideoTexture = textureSource?.IsVideo ?? false;
+            string filterComplex;
+            var artFilter = BuildArtisticFilterComplex(filter, texture, "[vout]", "[styled]", hasTexture, isVideoTexture, targetWidth, targetHeight);
+            
+            filterComplex = bgFilter + ";" + artFilter;
+
+            var ffmpegPath = await FindFFmpegExecutablePathAsync();
+            if (string.IsNullOrEmpty(ffmpegPath)) return null;
+
+            var inputs = $"-threads 0 -i \"{inputPath}\"";
+            if (hasTexture && textureSource != null)
+            {
+                if (textureSource.IsVideo)
+                {
+                    // For video textures: use stream_loop to repeat the video infinitely
+                    inputs += $" -stream_loop -1 -i \"{textureSource.Path}\"";
+                }
+                else
+                {
+                    // For image textures: loop the image
+                    inputs += $" -f image2 -loop 1 -i \"{textureSource.Path}\"";
+                }
+            }
+
+            var durationLimit = "";
+            if (isPreview && mediaInfo.Duration.TotalSeconds > 15)
+            {
+                durationLimit = "-t 15";
+            }
+            
+            var preset = isPreview ? "ultrafast" : _preset;
+            var crf = isPreview ? 28 : _crf;
+
+            var arguments = $"{inputs} -filter_complex \"{filterComplex}\" " +
+                           $"-map \"[styled]\" -map 0:a? " +
+                           $"-c:v libx264 -preset {preset} -crf {crf} -threads 0 " +
+                           $"-c:a aac -b:a 128k -ac 2 -ar 44100 " +
+                           $"{durationLimit} -y \"{outputPath}\"";
+
+            _logger.LogInformation("Applying filter {Filter} + texture {Texture} to {Path} -> {Output}", 
+                filter, texture, inputPath, outputPath);
+            _logger.LogDebug("FFmpeg filter_complex: {FilterComplex}", filterComplex);
+            _logger.LogDebug("FFmpeg inputs: {Inputs}", inputs);
+
+            using var process = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = ffmpegPath,
+                    Arguments = arguments,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                }
+            };
+
+            process.Start();
+            var stderrTask = process.StandardError.ReadToEndAsync();
+            var stdoutTask = process.StandardOutput.ReadToEndAsync();
+            
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(60));
+            
+            try
+            {
+                await process.WaitForExitAsync(timeoutCts.Token);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                try { process.Kill(entireProcessTree: true); } catch { }
+                var partialStderr = await stderrTask;
+                _logger.LogWarning("FFmpeg filter preview timed out after 60s.");
+                throw new TimeoutException($"Filter timed out after 60 seconds.");
+            }
+            
+            var stderr = await stderrTask;
+            var stdout = await stdoutTask;
+
+            if (process.ExitCode != 0)
+            {
+                var stderrLines = stderr.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+                var errorSummary = string.Join(" | ", stderrLines.TakeLast(3)).Trim();
+                _logger.LogWarning("FFmpeg style failed [{Filter}+{Texture}]. Error: {Error}", 
+                    filter, texture, errorSummary);
+                throw new InvalidOperationException($"FFmpeg filter failed: {errorSummary}");
+            }
+
+            if (File.Exists(outputPath))
+            {
+                _logger.LogInformation("Filter + Texture applied successfully -> {Output}", outputPath);
+                return outputPath;
+            }
+            
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to apply filter/texture to video: {Path}", inputPath);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Represents a texture source - can be image or video
+    /// </summary>
+    private record TextureSource(string Path, bool IsVideo);
+
+    private TextureSource? GetTexturePath(VideoTexture texture)
+    {
+        if (texture == VideoTexture.None)
+            return null;
+
+        // Cari texture di beberapa lokasi (dalam urutan prioritas)
+        var baseDir = AppDomain.CurrentDomain.BaseDirectory;
+        var searchPaths = new[]
+        {
+            // 1. Relative to executable (published/output folder)
+            Path.Combine(baseDir, "wwwroot", "assets", "textures"),
+            // 2. Project root folder (development)
+            Path.Combine(baseDir, "..", "..", "..", "wwwroot", "assets", "textures"),
+            // 3. Working directory
+            Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "assets", "textures"),
+            // 4. Absolute path from project root
+            Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "wwwroot", "assets", "textures"),
+        };
+
+        string? textureDir = null;
+        foreach (var path in searchPaths)
+        {
+            var fullPath = Path.GetFullPath(path);
+            if (Directory.Exists(fullPath))
+            {
+                textureDir = fullPath;
+                _logger.LogDebug("Texture directory found: {Dir}", fullPath);
+                break;
+            }
+        }
+
+        if (textureDir == null)
+        {
+            _logger.LogWarning("Texture directory not found in any of these locations: {Paths}", 
+                string.Join(", ", searchPaths.Select(p => Path.GetFullPath(p))));
+            return null;
+        }
+
+        // Available video texture files:
+        // filmgrain.mp4, filmgrain_2.mp4, filmgrain_colorfull.mp4, 
+        // fire.mp4, grunge.mp4, harsh.mp4, scratches.mp4, surreal.mp4
+        
+        // Explicit filename mapping for reliability
+        var preferredFiles = texture switch
+        {
+            VideoTexture.Canvas => new[] { "surreal.mp4", "harsh.mp4" },
+            VideoTexture.Paper => new[] { "harsh.mp4", "filmgrain.mp4" },
+            VideoTexture.Grunge => new[] { "grunge.mp4", "harsh.mp4" },
+            VideoTexture.FilmGrain => new[] { "filmgrain.mp4", "filmgrain_2.mp4", "filmgrain_colorfull.mp4" },
+            VideoTexture.Dust => new[] { "fire.mp4", "harsh.mp4" },
+            VideoTexture.Scratches => new[] { "scratches.mp4" },
+            _ => Array.Empty<string>()
+        };
+
+        // Try explicit filenames first
+        foreach (var filename in preferredFiles)
+        {
+            var fullPath = Path.Combine(textureDir, filename);
+            if (File.Exists(fullPath))
+            {
+                _logger.LogInformation("Video texture found for {Texture}: {Path}", texture, fullPath);
+                return new TextureSource(fullPath, true);
+            }
+        }
+
+        var videoExtensions = new[] { ".mp4", ".mov", ".webm", ".avi", ".mkv", ".m4v" };
+        var imageExtensions = new[] { ".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".webp" };
+
+        // List all files in texture dir for debugging
+        var allFiles = Directory.GetFiles(textureDir, "*.*");
+        _logger.LogDebug("Texture directory {Dir} contains {Count} files: {Files}", 
+            textureDir, allFiles.Length, string.Join(", ", allFiles.Select(Path.GetFileName)));
+
+        // Pattern fallback
+        var patterns = texture switch
+        {
+            VideoTexture.Canvas => new[] { "surreal", "harsh", "grain", "canvas" },
+            VideoTexture.Paper => new[] { "harsh", "grain", "paper" },
+            VideoTexture.Grunge => new[] { "grunge", "harsh", "rough" },
+            VideoTexture.FilmGrain => new[] { "filmgrain", "grain", "film" },
+            VideoTexture.Dust => new[] { "fire", "harsh", "dust" },
+            VideoTexture.Scratches => new[] { "scratches", "scratch" },
+            _ => Array.Empty<string>()
+        };
+
+        // Try pattern matching on video files
+        foreach (var pattern in patterns)
+        {
+            var searchPattern = $"*{pattern}*.*";
+            var files = Directory.GetFiles(textureDir, searchPattern, SearchOption.TopDirectoryOnly)
+                .Where(f => videoExtensions.Any(ext => 
+                    f.EndsWith(ext, StringComparison.OrdinalIgnoreCase)))
+                .ToArray();
+            
+            if (files.Length > 0)
+            {
+                var selected = files[Random.Shared.Next(files.Length)];
+                _logger.LogInformation("Video texture found for {Texture}: {Path}", texture, selected);
+                return new TextureSource(selected, true);
+            }
+        }
+
+        // Fallback to image textures
+        foreach (var pattern in patterns)
+        {
+            var files = Directory.GetFiles(textureDir, pattern + ".*", SearchOption.TopDirectoryOnly)
+                .Where(f => imageExtensions.Any(ext => 
+                    f.EndsWith(ext, StringComparison.OrdinalIgnoreCase)))
+                .ToArray();
+            
+            if (files.Length > 0)
+            {
+                var selected = files[Random.Shared.Next(files.Length)];
+                _logger.LogInformation("Image texture found for {Texture}: {Path}", texture, selected);
+                return new TextureSource(selected, false);
+            }
+        }
+
+        // Fallback to any texture file
+        var allTextures = Directory.GetFiles(textureDir, "*.*")
+            .Where(f => videoExtensions.Concat(imageExtensions).Any(ext => 
+                f.EndsWith(ext, StringComparison.OrdinalIgnoreCase)))
+            .ToArray();
+        
+        if (allTextures.Length > 0)
+        {
+            var fallback = allTextures[Random.Shared.Next(allTextures.Length)];
+            var isVideo = videoExtensions.Any(ext => 
+                fallback.EndsWith(ext, StringComparison.OrdinalIgnoreCase));
+            _logger.LogInformation("Using fallback texture: {Path} (Video: {IsVideo})", fallback, isVideo);
+            return new TextureSource(fallback, isVideo);
+        }
+        
+        _logger.LogWarning("No texture files found in: {Dir}", textureDir);
+        return null;
+    }
+
     public async Task<string?> ApplyStyleToVideoAsync(
         string inputPath,
         VideoStyle style,
@@ -377,22 +808,15 @@ public class ShortVideoComposer : IShortVideoComposer
 
             var outputAspect = (double)targetWidth / targetHeight;
 
-            string? texturePath = null;
+            // For legacy VideoStyle.Canvas, also try to find video textures
+            TextureSource? textureSource = null;
             if (style == VideoStyle.Canvas)
             {
-                var textureDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot", "assets", "textures");
-                if (Directory.Exists(textureDir))
-                {
-                    var textures = Directory.GetFiles(textureDir, "*.*")
-                        .Where(f => f.EndsWith(".jpg") || f.EndsWith(".png") || f.EndsWith(".jpeg"))
-                        .ToArray();
-                    
-                    if (textures.Length > 0)
-                    {
-                        texturePath = textures[Random.Shared.Next(textures.Length)];
-                    }
-                }
+                textureSource = GetTexturePath(VideoTexture.Canvas);
             }
+            
+            bool hasTexture = textureSource != null;
+            bool isVideoTexture = textureSource?.IsVideo ?? false;
 
             // reuse BlurBackground filter
             var bgFilter = BuildBlurBackgroundFilter(
@@ -402,9 +826,9 @@ public class ShortVideoComposer : IShortVideoComposer
             );
 
             string filterComplex;
-            var artFilter = BuildArtisticFilter(style, "[vout]", "[styled]", texturePath != null, targetWidth, targetHeight);
+            var artFilter = BuildArtisticFilter(style, "[vout]", "[styled]", hasTexture, isVideoTexture, targetWidth, targetHeight);
             
-            if (style == VideoStyle.Canvas && texturePath != null)
+            if (hasTexture)
             {
                 filterComplex = bgFilter + ";" + artFilter;
             }
@@ -417,9 +841,18 @@ public class ShortVideoComposer : IShortVideoComposer
             if (string.IsNullOrEmpty(ffmpegPath)) return null;
 
             var inputs = $"-threads 0 -i \"{inputPath}\"";
-            if (style == VideoStyle.Canvas && texturePath != null)
+            if (hasTexture && textureSource != null)
             {
-                inputs += $" -f image2 -loop 1 -i \"{texturePath}\"";
+                if (textureSource.IsVideo)
+                {
+                    // For video textures: use stream_loop to repeat the video infinitely
+                    inputs += $" -stream_loop -1 -i \"{textureSource.Path}\"";
+                }
+                else
+                {
+                    // For image textures: loop the image
+                    inputs += $" -f image2 -loop 1 -i \"{textureSource.Path}\"";
+                }
             }
 
             // Cap preview duration to 15s to avoid long FFmpeg processing
@@ -876,18 +1309,9 @@ public class ShortVideoComposer : IShortVideoComposer
             if (applyStyle)
             {
                 // artistic filter takes [vout] from bgFilter and outputs [styled]
-                var artFilter = BuildArtisticFilter(effectiveStyle, "[vout]", "[styled]", texturePath != null, config.Width, config.Height);
+                var artFilter = BuildArtisticFilter(effectiveStyle, "[vout]", "[styled]", texturePath != null, false, config.Width, config.Height);
                 
-                if (effectiveStyle == VideoStyle.Canvas && texturePath != null)
-                {
-                    // Canvas needs texture input (index 1)
-                    // We need to map [styled] to output
-                    filterComplex = bgFilter + ";" + artFilter;
-                }
-                else
-                {
-                    filterComplex = bgFilter + ";" + artFilter;
-                }
+                filterComplex = bgFilter + ";" + artFilter;
             }
             else
             {
@@ -1040,68 +1464,162 @@ public class ShortVideoComposer : IShortVideoComposer
     }
 
     /// <summary>
-    /// Builds FFmpeg filter chain for artistic effects.
+    /// Builds FFmpeg filter chain for artistic effects (legacy VideoStyle support).
     /// </summary>
-    private string BuildArtisticFilter(VideoStyle style, string inputPad, string outputPad, bool hasTexture, int? width = null, int? height = null)
+    private string BuildArtisticFilter(VideoStyle style, string inputPad, string outputPad, bool hasTexture, bool isVideoTexture = false, int? width = null, int? height = null)
     {
-        // Reference commands from User Request:
-        // Painting: fps=12,smartblur=lr=2.0:ls=-0.5:lt=-5.0,eq=saturation=0.6:contrast=1.2:brightness=-0.05,colorbalance=rs=0.1:gs=0.05:bs=-0.2,vignette=PI/4
-        // Canvas: [vid]fps=12,smartblur=lr=2:ls=-0.5,eq=saturation=0.7:contrast=1.1[vid];[1:v]scale=...[tex];[vid][tex]blend=...
-        // Sepia: fps=15,colorchannelmixer=.393:.769:.189:0:.349:.686:.168:0:.272:.534:.131,smartblur=lr=1.5:ls=-0.8,noise=alls=10:allf=t
-        
-        switch (style)
+        // Map VideoStyle to Filter + Texture combination
+        var (filter, texture) = style switch
         {
-            case VideoStyle.Painting:
-                return $"{inputPad}fps=12," +
-                       $"smartblur=lr=2.0:ls=-0.5:lt=-5.0," +
-                       $"eq=saturation=0.6:contrast=1.2:brightness=-0.05," +
-                       $"colorbalance=rs=0.1:gs=0.05:bs=-0.2," +
-                       $"vignette=PI/4{outputPad}";
+            VideoStyle.Painting => (VideoFilter.Painting, VideoTexture.None),
+            VideoStyle.Sepia => (VideoFilter.Sepia, VideoTexture.None),
+            VideoStyle.Canvas => (VideoFilter.Painting, VideoTexture.Canvas),
+            _ => (VideoFilter.None, VideoTexture.None)
+        };
 
-            case VideoStyle.Sepia:
-                return $"{inputPad}fps=15," +
-                       $"colorchannelmixer=.393:.769:.189:0:.349:.686:.168:0:.272:.534:.131," +
-                       $"smartblur=lr=1.5:ls=-0.8," +
-                       $"noise=alls=10:allf=t{outputPad}";
+        return BuildArtisticFilterComplex(filter, texture, inputPad, outputPad, hasTexture, isVideoTexture, width, height);
+    }
 
-            case VideoStyle.Canvas:
-                if (hasTexture)
-                {
-                    // Complex filter with texture overlay
-                    // Input 0 is video (inputPad), Input 1 is texture
-                    // 1. Process video: fps=12, smartblur, eq -> [base]
-                    // 2. Prepare texture: scale to video size, crop -> [tex]
-                    // 3. Blend: [base][tex] -> outputPad
-                    
-                    // Explicit scaling is more robust than scale2ref for image loops
-                    var scaleFilter = (width.HasValue && height.HasValue)
-                        ? $"scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height}"
-                        : "scale2ref[tex][base_ref];[tex]setsar=1[tex_adj];[base_ref][tex_adj]";
-
-                    if (width.HasValue && height.HasValue)
-                    {
-                        return $"{inputPad}fps=12,smartblur=lr=2:ls=-0.5,eq=saturation=0.7:contrast=1.1[base];" +
-                               $"[1:v]{scaleFilter}[tex];" + 
-                               $"[base][tex]blend=all_mode=overlay:all_opacity=0.4{outputPad}";
-                    }
-                    else
-                    {
-                        // Fallback to scale2ref if dimensions unknown (shouldn't happen in current flow)
-                        return $"{inputPad}fps=12,smartblur=lr=2:ls=-0.5,eq=saturation=0.7:contrast=1.1[base];" +
-                               $"[1:v][base]scale2ref[tex][base_ref];" + 
-                               $"[tex]setsar=1[tex_adj];" + 
-                               $"[base_ref][tex_adj]blend=all_mode=overlay:all_opacity=0.4{outputPad}";
-                    }
-                }
+    /// <summary>
+    /// Builds FFmpeg filter chain for separate filter and texture.
+    /// Best practice: use lut for opacity (faster than colorchannelmixer),
+    /// use format with fallback (yuva420p|yuva444p|rgba) for best compatibility,
+    /// use overlay filter for blending (more efficient than blend for simple opacity).
+    /// Supports both image and video textures.
+    /// </summary>
+    private string BuildArtisticFilterComplex(VideoFilter filter, VideoTexture texture, string inputPad, string outputPad, bool hasTexture, bool isVideoTexture = false, int? width = null, int? height = null)
+    {
+        // Build the base filter chain
+        var filterChain = BuildFilterChain(filter, inputPad, "[filtered]");
+        
+        // Check global vignette setting
+        var vignetteEnabled = _styleSettings.VignetteEnabled;
+        var vignetteFilter = vignetteEnabled ? ",vignette=PI/6:aspect=1" : "";
+        
+        // If no texture, add vignette (if enabled) and return
+        if (!hasTexture || texture == VideoTexture.None)
+        {
+            // Handle case when filter is None (filterChain doesn't have [filtered] placeholder)
+            if (filter == VideoFilter.None)
+            {
+                if (vignetteEnabled)
+                    return $"{inputPad}vignette=PI/6:aspect=1{outputPad}";
                 else
-                {
-                    // Fallback to painting if no texture
-                    return $"{inputPad}fps=12,smartblur=lr=2.0:ls=-0.5:lt=-5.0,eq=saturation=0.6:contrast=1.2:brightness=-0.05,vignette=PI/4{outputPad}";
-                }
-
-            default:
-                return $"{inputPad}null{outputPad}";
+                    return $"{inputPad}null{outputPad}";
+            }
+            
+            return filterChain.Replace("[filtered]", $"[vfiltered]") + vignetteFilter + $"{outputPad}";
         }
+
+        // With texture: apply texture overlay using best practices
+        // 1. Scale texture to match video size
+        // 2. Convert to format with alpha (yuva420p|yuva444p|rgba - let ffmpeg choose best)
+        // 3. Apply opacity using lut filter (faster than colorchannelmixer)
+        // 4. Overlay on top of video
+        
+        // Opacity value (0-255 for lut filter)
+        var opacityValue = texture switch
+        {
+            VideoTexture.Canvas => "102",      // 0.40 * 255
+            VideoTexture.Paper => "77",       // 0.30 * 255
+            VideoTexture.Grunge => "89",      // 0.35 * 255
+            VideoTexture.FilmGrain => "64",   // 0.25 * 255
+            VideoTexture.Dust => "51",        // 0.20 * 255
+            VideoTexture.Scratches => "38",   // 0.15 * 255
+            _ => "77"
+        };
+
+        // For image textures, use loop filter to hold the image; video textures use -stream_loop input option
+        var loopFilter = !isVideoTexture && texture != VideoTexture.None ? "loop=loop=-1:size=1," : "";
+        
+        // Vignette filter for texture path (without comma prefix)
+        var textureVignetteFilter = vignetteEnabled ? "vignette=PI/6:aspect=1" : "null";
+
+        if (width.HasValue && height.HasValue)
+        {
+            // Best practice: format=yuva420p|yuva444p|rgba lets ffmpeg choose best available
+            // lut=a={opacity} is faster than colorchannelmixer for setting alpha
+            return $"{filterChain};" +
+                   $"[1:v]{loopFilter}scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height}," +
+                   $"format=yuva420p|yuva444p|rgba," +
+                   $"lut=a={opacityValue}[tex];" + 
+                   $"[filtered][tex]overlay=format=auto:shortest=1[ovout];" +
+                   $"[ovout]{textureVignetteFilter}{outputPad}";
+        }
+        else
+        {
+            // Fallback: use scale2ref to match texture to base video size
+            return $"{filterChain};" +
+                   $"[1:v][filtered]scale2ref[tex][base_ref];" + 
+                   $"[tex]{loopFilter}setsar=1,format=yuva420p|yuva444p|rgba,lut=a={opacityValue}[tex_adj];" + 
+                   $"[base_ref][tex_adj]overlay=format=auto:shortest=1[ovout];" +
+                   $"[ovout]{textureVignetteFilter}{outputPad}";
+        }
+    }
+
+    /// <summary>
+    /// Builds the filter chain for a specific filter type.
+    /// </summary>
+    private string BuildFilterChain(VideoFilter filter, string inputPad, string outputPad)
+    {
+        return filter switch
+        {
+            VideoFilter.Painting => 
+                $"{inputPad}fps=12," +
+                $"smartblur=lr=2.0:ls=-0.5:lt=-5.0," +
+                $"eq=saturation=0.6:contrast=1.2:brightness=-0.05," +
+                $"colorbalance=rs=0.1:gs=0.05:bs=-0.2," +
+                $"vignette=PI/4" +
+                $"{outputPad}",
+
+            VideoFilter.Sepia => 
+                $"{inputPad}fps=15," +
+                $"colorchannelmixer=.393:.769:.189:0:.349:.686:.168:0:.272:.534:.131," +
+                $"smartblur=lr=1.5:ls=-0.8," +
+                $"noise=alls=10:allf=t," +
+                $"vignette=PI/5" +
+                $"{outputPad}",
+
+            VideoFilter.Vintage => 
+                $"{inputPad}fps=15," +
+                $"curves=r='0/0 0.5/0.6 1/0.9':g='0/0 0.5/0.55 1/0.85':b='0/0 0.5/0.5 1/0.8'," +
+                $"smartblur=lr=1.0:ls=-0.3," +
+                $"noise=alls=8:allf=t," +
+                $"vignette=PI/5" +
+                $"{outputPad}",
+
+            VideoFilter.Cinematic => 
+                $"{inputPad}fps=24," +
+                $"eq=saturation=0.85:contrast=1.15:brightness=-0.02," +
+                $"colorbalance=rs=0.05:gs=0:bs=-0.05," +
+                $"vignette=PI/6" +
+                $"{outputPad}",
+
+            VideoFilter.Warm => 
+                $"{inputPad}eq=saturation=1.1:contrast=1.05:brightness=0.02," +
+                $"colorbalance=rs=0.1:gs=0.03:bs=-0.08," +
+                $"smartblur=lr=0.5:ls=-0.2," +
+                $"vignette=PI/6" +
+                $"{outputPad}",
+
+            VideoFilter.Cool => 
+                $"{inputPad}eq=saturation=0.95:contrast=1.05," +
+                $"colorbalance=rs=-0.05:gs=0.02:bs=0.1," +
+                $"smartblur=lr=0.5:ls=-0.2," +
+                $"vignette=PI/6" +
+                $"{outputPad}",
+
+            VideoFilter.Noir => 
+                $"{inputPad}fps=18," +
+                $"colorchannelmixer=.33:.33:.33:0:.33:.33:.33:0:.33:.33:.33," +
+                $"eq=contrast=1.4:brightness=-0.1," +
+                $"smartblur=lr=1.0:ls=-0.5," +
+                $"noise=alls=12:allf=t," +
+                $"vignette=PI/3" +
+                $"{outputPad}",
+
+            _ => $"{inputPad}null{outputPad}"
+        };
     }
 
     /// <summary>

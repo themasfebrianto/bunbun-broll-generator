@@ -19,10 +19,25 @@
 @inject KenBurnsService KenBurnsService
 @inject IShortVideoComposer VideoComposer
 @inject IDownloaderService DownloaderService
+@inject VideoStyleSettings StyleSettings
 
 <div class="max-w-[90rem] mx-auto pt-6 pb-8 px-4">
-    <nav class="breadcrumb mb-6">
+    <nav class="breadcrumb mb-6 flex justify-between items-center">
         <span class="breadcrumb-current">Script Dashboard</span>
+        
+        @* Global Vignette Toggle *@
+        <div class="flex items-center gap-2">
+            <label class="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
+                <input type="checkbox" 
+                       checked="@StyleSettings.VignetteEnabled"
+                       @onchange="OnVignetteToggleChanged"
+                       class="w-4 h-4 rounded border-border/50 bg-background/60 text-primary focus:ring-primary/20" />
+                <span>Vignette</span>
+                <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">
+                    @(StyleSettings.VignetteEnabled ? "ON" : "OFF")
+                </span>
+            </label>
+        </div>
     </nav>
 
     @* ============ VIEW 0: Session List ============ *@
@@ -1049,15 +1064,15 @@
                                         </div>
                                     }
 
-                                    @* === Visual Style Selection === *@
+                                    @* === Visual Style Selection - Separate Filter & Texture === *@
                                     <div class="mb-3">
-                                        <div class="flex justify-between items-center">
-                                            <span class="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Visual Style</span>
-                                            @if (item.Style != VideoStyle.None && isBroll)
+                                        <div class="flex justify-between items-center mb-2">
+                                            <span class="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Visual Effects</span>
+                                            @if (item.HasVisualEffect && isBroll)
                                             {
                                                  <button class="text-[10px] text-blue-400 hover:text-blue-300 font-medium flex items-center gap-1"
                                                          disabled="@(item.IsSearching || item.IsFilteringVideo)"
-                                                         @onclick="() => HandleApplyStyleToVideo(item)">
+                                                         @onclick="() => HandleApplyFilterToVideo(item)">
                                                      @if (item.IsFilteringVideo)
                                                      {
                                                          <svg class="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -1069,22 +1084,52 @@
                                                      else
                                                      {
                                                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                                                         <span>Preview Filter</span>
+                                                         <span>Preview Effect</span>
                                                      }
                                                  </button>
                                             }
                                         </div>
-                                        <select class="input mt-1 w-full text-xs bg-background/60 rounded-md p-2 border border-border/30 cursor-pointer"
-                                                @bind="item.Style"
-                                                @bind:after="() => { item.FilteredVideoPath = null; SaveBrollPromptsToDisk(); }">
-                                            @foreach (var style in Enum.GetValues<VideoStyle>())
-                                            {
-                                                <option value="@style">@style</option>
-                                            }
-                                        </select>
+                                        
+                                        @* Filter Dropdown *@
+                                        <div class="mb-2">
+                                            <label class="text-[10px] text-muted-foreground block mb-1">Filter</label>
+                                            <select class="input w-full text-xs bg-background/60 rounded-md p-2 border border-border/30 cursor-pointer"
+                                                    @bind="item.Filter"
+                                                    @bind:after="async () => { item.FilteredVideoPath = null; await SaveBrollPromptsToDisk(); }">
+                                                @foreach (var filter in Enum.GetValues<VideoFilter>())
+                                                {
+                                                    <option value="@filter">@GetFilterDisplayName(filter)</option>
+                                                }
+                                            </select>
+                                        </div>
+                                        
+                                        @* Texture Dropdown *@
+                                        <div>
+                                            <label class="text-[10px] text-muted-foreground block mb-1">Texture</label>
+                                            <select class="input w-full text-xs bg-background/60 rounded-md p-2 border border-border/30 cursor-pointer"
+                                                    @bind="item.Texture"
+                                                    @bind:after="async () => { item.FilteredVideoPath = null; await SaveBrollPromptsToDisk(); }">
+                                                @foreach (var texture in Enum.GetValues<VideoTexture>())
+                                                {
+                                                    <option value="@texture">@GetTextureDisplayName(texture)</option>
+                                                }
+                                            </select>
+                                        </div>
+                                        
+                                        @* Era Indicator *@
+                                        @if (item.Era != VideoEra.None)
+                                        {
+                                            <div class="mt-2 pt-2 border-t border-border/20">
+                                                <span class="text-[10px] text-muted-foreground">Auto-detected Era:</span>
+                                                <span class="text-[10px] font-medium ml-1" title="Filter and texture auto-assigned based on detected era">
+                                                    @GetEraDisplayName(item.Era)
+                                                </span>
+                                            </div>
+                                        }
+                                        
                                         @if (!string.IsNullOrEmpty(item.FilterError))
                                         {
-                                            <p class="text-[10px] text-destructive mt-1">@item.FilterError</p>
+                                            <p class="text-[10px] text-destructive mt-2">@item.FilterError</p>
                                         }
                                     </div>
 
@@ -1204,7 +1249,7 @@
                                                         @if (!string.IsNullOrEmpty(item.FilteredVideoPath))
                                                         {
                                                             <div class="absolute top-1 left-1 bg-blue-500/80 text-white text-[9px] px-1.5 py-0.5 rounded font-bold pointer-events-none">
-                                                                FILTER: @item.Style.ToString().ToUpper()
+                                                                @GetEffectDisplayName(item)
                                                             </div>
                                                             <button class="absolute top-1 right-1 bg-black/60 hover:bg-black/80 text-white rounded-full p-1"
                                                                     title="Clear Filter"
@@ -2217,6 +2262,15 @@
         _listSubscriptions.Clear();
     }
 
+    private void OnVignetteToggleChanged(ChangeEventArgs e)
+    {
+        if (e.Value is bool enabled)
+        {
+            StyleSettings.VignetteEnabled = enabled;
+            StateHasChanged();
+        }
+    }
+
     private async Task HandleBackToList() { await LoadSessionsAsync(); _currentView = "list"; _errorMessage = null; }
     private async Task HandleSendToBroll()
     {
@@ -2971,6 +3025,8 @@
                 WhiskVideoPath = i.WhiskVideoPath,
                 WhiskVideoError = i.WhiskVideoError,
                 Style = i.Style,
+                Filter = i.Filter,
+                Texture = i.Texture,
                 FilteredVideoPath = i.FilteredVideoPath
             }).ToList();
 
@@ -3025,6 +3081,8 @@
                     WhiskVideoPath = s.WhiskVideoPath,
                     WhiskVideoError = s.WhiskVideoError,
                     Style = s.Style,
+                    Filter = s.Filter,
+                    Texture = s.Texture,
                     FilteredVideoPath = s.FilteredVideoPath
                 }).ToList();
             }
@@ -3147,6 +3205,167 @@
         }
     }
 
+    // ===== Filter & Texture Helpers =====
+
+    private async Task HandleApplyFilterToVideo(BrollPromptItem item)
+    {
+        if (item.IsFilteringVideo) return;
+        
+        try
+        {
+            item.IsFilteringVideo = true;
+            item.FilterError = null;
+            item.FilterProgress = 0;
+            item.FilterStatus = "Initializing...";
+            StateHasChanged();
+
+            // 1. Identify source video
+            string videoUrl;
+            string? localPath = null;
+            VideoAsset? selectedVideo = null;
+
+            if (item.SearchResults.Count > 0)
+            {
+                selectedVideo = item.SearchResults.FirstOrDefault(v => v.DownloadUrl == item.SelectedVideoUrl)
+                                    ?? item.SearchResults.First();
+                videoUrl = selectedVideo.DownloadUrl;
+                
+                if (!string.IsNullOrEmpty(selectedVideo.LocalPath) && File.Exists(selectedVideo.LocalPath))
+                {
+                    localPath = selectedVideo.LocalPath;
+                }
+            }
+            else
+            {
+                throw new InvalidOperationException("No video selected to filter.");
+            }
+
+            // 2. Download if not local
+            if (string.IsNullOrEmpty(localPath) || !File.Exists(localPath))
+            {
+                item.FilterProgress = 10;
+                item.FilterStatus = "Downloading source...";
+                StateHasChanged();
+
+                var projectSlug = _resultSession?.Topic != null 
+                    ? System.Text.RegularExpressions.Regex.Replace(_resultSession.Topic, @"[^\w\s\-]", "").Trim().Replace(" ", "-")
+                    : "temp-preview";
+                    
+                localPath = await DownloaderService.DownloadVideoAsync(
+                    selectedVideo, 
+                    projectSlug, 
+                    item.Index, 
+                    "preview-source", 
+                    CancellationToken.None);
+                
+                selectedVideo.LocalPath = localPath;
+            }
+
+            if (string.IsNullOrEmpty(localPath) || !File.Exists(localPath))
+            {
+                throw new Exception("Could not download source video.");
+            }
+
+            // 3. Apply Filter + Texture
+            item.FilterProgress = 40;
+            item.FilterStatus = $"Applying {item.EffectiveFilter} + {item.EffectiveTexture}...";
+            StateHasChanged();
+
+            var videoConfig = new ShortVideoConfig 
+            { 
+                Ratio = AspectRatio.Landscape_16x9
+            };
+
+            var filteredPath = await VideoComposer.ApplyFilterAndTextureToVideoAsync(
+                localPath, 
+                item.EffectiveFilter, 
+                item.EffectiveTexture, 
+                videoConfig, 
+                CancellationToken.None, 
+                isPreview: true);
+
+            if (!string.IsNullOrEmpty(filteredPath))
+            {
+                var outputDir = Path.Combine(Directory.GetCurrentDirectory(), "output");
+                Directory.CreateDirectory(outputDir);
+                var finalFileName = $"filtered_{Guid.NewGuid():N}.mp4";
+                var finalPath = Path.Combine(outputDir, finalFileName);
+                
+                File.Move(filteredPath, finalPath, overwrite: true);
+                item.FilteredVideoPath = finalPath;
+                
+                item.FilterProgress = 100;
+                item.FilterStatus = "Done!";
+                StateHasChanged();
+                await Task.Delay(500);
+            }
+            else
+            {
+                throw new Exception("Filter application returned null path.");
+            }
+
+            await SaveBrollPromptsToDisk();
+        }
+        catch (Exception ex)
+        {
+            item.FilterError = $"Filter failed: {ex.Message}";
+            Console.Error.WriteLine($"Filter error: {ex}");
+        }
+        finally
+        {
+            item.IsFilteringVideo = false;
+            StateHasChanged();
+        }
+    }
+
+    private string GetFilterDisplayName(VideoFilter filter) => filter switch
+    {
+        VideoFilter.None => "None (No Filter)",
+        VideoFilter.Painting => "🎨 Painting",
+        VideoFilter.Sepia => "📜 Sepia",
+        VideoFilter.Vintage => "📷 Vintage",
+        VideoFilter.Cinematic => "🎬 Cinematic",
+        VideoFilter.Warm => "☀️ Warm",
+        VideoFilter.Cool => "❄️ Cool",
+        VideoFilter.Noir => "🕵️ Noir",
+        _ => filter.ToString()
+    };
+
+    private string GetTextureDisplayName(VideoTexture texture) => texture switch
+    {
+        VideoTexture.None => "None (No Texture)",
+        VideoTexture.Canvas => "🖼️ Canvas (surreal.mp4)",
+        VideoTexture.Paper => "📄 Paper (harsh/grain)",
+        VideoTexture.Grunge => "🧱 Grunge (grunge.mp4)",
+        VideoTexture.FilmGrain => "🎞️ Film Grain (filmgrain*.mp4)",
+        VideoTexture.Dust => "💨 Dust (fire.mp4)",
+        VideoTexture.Scratches => "✨ Scratches (scratches.mp4)",
+        _ => texture.ToString()
+    };
+
+    private string GetEraDisplayName(VideoEra era) => era switch
+    {
+        VideoEra.Ancient => "🏛️ Ancient",
+        VideoEra.Apocalyptic => "🔥 Apocalyptic", 
+        VideoEra.Modern => "🏙️ Modern",
+        VideoEra.Abstract => "✨ Abstract",
+        VideoEra.Nature => "🌿 Nature",
+        _ => "❓ Unknown"
+    };
+
+    private string GetEffectDisplayName(BrollPromptItem item)
+    {
+        var parts = new List<string>();
+        
+        if (item.EffectiveFilter != VideoFilter.None)
+            parts.Add(item.EffectiveFilter.ToString().ToUpper());
+        
+        if (item.EffectiveTexture != VideoTexture.None)
+            parts.Add(item.EffectiveTexture.ToString().ToUpper());
+        
+        return parts.Count > 0 ? string.Join(" + ", parts) : "FILTERED";
+    }
+
     /// <summary>Lightweight DTO for JSON persistence (excludes transient VideoAsset search results)</summary>
     private class BrollPromptSaveItem
     {
@@ -3165,6 +3384,8 @@
         public string? WhiskVideoPath { get; set; }
         public string? WhiskVideoError { get; set; }
         public VideoStyle Style { get; set; }
+        public VideoFilter Filter { get; set; }
+        public VideoTexture Texture { get; set; }
         public string? FilteredVideoPath { get; set; }
     }
 

@@ -134,6 +134,43 @@ coverage/
 *.coveragexml
 
 # =========================
+# Video Files (anywhere in project)
+# =========================
+
+# Common video formats
+*.mp4
+*.webm
+*.mov
+*.avi
+*.mkv
+*.wmv
+*.flv
+*.f4v
+*.m4v
+*.mpg
+*.mpeg
+*.mpe
+*.mpv
+*.3gp
+*.3g2
+*.ogv
+*.ogg
+*.ts
+*.m2ts
+*.mts
+*.vob
+*.divx
+*.xvid
+*.mxf
+*.dv
+*.qt
+*.rm
+*.rmvb
+*.asf
+*.wmv
+*.avchd
+
+# =========================
 # Misc
 # =========================
 

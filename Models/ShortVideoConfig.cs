@@ -111,6 +111,53 @@ public enum VideoStyle
 }
 
 /// <summary>
+/// Artistic filters that can be applied to B-roll videos (color/exposure adjustments).
+/// </summary>
+public enum VideoFilter
+{
+    None,
+    Painting,
+    Sepia,
+    Vintage,
+    Cinematic,
+    Warm,
+    Cool,
+    Noir
+}
+
+/// <summary>
+/// Texture overlays that can be applied on top of B-roll videos.
+/// </summary>
+public enum VideoTexture
+{
+    None,
+    Canvas,
+    Paper,
+    Grunge,
+    FilmGrain,
+    Dust,
+    Scratches
+}
+
+/// <summary>
+/// Detected era/context from script content for auto-assigning appropriate filter/texture
+/// </summary>
+public enum VideoEra
+{
+    None,
+    /// <summary>Ancient times: prophets, 7th century, Babylon, Egypt, etc</summary>
+    Ancient,
+    /// <summary>End times/eschatological: apocalyptic, Day of Judgment, etc</summary>
+    Apocalyptic,
+    /// <summary>Modern/contemporary: 21st century, urban, technology</summary>
+    Modern,
+    /// <summary>Abstract/symbolic: metaphysical, cosmic, spiritual concepts</summary>
+    Abstract,
+    /// <summary>Nature/landscape: forests, mountains, oceans (timeless)</summary>
+    Nature
+}
+
+/// <summary>
 /// Result of short video generation.
 /// </summary>
 public record ShortVideoResult

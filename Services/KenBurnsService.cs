@@ -25,6 +25,7 @@ public class KenBurnsService
 {
     private readonly ILogger<KenBurnsService> _logger;
     private readonly string _ffmpegDirectory;
+    private readonly VideoStyleSettings _styleSettings;
 
     private const int DefaultFps = 30;
     private const long MinValidFileSize = 1024; // 1KB minimum for valid video
@@ -36,9 +37,10 @@ public class KenBurnsService
 
     private static readonly Random _random = new();
 
-    public KenBurnsService(ILogger<KenBurnsService> logger, IConfiguration config)
+    public KenBurnsService(ILogger<KenBurnsService> logger, IConfiguration config, VideoStyleSettings styleSettings)
     {
         _logger = logger;
+        _styleSettings = styleSettings;
 
         _ffmpegDirectory = Path.GetFullPath(config["FFmpeg:BinaryDirectory"]
             ?? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ffmpeg-binaries"));
@@ -227,26 +229,29 @@ public class KenBurnsService
         // 6x upscaling with fast_bilinear for speed
         string scaleUp = $"scale=-2:6*ih:flags=fast_bilinear";
         string scaleDown = $"scale={outWidth}:{outHeight}:flags=fast_bilinear";
+        
+        // Vignette filter - applied to all Ken Burns videos for cinematic look (if enabled globally)
+        string vignette = _styleSettings.VignetteEnabled ? ",vignette=PI/6:aspect=1" : "";
 
         return motionType switch
         {
             KenBurnsMotionType.None =>
-                $"{scaleUp},zoompan=z='{F(z0)}':x='iw*{F(x0)}-iw/zoom/2':y='ih*{F(y0)}-ih/zoom/2':d={d}:s={outWidth}x{outHeight},{scaleDown}",
+                $"{scaleUp},zoompan=z='{F(z0)}':x='iw*{F(x0)}-iw/zoom/2':y='ih*{F(y0)}-ih/zoom/2':d={d}:s={outWidth}x{outHeight},{scaleDown}{vignette}",
 
             KenBurnsMotionType.SlowZoomIn or KenBurnsMotionType.SlowZoomOut =>
-                $"{scaleUp},zoompan=z='{zExpr}':x='iw/2-iw/zoom/2':y='ih/2-ih/zoom/2':d={d}:s={outWidth}x{outHeight},{scaleDown}",
+                $"{scaleUp},zoompan=z='{zExpr}':x='iw/2-iw/zoom/2':y='ih/2-ih/zoom/2':d={d}:s={outWidth}x{outHeight},{scaleDown}{vignette}",
 
             KenBurnsMotionType.PanLeftToRight or KenBurnsMotionType.PanRightToLeft =>
-                $"{scaleUp},zoompan=z='{F(z0)}':x='iw*({F(x0)}+({F(x1)}-{F(x0)})*{t})-iw/{F(z0)}/2':y='ih*{F(y0)}-ih/{F(z0)}/2':d={d}:s={outWidth}x{outHeight},{scaleDown}",
+                $"{scaleUp},zoompan=z='{F(z0)}':x='iw*({F(x0)}+({F(x1)}-{F(x0)})*{t})-iw/{F(z0)}/2':y='ih*{F(y0)}-ih/{F(z0)}/2':d={d}:s={outWidth}x{outHeight},{scaleDown}{vignette}",
 
             KenBurnsMotionType.PanTopToBottom or KenBurnsMotionType.PanBottomToTop =>
-                $"{scaleUp},zoompan=z='{F(z0)}':x='iw*{F(x0)}-iw/{F(z0)}/2':y='ih*({F(y0)}+({F(y1)}-{F(y0)})*{t})-ih/{F(z0)}/2':d={d}:s={outWidth}x{outHeight},{scaleDown}",
+                $"{scaleUp},zoompan=z='{F(z0)}':x='iw*{F(x0)}-iw/{F(z0)}/2':y='ih*({F(y0)}+({F(y1)}-{F(y0)})*{t})-ih/{F(z0)}/2':d={d}:s={outWidth}x{outHeight},{scaleDown}{vignette}",
 
             KenBurnsMotionType.DiagonalZoomIn or KenBurnsMotionType.DiagonalZoomOut =>
-                $"{scaleUp},zoompan=z='{zExpr}':x='iw*({F(x0)}+({F(x1)}-{F(x0)})*{t})-iw/zoom/2':y='ih*({F(y0)}+({F(y1)}-{F(y0)})*{t})-ih/zoom/2':d={d}:s={outWidth}x{outHeight},{scaleDown}",
+                $"{scaleUp},zoompan=z='{zExpr}':x='iw*({F(x0)}+({F(x1)}-{F(x0)})*{t})-iw/zoom/2':y='ih*({F(y0)}+({F(y1)}-{F(y0)})*{t})-ih/zoom/2':d={d}:s={outWidth}x{outHeight},{scaleDown}{vignette}",
 
             _ =>
-                $"{scaleUp},zoompan=z='{F(z0)}':x='iw*{F(x0)}-iw/zoom/2':y='ih*{F(y0)}-ih/zoom/2':d={d}:s={outWidth}x{outHeight},{scaleDown}"
+                $"{scaleUp},zoompan=z='{F(z0)}':x='iw*{F(x0)}-iw/zoom/2':y='ih*{F(y0)}-ih/zoom/2':d={d}:s={outWidth}x{outHeight},{scaleDown}{vignette}"
         };
     }
 

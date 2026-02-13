@@ -24,8 +24,40 @@ public class BrollPromptItem
     /// <summary>LLM reasoning for why this media type was chosen</summary>
     public string Reasoning { get; set; } = string.Empty;
 
-    /// <summary>Artistic style for this specific segment</summary>
+    /// <summary>Artistic style for this specific segment (legacy, use Filter + Texture)</summary>
     public VideoStyle Style { get; set; } = VideoStyle.None;
+
+    // === Separate Edit Controls: Filter & Texture ===
+
+    /// <summary>Artistic filter applied to the video (color/look adjustments)</summary>
+    public VideoFilter Filter { get; set; } = VideoFilter.None;
+
+    /// <summary>Texture overlay applied on top of the video</summary>
+    public VideoTexture Texture { get; set; } = VideoTexture.None;
+
+    /// <summary>Detected era/context from script/prompt for automatic styling</summary>
+    public VideoEra Era { get; set; } = VideoEra.None;
+
+    /// <summary>Get the effective filter to use (considers both Filter and legacy Style)</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public VideoFilter EffectiveFilter => Filter != VideoFilter.None ? Filter : Style switch
+    {
+        VideoStyle.Painting => VideoFilter.Painting,
+        VideoStyle.Sepia => VideoFilter.Sepia,
+        _ => VideoFilter.None
+    };
+
+    /// <summary>Get the effective texture to use (considers both Texture and legacy Style)</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public VideoTexture EffectiveTexture => Texture != VideoTexture.None ? Texture : Style switch
+    {
+        VideoStyle.Canvas => VideoTexture.Canvas,
+        _ => VideoTexture.None
+    };
+
+    /// <summary>Check if any visual effect is applied</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool HasVisualEffect => EffectiveFilter != VideoFilter.None || EffectiveTexture != VideoTexture.None;
 
     // === Phase 1: Broll Search Results ===
     

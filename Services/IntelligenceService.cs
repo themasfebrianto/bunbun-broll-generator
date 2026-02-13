@@ -776,7 +776,7 @@ RULES:
                                 if (localIdx >= 0 && localIdx < batchSegments.Count)
                                 {
                                     var globalIdx = batchStart + localIdx;
-                                    results.Add(new BrollPromptItem
+                                    var promptItem = new BrollPromptItem
                                     {
                                         Index = globalIdx,
                                         Timestamp = segments[globalIdx].Timestamp,
@@ -785,7 +785,12 @@ RULES:
                                             ? BrollMediaType.ImageGeneration
                                             : BrollMediaType.BrollVideo,
                                         Prompt = item.Prompt ?? string.Empty
-                                    });
+                                    };
+                                    
+                                    // Auto-detect era and assign appropriate filter/texture
+                                    EraLibrary.AutoAssignEraStyle(promptItem);
+                                    
+                                    results.Add(promptItem);
                                 }
                             }
                         }

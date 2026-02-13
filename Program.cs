@@ -40,6 +40,7 @@ builder.Services.AddSingleton<KenBurnsService>();
 builder.Services.AddScoped<IShortVideoComposer, ShortVideoComposer>();
 builder.Services.AddScoped<IScriptProcessor, ScriptProcessor>();
 builder.Services.AddScoped<IPipelineOrchestrator, PipelineOrchestrator>();
+builder.Services.AddSingleton<VideoStyleSettings>();
 
 // Script Generation services
 builder.Services.AddSingleton<IPatternRegistry, PatternRegistry>();
