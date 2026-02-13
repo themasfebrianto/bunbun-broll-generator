@@ -271,6 +271,23 @@ using (var scope = app.Services.CreateScope())
             Console.WriteLine("Added Whisk image columns to existing database.");
         }
 
+        // Check if VideoStyle column exists
+        command.CommandText = @"
+            SELECT COUNT(*) FROM pragma_table_info('Sentences') WHERE name='VideoStyle'
+        ";
+        result = await command.ExecuteScalarAsync();
+        columnExists = Convert.ToInt32(result) > 0;
+
+        if (!columnExists)
+        {
+            using var alterCommand = connection.CreateCommand();
+            alterCommand.CommandText = @"
+                ALTER TABLE Sentences ADD COLUMN VideoStyle TEXT;
+            ";
+            await alterCommand.ExecuteNonQueryAsync();
+            Console.WriteLine("Added VideoStyle column to existing database.");
+        }
+
         // Check if ChannelName column exists in ScriptGenerationSessions
         command.CommandText = @"
             SELECT COUNT(*) FROM pragma_table_info('ScriptGenerationSessions') WHERE name='ChannelName'

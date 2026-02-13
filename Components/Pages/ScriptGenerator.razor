@@ -17,6 +17,8 @@
 @inject IAssetBroker AssetBroker
 @inject WhiskImageGenerator WhiskGenerator
 @inject KenBurnsService KenBurnsService
+@inject IShortVideoComposer VideoComposer
+@inject IDownloaderService DownloaderService
 
 <div class="max-w-[90rem] mx-auto pt-6 pb-8 px-4">
     <nav class="breadcrumb mb-6">
@@ -1047,20 +1049,59 @@
                                         </div>
                                     }
 
+                                    @* === Visual Style Selection === *@
+                                    <div class="mb-3">
+                                        <div class="flex justify-between items-center">
+                                            <span class="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Visual Style</span>
+                                            @if (item.Style != VideoStyle.None && isBroll)
+                                            {
+                                                 <button class="text-[10px] text-blue-400 hover:text-blue-300 font-medium flex items-center gap-1"
+                                                         disabled="@(item.IsSearching || item.IsFilteringVideo)"
+                                                         @onclick="() => HandleApplyStyleToVideo(item)">
+                                                     @if (item.IsFilteringVideo)
+                                                     {
+                                                         <svg class="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                         </svg>
+                                                         <span>Applying...</span>
+                                                     }
+                                                     else
+                                                     {
+                                                         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                                                         <span>Preview Filter</span>
+                                                     }
+                                                 </button>
+                                            }
+                                        </div>
+                                        <select class="input mt-1 w-full text-xs bg-background/60 rounded-md p-2 border border-border/30 cursor-pointer"
+                                                @bind="item.Style"
+                                                @bind:after="() => { item.FilteredVideoPath = null; SaveBrollPromptsToDisk(); }">
+                                            @foreach (var style in Enum.GetValues<VideoStyle>())
+                                            {
+                                                <option value="@style">@style</option>
+                                            }
+                                        </select>
+                                        @if (!string.IsNullOrEmpty(item.FilterError))
+                                        {
+                                            <p class="text-[10px] text-destructive mt-1">@item.FilterError</p>
+                                        }
+                                    </div>
+
                                     @* === Centralized Action Bar === *@
                                     <div class="flex flex-col gap-2 pt-2 border-t border-border/20">
                                         <div class="flex items-center gap-2">
                                             @if (isBroll)
                                             {
                                                 <button class="btn btn-ghost btn-xs gap-1.5 text-muted-foreground hover:text-foreground"
-                                                        disabled="@(item.IsSearching || item.IsGenerating)"
+                                                        disabled="@(item.IsSearching || item.IsGenerating || item.IsFilteringVideo)"
                                                         @onclick="() => HandleRegenSegmentKeywords(item)">
                                                     <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
                                                     Regen Prompt
                                                 </button>
 
                                                 <button class="btn btn-ghost btn-xs gap-1.5 text-muted-foreground hover:text-blue-400"
-                                                        disabled="@(item.IsSearching)"
+                                                        disabled="@(item.IsSearching || item.IsFilteringVideo)"
                                                         @onclick="() => HandleSearchSingleSegment(item)">
                                                     <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
                                                     @if (item.AllSearchResults.Count > 0)
@@ -1137,14 +1178,34 @@
                                                 <span class="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Terpilih</span>
                                                 <div class="mt-1 rounded-lg overflow-hidden border-2 border-primary/50 bg-background/40">
                                                     <div class="aspect-video relative">
-                                                        <video src="@selectedVideo.DownloadUrl"
+                                                        @{
+                                                            var previewSrc = !string.IsNullOrEmpty(item.FilteredVideoPath) 
+                                                                ? $"project-assets/{System.IO.Path.GetFileName(item.FilteredVideoPath)}" 
+                                                                : selectedVideo.DownloadUrl;
+                                                        }
+                                                        <video src="@previewSrc"
                                                                poster="@selectedVideo.ThumbnailUrl"
                                                                class="w-full h-full object-cover"
                                                                controls muted loop preload="metadata"
                                                                playsinline>
                                                         </video>
-                                                        <div class="absolute top-1 left-1 bg-black/60 text-white text-[9px] px-1.5 py-0.5 rounded pointer-events-none">@selectedVideo.Provider</div>
-                                                        <div class="absolute top-1 right-1 bg-primary/80 text-white text-[9px] px-1.5 py-0.5 rounded font-semibold pointer-events-none">✓ Selected</div>
+                                                        
+                                                        @if (!string.IsNullOrEmpty(item.FilteredVideoPath))
+                                                        {
+                                                            <div class="absolute top-1 left-1 bg-blue-500/80 text-white text-[9px] px-1.5 py-0.5 rounded font-bold pointer-events-none">
+                                                                FILTER: @item.Style.ToString().ToUpper()
+                                                            </div>
+                                                            <button class="absolute top-1 right-1 bg-black/60 hover:bg-black/80 text-white rounded-full p-1"
+                                                                    title="Clear Filter"
+                                                                    @onclick="() => { item.FilteredVideoPath = null; }">
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                                            </button>
+                                                        }
+                                                        else
+                                                        {
+                                                            <div class="absolute top-1 left-1 bg-black/60 text-white text-[9px] px-1.5 py-0.5 rounded pointer-events-none">@selectedVideo.Provider</div>
+                                                            <div class="absolute top-1 right-1 bg-primary/80 text-white text-[9px] px-1.5 py-0.5 rounded font-semibold pointer-events-none">✓ Selected</div>
+                                                        }
                                                     </div>
                                                     @if (!string.IsNullOrEmpty(selectedVideo.Quality))
                                                     {
@@ -2897,7 +2958,9 @@
                 KenBurnsMotion = i.KenBurnsMotion,
                 WhiskVideoStatus = i.WhiskVideoStatus,
                 WhiskVideoPath = i.WhiskVideoPath,
-                WhiskVideoError = i.WhiskVideoError
+                WhiskVideoError = i.WhiskVideoError,
+                Style = i.Style,
+                FilteredVideoPath = i.FilteredVideoPath
             }).ToList();
 
             var json = System.Text.Json.JsonSerializer.Serialize(saveData, new System.Text.Json.JsonSerializerOptions
@@ -2949,13 +3012,110 @@
                         : s.KenBurnsMotion,
                     WhiskVideoStatus = s.WhiskVideoStatus,
                     WhiskVideoPath = s.WhiskVideoPath,
-                    WhiskVideoError = s.WhiskVideoError
+                    WhiskVideoError = s.WhiskVideoError,
+                    Style = s.Style,
+                    FilteredVideoPath = s.FilteredVideoPath
                 }).ToList();
             }
         }
         catch (Exception ex)
         {
             Console.Error.WriteLine($"Failed to load broll prompts: {ex.Message}");
+        }
+    }
+
+    private async Task HandleApplyStyleToVideo(BrollPromptItem item)
+    {
+        if (item.IsFilteringVideo) return;
+        
+        try
+        {
+            item.IsFilteringVideo = true;
+            item.FilterError = null;
+            StateHasChanged();
+
+            // 1. Identify source video
+            string videoUrl;
+            string? localPath = null;
+            VideoAsset? selectedVideo = null;
+
+            if (item.SearchResults.Count > 0)
+            {
+                selectedVideo = item.SearchResults.FirstOrDefault(v => v.DownloadUrl == item.SelectedVideoUrl)
+                                    ?? item.SearchResults.First();
+                videoUrl = selectedVideo.DownloadUrl;
+                
+                // If we have a local path in the video asset, use it
+                if (!string.IsNullOrEmpty(selectedVideo.LocalPath) && File.Exists(selectedVideo.LocalPath))
+                {
+                    localPath = selectedVideo.LocalPath;
+                }
+            }
+            else
+            {
+                throw new InvalidOperationException("No video selected to filter.");
+            }
+
+            // 2. Download if not local
+            if (string.IsNullOrEmpty(localPath) || !File.Exists(localPath))
+            {
+                // Download to project assets
+                var projectSlug = _resultSession?.Topic != null 
+                    ? System.Text.RegularExpressions.Regex.Replace(_resultSession.Topic, @"[^\w\s\-]", "").Trim().Replace(" ", "-")
+                    : "temp-preview";
+                    
+                localPath = await DownloaderService.DownloadVideoAsync(
+                    selectedVideo, 
+                    projectSlug, 
+                    item.Index, 
+                    "preview-source", 
+                    CancellationToken.None);
+                
+                // Update local path in transient object so next time we skip download
+                selectedVideo.LocalPath = localPath;
+            }
+
+            if (string.IsNullOrEmpty(localPath) || !File.Exists(localPath))
+            {
+                throw new Exception("Could not download source video.");
+            }
+
+            // 3. Apply Style
+            var videoConfig = new ShortVideoConfig 
+            { 
+                Ratio = AspectRatio.Landscape_16x9,
+                Style = item.Style 
+            };
+
+            var filteredPath = await VideoComposer.ApplyStyleToVideoAsync(localPath, item.Style, videoConfig);
+
+            if (!string.IsNullOrEmpty(filteredPath))
+            {
+                // Move to project assets folder so it can be served
+                var projectAssetsDir = Path.Combine(Directory.GetCurrentDirectory(), "output", "project-assets");
+                Directory.CreateDirectory(projectAssetsDir);
+                var finalFileName = $"filtered_{Guid.NewGuid():N}.mp4";
+                var finalPath = Path.Combine(projectAssetsDir, finalFileName);
+                
+                File.Move(filteredPath, finalPath);
+                item.FilteredVideoPath = finalPath;
+            }
+            else
+            {
+                throw new Exception("Filter application returned null path.");
+            }
+
+            await SaveBrollPromptsToDisk();
+        }
+        catch (Exception ex)
+        {
+            item.FilterError = $"Filter failed: {ex.Message}";
+            Console.Error.WriteLine($"Filter error: {ex}");
+        }
+        finally
+        {
+            item.IsFilteringVideo = false;
+            StateHasChanged();
         }
     }
 
@@ -2976,6 +3136,8 @@
         public WhiskGenerationStatus WhiskVideoStatus { get; set; }
         public string? WhiskVideoPath { get; set; }
         public string? WhiskVideoError { get; set; }
+        public VideoStyle Style { get; set; }
+        public string? FilteredVideoPath { get; set; }
     }
 
     /// <summary>Lightweight summary of broll data for session list cards</summary>

@@ -48,6 +48,9 @@ public class ScriptSentence
     public string? WhiskImagePath { get; set; }
     public KenBurnsMotionType WhiskMotionType { get; set; } = KenBurnsMotionType.Random;
     
+    // Per-sentence visual style
+    public VideoStyle Style { get; set; } = VideoStyle.None;
+    
     // Helpers
     public bool HasSearchResults => SearchResults.Count > 0;
     public bool HasSelection => SelectedVideo != null;

@@ -105,6 +105,9 @@ public class ProjectSentence
     // Whisk Image Generation
     public string? WhiskImagePath { get; set; }
     public string? WhiskMotionType { get; set; } = "Random";
+    
+    // Per-sentence visual style (persisted as string)
+    public string? VideoStyle { get; set; }
 
     // CRITICAL: Duration of selected video for accurate % match calculation on load
     public int VideoDuration { get; set; }

@@ -13,7 +13,9 @@
     "KenBurnsMotion": "PanLeftToRight",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "Painting",
+    "FilteredVideoPath": null
   },
   {
     "Index": 1,
@@ -29,7 +31,9 @@
     "KenBurnsMotion": "SlowZoomIn",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 2,
@@ -45,7 +49,9 @@
     "KenBurnsMotion": "SlowZoomOut",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 3,
@@ -61,7 +67,9 @@
     "KenBurnsMotion": "DiagonalZoomOut",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 4,
@@ -77,7 +85,9 @@
     "KenBurnsMotion": "SlowZoomOut",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 5,
@@ -93,7 +103,9 @@
     "KenBurnsMotion": "SlowZoomOut",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 6,
@@ -109,7 +121,9 @@
     "KenBurnsMotion": "DiagonalZoomIn",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 7,
@@ -125,7 +139,9 @@
     "KenBurnsMotion": "PanRightToLeft",
     "WhiskVideoStatus": "Done",
     "WhiskVideoPath": "E:\\VibeCode\\ScriptFlow_workspace\\bunbun-broll-generator\\output\\6557a577\\whisk_images\\img-3_kb.mp4",
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 8,
@@ -141,7 +157,9 @@
     "KenBurnsMotion": "SlowZoomOut",
     "WhiskVideoStatus": "Done",
     "WhiskVideoPath": "E:\\VibeCode\\ScriptFlow_workspace\\bunbun-broll-generator\\output\\6557a577\\whisk_images\\img-4_kb.mp4",
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 9,
@@ -157,7 +175,9 @@
     "KenBurnsMotion": "PanLeftToRight",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 10,
@@ -173,7 +193,9 @@
     "KenBurnsMotion": "DiagonalZoomIn",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 11,
@@ -189,7 +211,9 @@
     "KenBurnsMotion": "DiagonalZoomOut",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 12,
@@ -205,7 +229,9 @@
     "KenBurnsMotion": "PanLeftToRight",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 13,
@@ -221,7 +247,9 @@
     "KenBurnsMotion": "PanLeftToRight",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 14,
@@ -237,7 +265,9 @@
     "KenBurnsMotion": "DiagonalZoomOut",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 15,
@@ -253,7 +283,9 @@
     "KenBurnsMotion": "SlowZoomOut",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 16,
@@ -269,7 +301,9 @@
     "KenBurnsMotion": "DiagonalZoomIn",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 17,
@@ -285,7 +319,9 @@
     "KenBurnsMotion": "PanRightToLeft",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 18,
@@ -301,7 +337,9 @@
     "KenBurnsMotion": "SlowZoomIn",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 19,
@@ -313,11 +351,13 @@
     "WhiskStatus": "Pending",
     "WhiskImagePath": null,
     "WhiskError": null,
-    "SelectedVideoUrl": "https://videos.pexels.com/video-files/5151380/5151380-hd_1920_1080_24fps.mp4",
+    "SelectedVideoUrl": "https://videos.pexels.com/video-files/11875562/11875562-hd_1920_1080_30fps.mp4",
     "KenBurnsMotion": "PanRightToLeft",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 20,
@@ -333,7 +373,9 @@
     "KenBurnsMotion": "DiagonalZoomIn",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 21,
@@ -349,7 +391,9 @@
     "KenBurnsMotion": "PanRightToLeft",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 22,
@@ -365,7 +409,9 @@
     "KenBurnsMotion": "SlowZoomOut",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 23,
@@ -381,7 +427,9 @@
     "KenBurnsMotion": "PanLeftToRight",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 24,
@@ -397,7 +445,9 @@
     "KenBurnsMotion": "DiagonalZoomOut",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 25,
@@ -413,7 +463,9 @@
     "KenBurnsMotion": "PanRightToLeft",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 26,
@@ -429,7 +481,9 @@
     "KenBurnsMotion": "PanRightToLeft",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 27,
@@ -445,7 +499,9 @@
     "KenBurnsMotion": "DiagonalZoomIn",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 28,
@@ -461,7 +517,9 @@
     "KenBurnsMotion": "DiagonalZoomOut",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 29,
@@ -477,7 +535,9 @@
     "KenBurnsMotion": "PanLeftToRight",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 30,
@@ -493,7 +553,9 @@
     "KenBurnsMotion": "DiagonalZoomIn",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 31,
@@ -509,7 +571,9 @@
     "KenBurnsMotion": "PanRightToLeft",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 32,
@@ -525,7 +589,9 @@
     "KenBurnsMotion": "SlowZoomIn",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 33,
@@ -541,7 +607,9 @@
     "KenBurnsMotion": "DiagonalZoomOut",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 34,
@@ -557,7 +625,9 @@
     "KenBurnsMotion": "SlowZoomIn",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 35,
@@ -573,7 +643,9 @@
     "KenBurnsMotion": "DiagonalZoomOut",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 36,
@@ -589,7 +661,9 @@
     "KenBurnsMotion": "DiagonalZoomOut",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 37,
@@ -605,7 +679,9 @@
     "KenBurnsMotion": "SlowZoomIn",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 38,
@@ -621,7 +697,9 @@
     "KenBurnsMotion": "SlowZoomOut",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 39,
@@ -637,7 +715,9 @@
     "KenBurnsMotion": "PanRightToLeft",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 40,
@@ -653,7 +733,9 @@
     "KenBurnsMotion": "DiagonalZoomOut",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 41,
@@ -669,7 +751,9 @@
     "KenBurnsMotion": "SlowZoomIn",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 42,
@@ -685,7 +769,9 @@
     "KenBurnsMotion": "PanLeftToRight",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 43,
@@ -701,7 +787,9 @@
     "KenBurnsMotion": "DiagonalZoomIn",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 44,
@@ -717,7 +805,9 @@
     "KenBurnsMotion": "PanRightToLeft",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 45,
@@ -733,7 +823,9 @@
     "KenBurnsMotion": "SlowZoomIn",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 46,
@@ -749,7 +841,9 @@
     "KenBurnsMotion": "DiagonalZoomOut",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 47,
@@ -765,7 +859,9 @@
     "KenBurnsMotion": "PanRightToLeft",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 48,
@@ -781,7 +877,9 @@
     "KenBurnsMotion": "PanRightToLeft",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 49,
@@ -797,7 +895,9 @@
     "KenBurnsMotion": "DiagonalZoomIn",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 50,
@@ -813,7 +913,9 @@
     "KenBurnsMotion": "DiagonalZoomIn",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 51,
@@ -829,7 +931,9 @@
     "KenBurnsMotion": "SlowZoomOut",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 52,
@@ -845,7 +949,9 @@
     "KenBurnsMotion": "DiagonalZoomOut",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 53,
@@ -861,7 +967,9 @@
     "KenBurnsMotion": "DiagonalZoomOut",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 54,
@@ -877,7 +985,9 @@
     "KenBurnsMotion": "PanLeftToRight",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 55,
@@ -893,7 +1003,9 @@
     "KenBurnsMotion": "PanLeftToRight",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 56,
@@ -909,7 +1021,9 @@
     "KenBurnsMotion": "PanLeftToRight",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 57,
@@ -925,7 +1039,9 @@
     "KenBurnsMotion": "DiagonalZoomIn",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 58,
@@ -941,7 +1057,9 @@
     "KenBurnsMotion": "PanLeftToRight",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 59,
@@ -957,7 +1075,9 @@
     "KenBurnsMotion": "PanRightToLeft",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 60,
@@ -973,7 +1093,9 @@
     "KenBurnsMotion": "SlowZoomIn",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 61,
@@ -989,7 +1111,9 @@
     "KenBurnsMotion": "DiagonalZoomIn",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 62,
@@ -1005,7 +1129,9 @@
     "KenBurnsMotion": "SlowZoomIn",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 63,
@@ -1021,7 +1147,9 @@
     "KenBurnsMotion": "PanRightToLeft",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 64,
@@ -1037,7 +1165,9 @@
     "KenBurnsMotion": "SlowZoomOut",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 65,
@@ -1053,7 +1183,9 @@
     "KenBurnsMotion": "PanLeftToRight",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 66,
@@ -1069,7 +1201,9 @@
     "KenBurnsMotion": "SlowZoomIn",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 67,
@@ -1085,7 +1219,9 @@
     "KenBurnsMotion": "PanRightToLeft",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 68,
@@ -1101,7 +1237,9 @@
     "KenBurnsMotion": "SlowZoomIn",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 69,
@@ -1117,7 +1255,9 @@
     "KenBurnsMotion": "SlowZoomOut",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 70,
@@ -1133,7 +1273,9 @@
     "KenBurnsMotion": "SlowZoomOut",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 71,
@@ -1149,7 +1291,9 @@
     "KenBurnsMotion": "PanLeftToRight",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 72,
@@ -1165,7 +1309,9 @@
     "KenBurnsMotion": "PanRightToLeft",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 73,
@@ -1181,7 +1327,9 @@
     "KenBurnsMotion": "SlowZoomIn",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 74,
@@ -1197,7 +1345,9 @@
     "KenBurnsMotion": "SlowZoomOut",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 75,
@@ -1213,7 +1363,9 @@
     "KenBurnsMotion": "PanRightToLeft",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   },
   {
     "Index": 76,
@@ -1229,6 +1381,8 @@
     "KenBurnsMotion": "SlowZoomOut",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
-    "WhiskVideoError": null
+    "WhiskVideoError": null,
+    "Style": "None",
+    "FilteredVideoPath": null
   }
 ]

@@ -777,6 +777,11 @@
                         sentence.WhiskMotionType = motion;
                     }
 
+                    if (Enum.TryParse<VideoStyle>(sent.VideoStyle, out var style))
+                    {
+                        sentence.Style = style;
+                    }
+
                     segment.Sentences.Add(sentence);
                 }
                 _currentJob.Segments.Add(segment);

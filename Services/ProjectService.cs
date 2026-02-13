@@ -92,7 +92,8 @@ public class ProjectService(AppDbContext db) : IProjectService
                     VideoDuration = jobSentence.SelectedVideo?.DurationSeconds ?? 0,
                     // Whisk Image
                     WhiskImagePath = jobSentence.WhiskImagePath,
-                    WhiskMotionType = jobSentence.WhiskMotionType.ToString()
+                    WhiskMotionType = jobSentence.WhiskMotionType.ToString(),
+                    VideoStyle = jobSentence.Style.ToString()
                 });
             }
         }

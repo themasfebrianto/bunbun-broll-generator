@@ -24,6 +24,9 @@ public class BrollPromptItem
     /// <summary>LLM reasoning for why this media type was chosen</summary>
     public string Reasoning { get; set; } = string.Empty;
 
+    /// <summary>Artistic style for this specific segment</summary>
+    public VideoStyle Style { get; set; } = VideoStyle.None;
+
     // === Phase 1: Broll Search Results ===
     
     /// <summary>Search results from Pexels/Pixabay for BROLL segments</summary>
@@ -78,6 +81,17 @@ public class BrollPromptItem
     
     /// <summary>Whether this segment is currently converting to video</summary>
     public bool IsConvertingVideo { get; set; }
+
+    // === Phase 4: Artistic Video Filter ===
+
+    /// <summary>Path to video file with artistic filter applied (if any)</summary>
+    public string? FilteredVideoPath { get; set; }
+
+    /// <summary>Whether this segment is currently applying a video filter</summary>
+    public bool IsFilteringVideo { get; set; }
+
+    /// <summary>Filter application error message</summary>
+    public string? FilterError { get; set; }
 
     private static readonly Random _random = new();
     public static KenBurnsMotionType GetRandomMotion()

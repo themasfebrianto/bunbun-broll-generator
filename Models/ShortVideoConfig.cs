@@ -90,6 +90,24 @@ public record ShortVideoConfig
     /// Hook text display duration in milliseconds.
     /// </summary>
     public int HookDurationMs { get; init; } = 2000;
+
+    // === Artistic Style ===
+
+    /// <summary>
+    /// Artistic style filter to apply to B-roll videos.
+    /// </summary>
+    public VideoStyle Style { get; init; } = VideoStyle.None;
+}
+
+/// <summary>
+/// Artistic styles for B-roll video processing.
+/// </summary>
+public enum VideoStyle
+{
+    None,
+    Painting,
+    Canvas,
+    Sepia
 }
 
 /// <summary>
@@ -128,6 +146,7 @@ public record VideoClip
     public KenBurnsMotionType MotionType { get; init; } = KenBurnsMotionType.SlowZoomIn;
     public string AssociatedText { get; init; } = "";
     public double DurationSeconds { get; init; }
+    public VideoStyle? Style { get; init; }
 
     public VideoClip() { }
 
