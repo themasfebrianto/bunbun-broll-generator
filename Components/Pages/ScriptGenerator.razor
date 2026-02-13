@@ -1225,10 +1225,10 @@
                                                     }
                                                 </div>
 
-                                                @if (item.WhiskVideoStatus == WhiskGenerationStatus.Done && !string.IsNullOrEmpty(item.WhiskVideoPath) && System.IO.File.Exists(item.WhiskVideoPath))
+                                                @if (item.WhiskVideoStatus == WhiskGenerationStatus.Done && !string.IsNullOrEmpty(item.WhiskVideoPath) && System.IO.File.Exists(ResolveLocalPath(item.WhiskVideoPath)))
                                                 {
                                                     <div class="rounded-lg overflow-hidden border border-primary/30 bg-black aspect-video">
-                                                        <video src="/project-assets/@(Path.GetRelativePath(Path.Combine(Directory.GetCurrentDirectory(), "output"), item.WhiskVideoPath).Replace("\\", "/"))" 
+                                                        <video src="@GetAssetUrl(item.WhiskVideoPath)" 
                                                                class="w-full h-full object-cover" controls loop muted playsinline></video>
                                                     </div>
                                                 }
@@ -1242,7 +1242,7 @@
                                                         <span class="text-[10px] text-muted-foreground animate-pulse">Converting to Ken Burns...</span>
                                                     </div>
                                                 }
-                                                else if (System.IO.File.Exists(item.WhiskImagePath))
+                                                else if (System.IO.File.Exists(ResolveLocalPath(item.WhiskImagePath)))
                                                 {
                                                     <div class="rounded-lg overflow-hidden border border-border/30">
                                                         <img src="@GetAssetUrl(item.WhiskImagePath!)" alt="Generated image" class="w-full h-auto" />
@@ -1250,7 +1250,7 @@
                                                 }
                                                 else
                                                 {
-                                                    <div class="text-xs text-yellow-500">⚠️ File not found</div>
+                                                    <div class="text-xs text-yellow-500">⚠️ File not found (@ResolveLocalPath(item.WhiskImagePath))</div>
                                                 }
 
                                                 @if (item.WhiskVideoStatus == WhiskGenerationStatus.Failed)
@@ -1519,8 +1519,8 @@
 
                 if (QueryView == "broll-prompts")
                 {
-                    _currentView = "broll-prompts";
                     await LoadBrollPromptsFromDisk();
+                    _currentView = "broll-prompts";
                     // Auto-search broll videos for segments that have no search results
                     if (_brollPromptItems.Any(i => i.MediaType == BrollMediaType.BrollVideo && i.SearchResults.Count == 0))
                     {
@@ -1536,7 +1536,9 @@
                 }
                 else
                 {
-                    _currentView = "results";
+                    await LoadBrollPromptsFromDisk();
+                    _currentView = "broll-prompts";
+                    _ = AutoSearchMissingBrollSegments();
                 }
                 return;
             }
@@ -1809,7 +1811,9 @@
         if (session.Status == SessionStatus.Completed)
         {
             await LoadResultSections(session);
-            _currentView = "results";
+            await LoadBrollPromptsFromDisk();
+            _currentView = "broll-prompts";
+            _ = AutoSearchMissingBrollSegments();
         }
         else if (session.Status == SessionStatus.Running || session.Status == SessionStatus.Failed || BgService.IsRunning(session.Id))
         {
@@ -1848,10 +1852,35 @@
         {
             var content = "";
             var isMissing = false;
+            var debugInfo = "";
+
+            // Strategy 1: Load from DB path directly
             if (!string.IsNullOrEmpty(phase.ContentFilePath) && File.Exists(phase.ContentFilePath))
+            {
                 content = await File.ReadAllTextAsync(phase.ContentFilePath);
-            else if (!string.IsNullOrEmpty(phase.ContentFilePath))
-                isMissing = true;
+            }
+            // Strategy 2: Load relative to CWD (if path is relative)
+            else if (!string.IsNullOrEmpty(phase.ContentFilePath) && File.Exists(Path.Combine(Directory.GetCurrentDirectory(), phase.ContentFilePath)))
+            {
+                content = await File.ReadAllTextAsync(Path.Combine(Directory.GetCurrentDirectory(), phase.ContentFilePath));
+            }
+            // Strategy 3: Construct expected path manually
+            else
+            {
+                var expectedPath = Path.Combine(Directory.GetCurrentDirectory(), "output", "scripts", session.Id, $"{phase.Order:D2}-{phase.PhaseId}.md");
+                if (File.Exists(expectedPath))
+                {
+                    content = await File.ReadAllTextAsync(expectedPath);
+                }
+                else
+                {
+                    isMissing = true;
+                    // Gather debug info to show user
+                    debugInfo = $"DB Path: '{phase.ContentFilePath}'\n" +
+                                $"CWD: '{Directory.GetCurrentDirectory()}'\n" +
+                                $"Tried constructed: '{expectedPath}'";
+                }
+            }
 
             List<string>? points = null;
             if (outlineDist.TryGetValue(phase.PhaseId, out var pts)) points = pts;
@@ -1861,7 +1890,7 @@
                 PhaseId = phase.PhaseId,
                 PhaseName = phase.PhaseName,
                 Order = phase.Order,
-                Content = content,
+                Content = isMissing ? debugInfo : content, // Show debug info in content if missing, or handle in UI
                 WordCount = phase.WordCount ?? 0,
                 DurationSeconds = phase.DurationSeconds ?? 0,
                 IsValidated = phase.IsValidated,
@@ -1962,7 +1991,9 @@
                             {
                                 _resultSession = completedSession;
                                 await LoadResultSections(completedSession);
-                                _currentView = "results";
+                                await LoadBrollPromptsFromDisk();
+                                _currentView = "broll-prompts";
+                                _ = AutoSearchMissingBrollSegments();
                             }
                             StateHasChanged();
                         });
@@ -2271,6 +2302,44 @@
         StateHasChanged();
     }
 
+    private async Task AutoSearchMissingBrollSegments()
+    {
+        // Find segments that are B-Roll Video but have NO search results (and aren't currently searching)
+        var missingItems = _brollPromptItems
+            .Where(i => i.MediaType == BrollMediaType.BrollVideo 
+                     && (i.AllSearchResults == null || i.AllSearchResults.Count == 0)
+                     && !i.IsSearching)
+            .ToList();
+
+        if (missingItems.Count == 0) return;
+
+        // Show global searching state
+        await InvokeAsync(() =>
+        {
+            _isSearchingBroll = true;
+            StateHasChanged();
+        });
+
+        // Search one by one to avoid rate limits
+        foreach (var item in missingItems)
+        {
+            await InvokeAsync(async () =>
+            {
+                await SearchBrollForSegmentAsync(item, forceRefresh: true);
+                StateHasChanged();
+            });
+            // Small delay to be nice to the API
+            await Task.Delay(500); 
+        }
+
+        // Hide global searching state
+        await InvokeAsync(() =>
+        {
+            _isSearchingBroll = false;
+            StateHasChanged();
+        });
+    }
+
     private async Task SearchBrollForSegmentAsync(BrollPromptItem item, bool forceRefresh = false)
     {
         item.IsSearching = true;
@@ -2380,16 +2449,17 @@
 
         try
         {
-            // Re-classify just this one segment
-            var singleResult = await IntelligenceService.ClassifyAndGeneratePromptsAsync(
-                new List<(string, string)> { (item.Timestamp, item.ScriptText) },
+            // NEW: Force generation of B-Roll keywords (prevents switching to Image Gen)
+            var brollKeywords = await IntelligenceService.GeneratePromptForTypeAsync(
+                item.ScriptText, 
+                BrollMediaType.BrollVideo, 
                 _resultSession.Topic);
 
-            if (singleResult.Count > 0)
+            if (!string.IsNullOrWhiteSpace(brollKeywords))
             {
-                // Preserve user's current media type — only update prompt and reasoning
-                item.Prompt = singleResult[0].Prompt;
-                item.Reasoning = singleResult[0].Reasoning;
+                item.Prompt = brollKeywords;
+                // Keep existing reasoning or set a generic one
+                item.Reasoning = "Regenerated keywords";
             }
 
             // Re-search if still broll
@@ -2511,18 +2581,19 @@
 
         try
         {
-            // Step 1: Regen Prompt (AI classification/generation)
+            // Step 1: Regen Prompt (Forced Image Gen)
             item.CombinedRegenProgress = 20;
             StateHasChanged();
 
-            var singleResult = await IntelligenceService.ClassifyAndGeneratePromptsAsync(
-                new List<(string, string)> { (item.Timestamp, item.ScriptText) },
+            var imagePrompt = await IntelligenceService.GeneratePromptForTypeAsync(
+                item.ScriptText, 
+                BrollMediaType.ImageGeneration, 
                 _resultSession.Topic);
 
-            if (singleResult.Count > 0)
+            if (!string.IsNullOrWhiteSpace(imagePrompt))
             {
-                item.Prompt = singleResult[0].Prompt;
-                item.Reasoning = singleResult[0].Reasoning;
+                item.Prompt = imagePrompt;
+                item.Reasoning = "Regenerated image prompt";
                 // Fix: Randomize motion type on regeneration
                 item.KenBurnsMotion = BrollPromptItem.GetRandomMotion();
             }
@@ -2764,8 +2835,28 @@
 
     private string? GetBrollPromptsFilePath()
     {
-        if (_resultSession == null || string.IsNullOrEmpty(_resultSession.OutputDirectory)) return null;
-        return Path.Combine(_resultSession.OutputDirectory, "broll-prompts.json");
+        if (_resultSession == null) return null;
+
+        // Strategy 1: OutputDirectory as is (if valid absolute path on this OS)
+        if (!string.IsNullOrEmpty(_resultSession.OutputDirectory))
+        {
+            var directPath = Path.Combine(_resultSession.OutputDirectory, "broll-prompts.json");
+            if (File.Exists(directPath)) return directPath;
+        }
+
+        // Strategy 2: Relative to CWD (if OutputDirectory is relative or we can resolve it)
+        if (!string.IsNullOrEmpty(_resultSession.OutputDirectory))
+        {
+             var relativePath = Path.Combine(Directory.GetCurrentDirectory(), _resultSession.OutputDirectory, "broll-prompts.json");
+             if (File.Exists(relativePath)) return relativePath;
+        }
+        
+        // Strategy 3: Construct expected path manually (fallback for cross-platform/absolute paths)
+        var constructedPath = Path.Combine(Directory.GetCurrentDirectory(), "output", "scripts", _resultSession.Id, "broll-prompts.json");
+        if (File.Exists(constructedPath)) return constructedPath;
+
+        // Default to constructed path for saving if none exist
+        return constructedPath;
     }
 
     private void InvalidateBrollClassification()
@@ -3063,9 +3154,50 @@
 
     private string GetAssetUrl(string absolutePath)
     {
-        var baseDir = Path.Combine(Directory.GetCurrentDirectory(), "output");
-        var relative = Path.GetRelativePath(baseDir, absolutePath).Replace("\\", "/");
-        return $"/project-assets/{relative}";
+        if (string.IsNullOrEmpty(absolutePath)) return "";
+        if (absolutePath.StartsWith("http", StringComparison.OrdinalIgnoreCase)) return absolutePath;
+
+        // Normalize slashes
+        var normalized = absolutePath.Replace("\\", "/");
+        
+        // Check for "output/" marker to handle cross-platform/absolute paths
+        var markerIndex = normalized.IndexOf("output/", StringComparison.OrdinalIgnoreCase);
+        if (markerIndex >= 0)
+        {
+            var relative = normalized.Substring(markerIndex + "output/".Length);
+            return $"/project-assets/{relative}";
+        }
+
+        // Fallback for same-system absolute paths
+        try
+        {
+            var baseDir = Path.Combine(Directory.GetCurrentDirectory(), "output");
+            var relative = Path.GetRelativePath(baseDir, absolutePath).Replace("\\", "/");
+            return $"/project-assets/{relative}";
+        }
+        catch
+        {
+            return absolutePath; // Give up and return original
+        }
+    }
+
+    private string ResolveLocalPath(string? absolutePath)
+    {
+        if (string.IsNullOrEmpty(absolutePath)) return "";
+        
+        // Normalize slashes
+        var normalized = absolutePath.Replace("\\", "/");
+
+        // Check for "output/" marker
+        var markerIndex = normalized.IndexOf("output/", StringComparison.OrdinalIgnoreCase);
+        if (markerIndex >= 0)
+        {
+            var relative = normalized.Substring(markerIndex + "output/".Length);
+            // Construct local path using current OS directory separator
+            return Path.Combine(Directory.GetCurrentDirectory(), "output", relative.Replace("/", Path.DirectorySeparatorChar.ToString()));
+        }
+
+        return absolutePath;
     }
 
     private static int EstimateDuration(string text)

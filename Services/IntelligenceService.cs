@@ -52,6 +52,16 @@ public interface IIntelligenceService
         string topic,
         Func<List<BrollPromptItem>, Task>? onBatchComplete = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Forces generation of a specific prompt type (B-Roll or Image Gen) for a given segment.
+    /// This avoids re-classification errors during regeneration.
+    /// </summary>
+    Task<string> GeneratePromptForTypeAsync(
+        string scriptText,
+        BrollMediaType mediaType,
+        string topic,
+        CancellationToken cancellationToken = default);
 }
 
 public class IntelligenceService : IIntelligenceService
@@ -857,23 +867,60 @@ RULES:
             "ClassifyBroll: Classified {Total} segments ({Broll} broll, {ImageGen} image gen) in {Ms}ms across {Batches} batches",
             results.Count, brollCount, imageGenCount, stopwatch.ElapsedMilliseconds, totalBatches);
 
+        _logger.LogInformation("ClassifyBroll: Completed with {Count} items in {Ms}ms", results.Count, stopwatch.ElapsedMilliseconds);
         return results;
     }
 
-    /// <summary>Internal DTO for parsing LLM classification response</summary>
-    private class BrollClassificationResponse
+    public async Task<string> GeneratePromptForTypeAsync(
+        string scriptText,
+        BrollMediaType mediaType,
+        string topic,
+        CancellationToken cancellationToken = default)
     {
-        [JsonPropertyName("index")]
-        public int Index { get; set; }
+        string systemPrompt;
+        
+        if (mediaType == BrollMediaType.BrollVideo)
+        {
+            systemPrompt = $@"You are a visual content analyzer for Islamic video essays.
+Your task: Generate a concise English search query for STOCK FOOTAGE (B-Roll) based on the script segment.
 
-        [JsonPropertyName("mediaType")]
-        public string? MediaType { get; set; }
+CONTEXT: {topic}
 
-        [JsonPropertyName("prompt")]
-        public string? Prompt { get; set; }
+RULES for BROLL:
+- Output ONLY the search query (2-5 words).
+- ABSOLUTELY NO PEOPLE, NO HUMAN BODY PARTS, NO FACES, NO SILHOUETTES.
+- Use NATURE or URBAN imagery depending on context.
+- Avoid human-adjacent terms (walking, praying, hands, shadows).
+- Examples: 'storm clouds timelapse', 'desert sand dunes', 'modern city skyline', 'flowing river', 'ancient ruins'.
 
+SCRIPT SEGMENT: ""{scriptText}""
 
+OUTPUT (Just the search query, no quotes):";
+        }
+        else // ImageGeneration
+        {
+            systemPrompt = $@"You are an AI image prompt generator for Islamic video essays.
+Your task: Generate a detailed, high-quality image generation prompt for Whisk/Imagen.
+
+CONTEXT: {topic}
+
+RULES for IMAGE_GEN:
+- Output ONLY the prompt string.
+- Follow this structure: [ERA PREFIX] [Detailed Description]{{LOCKED_STYLE}}
+- ERA PREFIXES: {EraLibrary.GetEraSelectionInstructions()}
+- CHARACTER RULES: {Models.CharacterRules.GENDER_RULES}
+- PROPHET RULES: {Models.CharacterRules.PROPHET_RULES}
+- LOCKED STYLE: {Models.ImageVisualStyle.BASE_STYLE_SUFFIX}
+
+SCRIPT SEGMENT: ""{scriptText}""
+
+OUTPUT (Just the prompt, no quotes):";
+        }
+
+        var result = await GenerateContentAsync(systemPrompt, $"Generate prompt for: {scriptText}", maxTokens: 300, temperature: 0.7, cancellationToken: cancellationToken);
+        return result?.Trim().Trim('"') ?? (mediaType == BrollMediaType.BrollVideo ? "cinematic footage" : "islamic historical scene");
     }
+
 }
 
 // Request/Response models for OpenAI-compatible API
@@ -934,4 +981,16 @@ public class AuthSettings
 {
     public string Email { get; set; } = "";
     public string Password { get; set; } = "";
+}
+
+public class BrollClassificationResponse
+{
+    [JsonPropertyName("index")]
+    public int Index { get; set; }
+
+    [JsonPropertyName("mediaType")]
+    public string? MediaType { get; set; }
+
+    [JsonPropertyName("prompt")]
+    public string? Prompt { get; set; }
 }
