@@ -26,13 +26,15 @@ public class HalalVideoFilterTests
     }
 
     [Fact]
-    public void FilterKeywords_ReplacesWomanWithPersonSilhouette()
+    public void FilterKeywords_ReplacesWomanWithNatureKeyword()
     {
         var keywords = new List<string> { "woman walking alone" };
         var filtered = _filter.FilterKeywords(keywords);
 
-        Assert.Contains("person silhouette", filtered);
+        // Should replace with nature/urban keyword, no human references
         Assert.DoesNotContain("woman", string.Join(" ", filtered));
+        Assert.DoesNotContain("person", string.Join(" ", filtered));
+        Assert.DoesNotContain("silhouette", string.Join(" ", filtered));
     }
 
     [Fact]

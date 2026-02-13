@@ -22,8 +22,10 @@ public class HalalFilterIntegrationTests
         // Should block beach party
         Assert.DoesNotContain("beach party", filtered);
 
-        // Should replace woman with silhouette
-        Assert.Contains("silhouette", string.Join(" ", filtered));
+        // Should replace woman with nature/urban keyword, no human references
+        Assert.DoesNotContain("woman", string.Join(" ", filtered));
+        Assert.DoesNotContain("person", string.Join(" ", filtered));
+        Assert.DoesNotContain("silhouette", string.Join(" ", filtered));
 
         // Should have cinematic fallbacks
         Assert.True(filtered.Count >= 3);

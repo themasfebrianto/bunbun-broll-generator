@@ -2086,6 +2086,22 @@
     private async Task HandleSendToBroll()
     {
         if (_resultSession == null || _resultSections.Count == 0) return;
+
+        // Guard: If classification results already exist (in memory or on disk), skip re-classification
+        if (_brollPromptItems.Count == 0)
+        {
+            await LoadBrollPromptsFromDisk();
+        }
+
+        if (_brollPromptItems.Count > 0)
+        {
+            // Classification already done — just show the results
+            _currentView = "broll-prompts";
+            StateHasChanged();
+            return;
+        }
+
+        // No existing classification — run it
         _isClassifyingBroll = true;
         _classifyError = null;
         _classifyTotalSegments = 0;
@@ -2191,6 +2207,8 @@
 
     private async Task HandleReclassifyBroll()
     {
+        // Force re-classification by clearing existing results first
+        InvalidateBrollClassification();
         await HandleSendToBroll();
     }
 

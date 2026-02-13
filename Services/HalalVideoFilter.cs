@@ -66,45 +66,53 @@ public class HalalVideoFilter : IHalalVideoFilter
         "redhead woman", "long hair woman", "curly hair woman",
         "makeup tutorial", "beauty salon", "spa treatment",
 
-        // NEW: Music/concert (often revealing)
-        "concert crowd", "music festival", "rave festival"
+        // Music/concert (often revealing)
+        "concert crowd", "music festival", "rave festival",
+
+        // ALL HUMAN SUBJECTS - absolute block
+        "person", "people", "human", "silhouette", "crowd",
+        "man", "woman", "boy", "girl", "child", "children",
+        "face", "portrait", "hands", "feet", "walking person",
+        "people walking", "shadow person", "person standing",
+        "person sitting", "person walking", "feet walking",
+        "hands praying", "hands typing", "family"
     };
 
-    // Female-related keywords to REPLACE with safer alternatives
+    // Female-related keywords to REPLACE with nature/urban alternatives (NO HUMAN SUBJECTS)
     private static readonly Dictionary<string, string> FemaleReplacements = new(StringComparer.OrdinalIgnoreCase)
     {
-        // Replace with nature/abstract
-        ["woman"] = "person silhouette",
-        ["women"] = "people walking",
-        ["girl"] = "young person",
-        ["lady"] = "person",
-        ["female"] = "person",
-        ["wife"] = "family",
-        ["mother"] = "family hands",
-        ["mom"] = "family",
+        // Replace all human terms with nature/urban equivalents
+        ["woman"] = "sunset landscape",
+        ["women"] = "ocean waves",
+        ["girl"] = "flower garden",
+        ["lady"] = "morning mist",
+        ["female"] = "calm lake",
+        ["wife"] = "warm sunlight",
+        ["mother"] = "gentle river",
+        ["mom"] = "sunrise meadow",
         
-        // Replace beauty with modest alternatives
-        ["woman face"] = "person silhouette window",
-        ["woman portrait"] = "hands praying",
-        ["woman smile"] = "peaceful morning",
-        ["woman looking"] = "person looking horizon",
-        ["woman walking"] = "person walking city",
-        ["woman sitting"] = "person silhouette sitting",
-        ["woman standing"] = "person standing nature",
+        // Replace scenarios with nature/urban visuals
+        ["woman face"] = "sunset horizon",
+        ["woman portrait"] = "mountain landscape",
+        ["woman smile"] = "peaceful sunrise",
+        ["woman looking"] = "vast desert horizon",
+        ["woman walking"] = "empty street dusk",
+        ["woman sitting"] = "calm lake reflection",
+        ["woman standing"] = "mountain peak view",
         
-        // Replace specific scenarios
-        ["woman morning"] = "sunrise bedroom peaceful",
-        ["woman night"] = "night city lights",
-        ["woman alone"] = "solitude nature",
-        ["woman thinking"] = "contemplation silhouette",
+        // Replace activities with nature/urban metaphors
+        ["woman morning"] = "sunrise golden hour",
+        ["woman night"] = "city lights night",
+        ["woman alone"] = "solitary mountain",
+        ["woman thinking"] = "clouds drifting sky",
         ["woman sad"] = "rain window mood",
-        ["woman happy"] = "nature sunshine",
-        ["woman tired"] = "morning coffee cup",
-        ["woman stressed"] = "clock ticking papers",
-        ["woman working"] = "laptop hands typing",
-        ["woman reading"] = "book pages hands",
-        ["woman cooking"] = "kitchen hands cooking",
-        ["woman praying"] = "muslim woman praying hijab"
+        ["woman happy"] = "sunshine meadow",
+        ["woman tired"] = "dimming evening sky",
+        ["woman stressed"] = "storm clouds gathering",
+        ["woman working"] = "modern office building",
+        ["woman reading"] = "open book pages",
+        ["woman cooking"] = "steaming kitchen",
+        ["woman praying"] = "mosque interior light"
     };
 
     // Cinematic fallback keywords for when everything is filtered
@@ -122,7 +130,7 @@ public class HalalVideoFilter : IHalalVideoFilter
         "stars night sky"
     };
 
-    // Preferred SAFE categories (no people or modest only)
+    // Preferred SAFE categories (no people at all)
     private static readonly string[] SafeCategories = new[]
     {
         // Nature (safest)
@@ -136,11 +144,7 @@ public class HalalVideoFilter : IHalalVideoFilter
 
         // Objects/abstract
         "coffee steam cup", "book pages", "clock ticking", "candle flame",
-        "water ripples", "light bokeh", "smoke motion", "writing pen paper",
-
-        // Modest human content
-        "hands praying", "hands typing keyboard", "silhouette person window",
-        "person back view walking", "feet walking", "shadow person"
+        "water ripples", "light bokeh", "smoke motion", "writing pen paper"
     };
 
     public HalalVideoFilter(ILogger<HalalVideoFilter> logger)
@@ -217,14 +221,12 @@ public class HalalVideoFilter : IHalalVideoFilter
                 // Add muslim/hijab modifier or replace with silhouette
                 if (lower.Contains("pray") || lower.Contains("worship"))
                 {
-                    enhanced.Add(keyword + " muslim hijab");
+                    enhanced.Add("mosque interior light");
                 }
                 else
                 {
-                    // Replace with silhouette version
-                    enhanced.Add(keyword.Replace("woman", "person silhouette", StringComparison.OrdinalIgnoreCase)
-                                       .Replace("girl", "person", StringComparison.OrdinalIgnoreCase)
-                                       .Replace("female", "person", StringComparison.OrdinalIgnoreCase));
+                    // Replace with nature/urban equivalent
+                    enhanced.Add("nature landscape cinematic");
                 }
             }
             else
@@ -249,15 +251,10 @@ public class HalalVideoFilter : IHalalVideoFilter
             }
         }
         
-        // Generic replacement for any remaining female terms
+        // Generic replacement for any remaining female terms — use nature
         if (ContainsFemaleTerms(lower))
         {
-            return keyword
-                .Replace("woman", "person silhouette", StringComparison.OrdinalIgnoreCase)
-                .Replace("women", "people", StringComparison.OrdinalIgnoreCase)
-                .Replace("girl", "person", StringComparison.OrdinalIgnoreCase)
-                .Replace("lady", "person", StringComparison.OrdinalIgnoreCase)
-                .Replace("female", "person", StringComparison.OrdinalIgnoreCase);
+            return "nature landscape cinematic";
         }
 
         return keyword;

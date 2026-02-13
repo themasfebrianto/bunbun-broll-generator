@@ -60,7 +60,7 @@ public class IntelligenceService : IIntelligenceService
     private readonly ILogger<IntelligenceService> _logger;
     private readonly GeminiSettings _settings;
 
-    private const string SystemPrompt = @"B-Roll keyword extractor for nature cinematic footage. Convert script to English stock footage keywords.
+    private const string SystemPrompt = @"B-Roll keyword extractor for cinematic footage with NO HUMAN SUBJECTS. Convert script to English stock footage keywords.
 
 OUTPUT (JSON only, no markdown):
 {
@@ -76,10 +76,16 @@ OUTPUT (JSON only, no markdown):
 RULES:
 - Translate ALL to English
 - 2-3 words per keyword (not single words)
-- Focus exclusively on NATURE LANDSCAPES and ATMOSPHERIC CINEMATIC shots.
-- STRICT RULE: NO PEOPLE, NO HUMAN FACES, NO HUMAN BODY PARTS.
+- ABSOLUTE RULE: NO PEOPLE, NO HUMAN FACES, NO HUMAN BODY PARTS, NO SILHOUETTES, NO HUMAN ACTIVITY, NO CROWDS, NO PERSON, NO HANDS, NO FEET.
 - Avoid religious/sensitive triggers
-- fallbackKeywords: always include safe universals like ""ocean waves"", ""sunset clouds""
+- fallbackKeywords: always include safe universals like ""ocean waves"", ""sunset clouds"", ""mountain landscape""
+
+ERA-BASED VISUAL CONTEXT (CRITICAL):
+- When the script describes stories of PROPHETS, ANCIENT TIMES, or HISTORICAL ERAS:
+  Use NATURE-BASED visuals ONLY: desert landscape, sand dunes, ancient ruins without people, mountain range, vast sky, barren land, rocky terrain, oasis, starry desert night, forest canopy, calm sea, sunrise horizon, windswept plains
+- When the script shifts to MODERN TIMES or CONTEMPORARY topics:
+  Use URBAN visuals: cityscape, modern buildings, skyline, highway, infrastructure, modern architecture, glass tower, urban street empty, traffic lights, bridge structure, aerial city view
+- NEVER include any human presence regardless of era
 
 VISUAL STYLE GUIDELINES (apply to ALL keyword layers when style is specified):
 - Cinematic: Use keywords like ""cinematic lighting"", ""film grain"", ""dramatic shadows"", ""slow motion"", ""wide shot"", ""depth of field"", ""golden hour"", ""lens flare"", ""movie scene""
@@ -90,7 +96,7 @@ VISUAL STYLE GUIDELINES (apply to ALL keyword layers when style is specified):
 EMOTIONAL MOOD DETECTION (separate from visual style):
 melancholic=rain window, anxious=storm clouds, hopeful=sunrise, calm=placid lake, energetic=crashing waves
 
-IMPORTANT: When user specifies a Visual Style, weave those terms into PRIMARY, MOOD, and CONTEXTUAL keywords. Use high-end nature cinematic terms.";
+IMPORTANT: When user specifies a Visual Style, weave those terms into PRIMARY, MOOD, and CONTEXTUAL keywords. Use high-end cinematic terms. Match era context (nature for ancient, urban for modern).";
 
     public IntelligenceService(
         HttpClient httpClient, 
@@ -630,11 +636,12 @@ IMPORTANT: When user specifies a Visual Style, weave those terms into PRIMARY, M
         var classifySystemPrompt = $@"You are a visual content classifier for Islamic video essays. Your job is to analyze script segments and decide the best visual approach for each.
 
 For each segment, classify as:
-1. **BROLL** - Use nature stock footage (Pexels/Pixabay) when the content depicts:
+1. **BROLL** - Use stock footage (Pexels/Pixabay) with ABSOLUTELY NO HUMAN SUBJECTS when the content depicts:
    - Real-world landscapes, nature, atmospheric shots, cityscapes (empty), urban (architectural)
    - Atmospheric footage (rain, clouds, sunrise, ocean, forest, mountains)
    - Objects, technology, textures, abstract light
-   - STRICT RULE: NO PEOPLE. If the script implies human action, use a NATURE METAPHOR (e.g., 'faith grows' -> 'growing plant timelapse')
+   - ABSOLUTE RULE: NO PEOPLE, NO SILHOUETTES, NO HUMAN ACTIVITY, NO PERSON, NO HANDS, NO FEET, NO CROWDS.
+   - If the script implies human action, use a NATURE or URBAN METAPHOR (e.g., 'faith grows' -> 'growing plant timelapse', 'people gather' -> 'city skyline aerial')
 
 2. **IMAGE_GEN** - Use AI image generation (Whisk / Imagen) when the content depicts:
    - Historical/ancient scenes (7th century Arabia, ancient civilizations)
@@ -654,8 +661,15 @@ CHARACTER RULES (ISLAMIC SYAR'I - ONLY for IMAGE_GEN):
 LOCKED VISUAL STYLE (REQUIRED FOR ALL IMAGE_GEN PROMPTS):
 {Models.ImageVisualStyle.BASE_STYLE_SUFFIX}
 
-For BROLL segments: Generate a concise English search query for cinematic nature/landscape footage (2-5 words). 
-STRICT RULE for BROLL: DO NOT INCLUDE PEOPLE, HUMANS, OR FACES in the prompt. Use metaphors if needed.
+BROLL ERA-BASED VISUAL CONTEXT (CRITICAL FOR BROLL ONLY):
+- When the script describes stories of PROPHETS, ANCIENT TIMES, or HISTORICAL ERAS:
+  BROLL must use NATURE-BASED keywords ONLY: desert landscape, sand dunes, mountain range, vast sky, barren land, rocky terrain, ancient ruins without people, oasis, starry desert night, forest canopy, calm sea, sunrise horizon, windswept plains
+- When the script shifts to MODERN TIMES or CONTEMPORARY topics:
+  BROLL must use URBAN keywords: cityscape, modern buildings, skyline, highway, infrastructure, modern architecture, glass tower, empty urban street, traffic lights, bridge structure, aerial city view
+- REGARDLESS OF ERA: NEVER include any human presence in BROLL prompts
+
+For BROLL segments: Generate a concise English search query for cinematic footage (2-5 words).
+ABSOLUTE RULE for BROLL: DO NOT INCLUDE PEOPLE, HUMANS, FACES, SILHOUETTES, PERSON, HANDS, FEET, or any HUMAN ACTIVITY in the prompt. Use nature or urban metaphors.
 
 For IMAGE_GEN segments: Generate a detailed Whisk-style prompt following this structure:
   [ERA PREFIX] [Detailed scene description: setting, action, lighting, atmosphere, characters]{{LOCKED_STYLE}}
@@ -675,8 +689,8 @@ RESPOND WITH JSON ONLY (no markdown):
 
 RULES:
 - Translate all prompts to English
-- For BROLL: Keep prompts short (2-5 words), focused on NATURE and LANDSCAPES.
-- For BROLL: NEVER mention terms like 'person', 'man', 'woman', 'people', 'crowd', 'face'.
+- For BROLL: Keep prompts short (2-5 words), focused on NATURE (for ancient/prophetic) or URBAN (for modern).
+- For BROLL: NEVER mention 'person', 'man', 'woman', 'people', 'crowd', 'face', 'silhouette', 'hands', 'feet', 'shadow person'.
 - For IMAGE_GEN: Include era prefix, detailed scene, locked style suffix
 - Never depict prophet faces
 - Avoid sensitive/haram visual triggers";
