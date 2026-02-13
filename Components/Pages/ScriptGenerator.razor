@@ -1,3 +1,4 @@
+@page "/"
 @page "/script-generator"
 @rendermode InteractiveServer
 @using BunbunBroll.Services
@@ -19,12 +20,7 @@
 
 <div class="max-w-[90rem] mx-auto pt-6 pb-8 px-4">
     <nav class="breadcrumb mb-6">
-        <a href="/" class="breadcrumb-item">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0h4"/></svg>
-            Home
-        </a>
-        <span class="breadcrumb-sep">/</span>
-        <span class="breadcrumb-current">Script Generator</span>
+        <span class="breadcrumb-current">Script Dashboard</span>
     </nav>
 
     @* ============ VIEW 0: Session List ============ *@
@@ -141,6 +137,54 @@
                                 }
                             </div>
                         }
+
+                        @* B-Roll metadata preview *@
+                        @if (_brollSummaries.TryGetValue(session.Id, out var broll))
+                        {
+                            <div class="mt-3 pt-3 border-t border-border/50">
+                                <div class="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                                    @if (broll.VideoCount > 0)
+                                    {
+                                        <span class="inline-flex items-center gap-1">
+                                            <span>🎬</span>
+                                            <span>@broll.VideoCount broll</span>
+                                        </span>
+                                    }
+                                    @if (broll.ImageGenCount > 0)
+                                    {
+                                        <span class="inline-flex items-center gap-1">
+                                            <span>🎨</span>
+                                            <span>@broll.ImageGenCount image gen</span>
+                                        </span>
+                                    }
+                                    @{
+                                        var readyCount = broll.VideosSelected + broll.ImagesReady;
+                                    }
+                                    @if (readyCount > 0)
+                                    {
+                                        <span class="inline-flex items-center gap-1 @(readyCount >= broll.TotalSegments ? "text-success" : "")">
+                                            <span>✅</span>
+                                            <span>@readyCount/@broll.TotalSegments ready</span>
+                                        </span>
+                                    }
+                                </div>
+
+                                @if (broll.ThumbnailPaths.Count > 0)
+                                {
+                                    <div class="flex gap-1.5 mt-2">
+                                        @foreach (var thumbPath in broll.ThumbnailPaths)
+                                        {
+                                            <div class="w-12 h-12 rounded-md overflow-hidden bg-muted border border-border/50">
+                                                <img src="@GetAssetUrl(thumbPath)" 
+                                                     alt="B-Roll thumbnail" 
+                                                     class="w-full h-full object-cover" 
+                                                     loading="lazy" />
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        }
                     </div>
                 }
             }
@@ -237,9 +281,19 @@
     {
         <div class="max-w-[52rem] mx-auto card p-8 space-y-6">
             <div class="space-y-2">
-                <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between">
                     <h2 class="text-lg font-semibold">Generating: @_topic</h2>
-                    <span class="badge badge-mono">@_sessionId</span>
+                    <div class="flex items-center gap-2">
+                        <span class="badge badge-mono">@_sessionId</span>
+                        @if (_sessionId != null && BgService.IsRunning(_sessionId))
+                        {
+                            <button class="px-3 py-1.5 bg-destructive/15 text-destructive hover:bg-destructive/25 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5"
+                                    @onclick="HandleCancelGeneration">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                                Batalkan
+                            </button>
+                        }
+                    </div>
                 </div>
                 <p class="text-sm text-muted-foreground">@_progressMessage</p>
                 @if (!string.IsNullOrWhiteSpace(_outline))
@@ -582,6 +636,10 @@
                                     </div>
                                 </div>
                                 <div class="flex items-center gap-2">
+                                    @if (sec.IsFileMissing)
+                                    {
+                                        <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-warning/15 text-warning border border-warning/30" title="File konten hilang">⚠ File Hilang</span>
+                                    }
                                     @if (sec.IsValidated)
                                     {
                                         <span class="text-success text-sm flex items-center gap-1">
@@ -639,6 +697,15 @@
                             {
                                 <div class="px-8 py-6 overflow-y-auto" style="max-height: 75vh;">
                                     
+                                    @* Missing File Warning *@
+                                    @if (sec.IsFileMissing)
+                                    {
+                                        <div class="mb-4 p-3 rounded-lg border border-warning/30 bg-warning/10 text-warning text-sm flex items-center gap-2">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" /></svg>
+                                            <span>File konten hilang. Regenerasi fase ini untuk membuat ulang.</span>
+                                        </div>
+                                    }
+
                                     @* Outline Block *@
                                     @if (sec.OutlinePoints?.Count > 0)
                                     {
@@ -1311,6 +1378,7 @@
     private string _currentView = "list";
     private List<ScriptGenerationSession> _sessions = new();
     private bool _isLoadingSessions = true;
+    private Dictionary<string, BrollSessionSummary> _brollSummaries = new();
 
     // Event bus subscriptions
     private IDisposable? _progressSubscription;
@@ -1327,7 +1395,9 @@
     private string? _sourceReferences;
     private int _targetDuration = 30;
     private bool _isGenerating = false;
+    private bool _isCancelling = false;
     private string? _errorMessage;
+    private string? _saveError;
 
     // Progress
     private string? _sessionId;
@@ -1484,9 +1554,51 @@
     private async Task LoadSessionsAsync()
     {
         _isLoadingSessions = true;
-        try { _sessions = await ScriptService.ListSessionsAsync(); }
+        try
+        {
+            _sessions = await ScriptService.ListSessionsAsync();
+            await LoadBrollSummariesAsync();
+        }
         catch { _sessions = new(); }
         finally { _isLoadingSessions = false; }
+    }
+
+    private async Task LoadBrollSummariesAsync()
+    {
+        _brollSummaries.Clear();
+        foreach (var session in _sessions.Where(s => s.Status == SessionStatus.Completed))
+        {
+            try
+            {
+                var filePath = Path.Combine(session.OutputDirectory, "broll-prompts.json");
+                if (!File.Exists(filePath)) continue;
+
+                var json = await File.ReadAllTextAsync(filePath);
+                var items = System.Text.Json.JsonSerializer.Deserialize<List<BrollPromptSaveItem>>(json, new System.Text.Json.JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true,
+                    Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+                });
+
+                if (items == null || items.Count == 0) continue;
+
+                var summary = new BrollSessionSummary
+                {
+                    TotalSegments = items.Count,
+                    VideoCount = items.Count(i => i.MediaType == BrollMediaType.BrollVideo),
+                    ImageGenCount = items.Count(i => i.MediaType == BrollMediaType.ImageGeneration),
+                    VideosSelected = items.Count(i => !string.IsNullOrEmpty(i.SelectedVideoUrl)),
+                    ImagesReady = items.Count(i => i.WhiskStatus == WhiskGenerationStatus.Done),
+                    ThumbnailPaths = items
+                        .Where(i => !string.IsNullOrEmpty(i.WhiskImagePath) && File.Exists(i.WhiskImagePath))
+                        .Take(4)
+                        .Select(i => i.WhiskImagePath!)
+                        .ToList()
+                };
+                _brollSummaries[session.Id] = summary;
+            }
+            catch { /* skip sessions with unreadable broll data */ }
+        }
     }
 
     private void ShowConfigForm()
@@ -1703,8 +1815,11 @@
         foreach (var phase in session.Phases.OrderBy(p => p.Order))
         {
             var content = "";
+            var isMissing = false;
             if (!string.IsNullOrEmpty(phase.ContentFilePath) && File.Exists(phase.ContentFilePath))
                 content = await File.ReadAllTextAsync(phase.ContentFilePath);
+            else if (!string.IsNullOrEmpty(phase.ContentFilePath))
+                isMissing = true;
 
             List<string>? points = null;
             if (outlineDist.TryGetValue(phase.PhaseId, out var pts)) points = pts;
@@ -1719,7 +1834,8 @@
                 DurationSeconds = phase.DurationSeconds ?? 0,
                 IsValidated = phase.IsValidated,
                 IsExpanded = true,
-                OutlinePoints = points
+                OutlinePoints = points,
+                IsFileMissing = isMissing
             });
         }
         _totalWords = session.Phases.Sum(p => p.WordCount ?? 0);
@@ -1732,6 +1848,14 @@
     private async Task HandleGenerate()
     {
         if (!CanGenerate) return;
+
+        // #3: Guard against duplicate generation
+        if (_sessionId != null && BgService.IsRunning(_sessionId))
+        {
+            _errorMessage = "Session ini sedang dalam proses generasi. Tunggu sampai selesai atau batalkan dulu.";
+            return;
+        }
+
         _isGenerating = true;
         _errorMessage = null;
 
@@ -1864,6 +1988,15 @@
     private async Task HandleRegenerateAll()
     {
         if (_isRegeneratingAll || _sessionId == null) return;
+
+        // #6: Guard against double-trigger
+        if (BgService.IsRunning(_sessionId))
+        {
+            _errorMessage = "Generasi masih berjalan. Tunggu sampai selesai atau batalkan dulu.";
+            StateHasChanged();
+            return;
+        }
+
         _isRegeneratingAll = true;
         _errorMessage = null;
         InvalidateBrollClassification();
@@ -1906,15 +2039,12 @@
             section.CopyState = "copied";
             StateHasChanged();
 
-            // Reset after 2 seconds
-            _ = Task.Run(async () =>
+            // #9: Reset after 2 seconds without unnecessary Task.Run
+            _ = InvokeAsync(async () =>
             {
                 await Task.Delay(2000);
-                await InvokeAsync(() =>
-                {
-                    section.CopyState = "idle";
-                    StateHasChanged();
-                });
+                section.CopyState = "idle";
+                StateHasChanged();
             });
         }
         catch { /* silently fail */ }
@@ -1922,9 +2052,31 @@
 
     // Old per-instance event handlers replaced by SubscribeToProgress() event bus pattern
 
+    private async Task HandleCancelGeneration()
+    {
+        if (_isCancelling || string.IsNullOrEmpty(_sessionId)) return;
+        _isCancelling = true;
+        StateHasChanged();
+
+        if (BgService.CancelGeneration(_sessionId))
+        {
+            _progressMessage = "Membatalkan generasi...";
+            // Wait briefly for UX, then check state
+            await Task.Delay(500);
+        }
+        else
+        {
+            _errorMessage = "Tidak bisa membatalkan: generasi tidak sedang berjalan.";
+        }
+
+        _isCancelling = false;
+        StateHasChanged();
+    }
+
     public void Dispose()
     {
         _progressSubscription?.Dispose();
+        _listSubscription?.Dispose();
         foreach (var sub in _listSubscriptions)
             sub.Dispose();
         _listSubscriptions.Clear();
@@ -2427,7 +2579,7 @@
         }
     }
 
-    /// <summary>Shared helper: generate a Whisk image for one item. Sets status/path/error.</summary>
+    /// <summary>Shared helper: generate a Whisk image for one item. Sets status/path/error. Includes 120s timeout.</summary>
     private async Task GenerateWhiskImageForItem(BrollPromptItem item)
     {
         item.WhiskStatus = WhiskGenerationStatus.Generating;
@@ -2445,7 +2597,9 @@
                 "output", _sessionId, "whisk_images");
             Directory.CreateDirectory(outputDir);
 
-            var result = await WhiskGenerator.GenerateImageAsync(item.Prompt, outputDir);
+            // #7: Add 120s timeout to prevent infinite hangs
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(120));
+            var result = await WhiskGenerator.GenerateImageAsync(item.Prompt, outputDir, cancellationToken: cts.Token);
             if (result.Success)
             {
                 item.WhiskStatus = WhiskGenerationStatus.Done;
@@ -2456,6 +2610,11 @@
                 item.WhiskStatus = WhiskGenerationStatus.Failed;
                 item.WhiskError = result.Error ?? "Unknown error";
             }
+        }
+        catch (OperationCanceledException)
+        {
+            item.WhiskStatus = WhiskGenerationStatus.Failed;
+            item.WhiskError = "Timeout: generasi gambar melebihi 120 detik";
         }
         catch (Exception ex)
         {
@@ -2522,6 +2681,8 @@
         }
         catch (Exception ex)
         {
+            // #10: Surface save failure to user instead of silent log
+            _saveError = $"Gagal menyimpan broll prompts: {ex.Message}";
             Console.Error.WriteLine($"Failed to save broll prompts: {ex.Message}");
         }
     }
@@ -2587,6 +2748,17 @@
         public WhiskGenerationStatus WhiskVideoStatus { get; set; }
         public string? WhiskVideoPath { get; set; }
         public string? WhiskVideoError { get; set; }
+    }
+
+    /// <summary>Lightweight summary of broll data for session list cards</summary>
+    private class BrollSessionSummary
+    {
+        public int TotalSegments { get; set; }
+        public int VideoCount { get; set; }
+        public int ImageGenCount { get; set; }
+        public int ImagesReady { get; set; }
+        public int VideosSelected { get; set; }
+        public List<string> ThumbnailPaths { get; set; } = new();
     }
 
     // ===== Export LRC =====
@@ -2851,6 +3023,7 @@
         public bool IsRegenerating { get; set; }
         public List<string>? OutlinePoints { get; set; }
         public string CopyState { get; set; } = "idle";
+        public bool IsFileMissing { get; set; }
     }
 
     // ===== Confirmation Modal State =====

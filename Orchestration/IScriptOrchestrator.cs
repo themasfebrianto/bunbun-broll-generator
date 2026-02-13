@@ -20,9 +20,9 @@ public interface IScriptOrchestrator
     Task SaveSessionAsync(ScriptGenerationSession session);
 
     // Generation
-    Task<PatternResult> GenerateAllAsync(string sessionId);
-    Task<PatternResult> ResumeAsync(string sessionId);
-    Task<GeneratedPhase> RegeneratePhaseAsync(string sessionId, string phaseId);
+    Task<PatternResult> GenerateAllAsync(string sessionId, CancellationToken cancellationToken = default);
+    Task<PatternResult> ResumeAsync(string sessionId, CancellationToken cancellationToken = default);
+    Task<GeneratedPhase> RegeneratePhaseAsync(string sessionId, string phaseId, CancellationToken cancellationToken = default);
     Task DeleteSessionAsync(string sessionId);
 
     // Progress events

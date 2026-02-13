@@ -80,6 +80,18 @@ public class SessionSyncService
             var json = JsonSerializer.Serialize(exportData, _jsonOptions);
             await File.WriteAllTextAsync(jsonPath, json);
 
+            // Sync broll-prompts.json (classification output) into git-tracked sessions/ folder
+            if (!string.IsNullOrEmpty(session.OutputDirectory))
+            {
+                var brollSource = Path.Combine(session.OutputDirectory, "broll-prompts.json");
+                if (File.Exists(brollSource))
+                {
+                    var brollDest = Path.Combine(sessionDir, "broll-prompts.json");
+                    File.Copy(brollSource, brollDest, overwrite: true);
+                    _logger.LogInformation("Synced broll-prompts.json for session {SessionId}", sessionId);
+                }
+            }
+
             _logger.LogInformation("Exported session {SessionId} ({Topic}) → {Path}",
                 sessionId, session.Topic, jsonPath);
         }
@@ -235,6 +247,15 @@ public class SessionSyncService
                 WarningsJson = phaseData.WarningsJson,
                 CompletedAt = phaseData.CompletedAt
             });
+        }
+
+        // Restore broll-prompts.json from git-tracked sessions/ folder into OutputDirectory
+        var syncedBrollPath = Path.Combine(_sessionsDir, data.Id, "broll-prompts.json");
+        if (File.Exists(syncedBrollPath))
+        {
+            var destBrollPath = Path.Combine(outputDir, "broll-prompts.json");
+            File.Copy(syncedBrollPath, destBrollPath, overwrite: true);
+            _logger.LogInformation("Restored broll-prompts.json for session {SessionId}", data.Id);
         }
 
         db.ScriptGenerationSessions.Add(session);

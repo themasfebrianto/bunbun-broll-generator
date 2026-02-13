@@ -69,9 +69,15 @@ $RECYCLE.BIN/
 # Project Specific
 # =========================
 
-# Downloaded B-Roll videos (output directory)
+# Downloaded B-Roll workspace
 Broll_Workspace/
-output/
+
+# Track output/ but exclude video files only
+output/**/*.mp4
+output/**/*.webm
+output/**/*.mov
+output/**/*.avi
+output/**/*.mkv
 
 # Session sync (git-tracked for cross-machine sync)
 # sessions/ directory is TRACKED — do NOT add it to gitignore

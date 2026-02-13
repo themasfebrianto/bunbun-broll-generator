@@ -19,10 +19,7 @@
                 <!-- Right section: Nav + Actions -->
                 <div class="flex items-center gap-2 md:gap-3">
                     <nav class="hidden md:flex items-center gap-6 text-sm">
-                        <a href="/" class="nav-link @(IsActive("/") ? "active" : "")">Generator</a>
-                        <a href="/script-generator" class="nav-link @(IsActive("/script-generator") ? "active" : "")">Script</a>
-                        <a href="/video" class="nav-link @(IsActive("/video") ? "active" : "")">Video</a>
-                        <a href="/about" class="nav-link @(IsActive("/about") ? "active" : "")">About</a>
+                        <a href="/" class="nav-link @(IsActive("/") ? "active" : "")">Script</a>
                     </nav>
                     <div class="hidden md:block border-l border-border h-5 mx-1"></div>
                     <div class="flex items-center gap-1">
@@ -50,8 +47,9 @@
         </main>
 
         <footer class="app-footer">
-            <div class="footer-content">
-                <p class="text-sm text-muted-foreground">© 2026 Bunbun Intelligence. B-Roll automation pipeline.</p>
+            <div class="footer-content flex items-center justify-between">
+                <p class="text-sm text-muted-foreground">© 2026 Bunbun Intelligence</p>
+                <a href="/about" class="text-sm text-muted-foreground hover:text-foreground transition-colors">About</a>
             </div>
         </footer>
 
@@ -67,8 +65,8 @@
 
         if (href == "/")
         {
-            // Home is active only when path is empty or starts with /editor
-            return string.IsNullOrEmpty(relativePath) || relativePath.StartsWith("editor");
+            // Script dashboard is active when path is empty or starts with script-generator
+            return string.IsNullOrEmpty(relativePath) || relativePath.StartsWith("script-generator");
         }
 
         return relativePath.StartsWith(href.TrimStart('/'), StringComparison.OrdinalIgnoreCase);

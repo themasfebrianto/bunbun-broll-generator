@@ -132,7 +132,7 @@ public class ScriptOrchestrator : IScriptOrchestrator
         await db.SaveChangesAsync();
     }
 
-    public async Task<PatternResult> GenerateAllAsync(string sessionId)
+    public async Task<PatternResult> GenerateAllAsync(string sessionId, CancellationToken cancellationToken = default)
     {
         var session = await LoadSessionAsync(sessionId)
             ?? throw new ArgumentException($"Session '{sessionId}' not found");
@@ -155,10 +155,10 @@ public class ScriptOrchestrator : IScriptOrchestrator
             OutputDirectory = session.OutputDirectory
         };
 
-        return await ExecuteGenerationAsync(session, context);
+        return await ExecuteGenerationAsync(session, context, cancellationToken);
     }
 
-    public async Task<PatternResult> ResumeAsync(string sessionId)
+    public async Task<PatternResult> ResumeAsync(string sessionId, CancellationToken cancellationToken = default)
     {
         var session = await LoadSessionAsync(sessionId)
             ?? throw new ArgumentException($"Session '{sessionId}' not found");
@@ -200,10 +200,10 @@ public class ScriptOrchestrator : IScriptOrchestrator
             });
         }
 
-        return await ExecuteGenerationAsync(session, context);
+        return await ExecuteGenerationAsync(session, context, cancellationToken);
     }
 
-    private async Task<PatternResult> ExecuteGenerationAsync(ScriptGenerationSession session, GenerationContext context)
+    private async Task<PatternResult> ExecuteGenerationAsync(ScriptGenerationSession session, GenerationContext context, CancellationToken cancellationToken = default)
     {
         var result = new PatternResult { SessionId = session.Id, IsSuccess = true };
         // Deep clone phases to avoid modifying the shared pattern instance
@@ -315,6 +315,19 @@ public class ScriptOrchestrator : IScriptOrchestrator
 
         foreach (var phaseDef in orderedPhases)
         {
+            // Check for cancellation before each phase
+            if (cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogInformation("Generation cancelled for session {SessionId} before phase {PhaseId}", session.Id, phaseDef.Id);
+                session.Status = SessionStatus.Failed;
+                session.ErrorMessage = "Generation dibatalkan oleh user";
+                session.UpdatedAt = DateTime.UtcNow;
+                await SaveSessionAsync(session);
+                result.IsSuccess = false;
+                result.Errors.Add("Generation dibatalkan oleh user");
+                return result;
+            }
+
             // Skip completed phases (for resume)
             if (context.CompletedPhases.Any(cp => cp.PhaseId == phaseDef.Id))
             {
@@ -496,7 +509,7 @@ public class ScriptOrchestrator : IScriptOrchestrator
         return result;
     }
 
-    public async Task<GeneratedPhase> RegeneratePhaseAsync(string sessionId, string phaseId)
+    public async Task<GeneratedPhase> RegeneratePhaseAsync(string sessionId, string phaseId, CancellationToken cancellationToken = default)
     {
         var session = await LoadSessionAsync(sessionId)
             ?? throw new ArgumentException($"Session '{sessionId}' not found");

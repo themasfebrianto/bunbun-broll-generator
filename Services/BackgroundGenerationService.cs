@@ -114,7 +114,7 @@ public class BackgroundGenerationService
 
             try
             {
-                var result = await orchestrator.GenerateAllAsync(sessionId);
+                var result = await orchestrator.GenerateAllAsync(sessionId, cts.Token);
                 job.Status = result.IsSuccess ? GenerationJobStatus.Completed : GenerationJobStatus.Failed;
 
                 _eventBus.Publish(sessionId, new GenerationProgressEvent
@@ -155,7 +155,7 @@ public class BackgroundGenerationService
                 // Keep job in dictionary briefly for status checks, then remove
                 _ = Task.Run(async () =>
                 {
-                    await Task.Delay(TimeSpan.FromSeconds(5));
+                    await Task.Delay(TimeSpan.FromSeconds(1));
                     _activeJobs.TryRemove(sessionId, out _);
                 });
             }
@@ -221,11 +221,25 @@ public class BackgroundGenerationService
             {
                 _ = Task.Run(async () =>
                 {
-                    await Task.Delay(TimeSpan.FromSeconds(3));
+                    await Task.Delay(TimeSpan.FromSeconds(1));
                     _activeJobs.TryRemove(jobKey, out _);
                 });
             }
         });
+    }
+
+    /// <summary>
+    /// Cancel a running generation job by session ID.
+    /// </summary>
+    public bool CancelGeneration(string sessionId)
+    {
+        if (_activeJobs.TryGetValue(sessionId, out var job) && job.Status == GenerationJobStatus.Running)
+        {
+            _logger.LogInformation("Cancelling generation for session {SessionId}", sessionId);
+            job.CancellationTokenSource.Cancel();
+            return true;
+        }
+        return false;
     }
 
     /// <summary>
