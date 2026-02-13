@@ -32,7 +32,7 @@
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
-    "Style": "None",
+    "Style": "Canvas",
     "FilteredVideoPath": null
   },
   {
@@ -50,7 +50,7 @@
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
-    "Style": "None",
+    "Style": "Canvas",
     "FilteredVideoPath": null
   },
   {

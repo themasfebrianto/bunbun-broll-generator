@@ -1190,6 +1190,17 @@
                                                                playsinline>
                                                         </video>
                                                         
+                                                        @* Filter Progress Overlay *@
+                                                        @if (item.IsFilteringVideo)
+                                                        {
+                                                            <div class="absolute inset-0 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center z-10 p-4">
+                                                                <div class="text-xs font-semibold mb-2">@item.FilterStatus</div>
+                                                                <div class="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                                                                    <div class="h-full bg-primary transition-all duration-300" style="width: @(item.FilterProgress)%"></div>
+                                                                </div>
+                                                            </div>
+                                                        }
+                                                        
                                                         @if (!string.IsNullOrEmpty(item.FilteredVideoPath))
                                                         {
                                                             <div class="absolute top-1 left-1 bg-blue-500/80 text-white text-[9px] px-1.5 py-0.5 rounded font-bold pointer-events-none">
@@ -3032,6 +3043,10 @@
         {
             item.IsFilteringVideo = true;
             item.FilterError = null;
+            item.IsFilteringVideo = true;
+            item.FilterError = null;
+            item.FilterProgress = 0;
+            item.FilterStatus = "Initializing...";
             StateHasChanged();
 
             // 1. Identify source video
@@ -3059,6 +3074,10 @@
             // 2. Download if not local
             if (string.IsNullOrEmpty(localPath) || !File.Exists(localPath))
             {
+                item.FilterProgress = 10;
+                item.FilterStatus = "Downloading source...";
+                StateHasChanged();
+
                 // Download to project assets
                 var projectSlug = _resultSession?.Topic != null 
                     ? System.Text.RegularExpressions.Regex.Replace(_resultSession.Topic, @"[^\w\s\-]", "").Trim().Replace(" ", "-")
@@ -3081,13 +3100,17 @@
             }
 
             // 3. Apply Style
+            item.FilterProgress = 40;
+            item.FilterStatus = $"Applying {item.Style}...";
+            StateHasChanged();
+
             var videoConfig = new ShortVideoConfig 
             { 
                 Ratio = AspectRatio.Landscape_16x9,
                 Style = item.Style 
             };
 
-            var filteredPath = await VideoComposer.ApplyStyleToVideoAsync(localPath, item.Style, videoConfig);
+            var filteredPath = await VideoComposer.ApplyStyleToVideoAsync(localPath, item.Style, videoConfig, CancellationToken.None, isPreview: true);
 
             if (!string.IsNullOrEmpty(filteredPath))
             {
@@ -3099,6 +3122,11 @@
                 
                 File.Move(filteredPath, finalPath, overwrite: true);
                 item.FilteredVideoPath = finalPath;
+                
+                item.FilterProgress = 100;
+                item.FilterStatus = "Done!";
+                StateHasChanged();
+                await Task.Delay(500); // Show 100% briefly
             }
             else
             {

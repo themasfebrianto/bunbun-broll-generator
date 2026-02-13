@@ -52,7 +52,8 @@ public interface IShortVideoComposer
         string inputPath,
         VideoStyle style,
         ShortVideoConfig config,
-        CancellationToken cancellationToken = default
+        CancellationToken cancellationToken = default,
+        bool isPreview = false
     );
 }
 
@@ -338,7 +339,8 @@ public class ShortVideoComposer : IShortVideoComposer
         string inputPath,
         VideoStyle style,
         ShortVideoConfig config,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool isPreview = false)
     {
         try
         {
@@ -358,7 +360,22 @@ public class ShortVideoComposer : IShortVideoComposer
             var inputWidth = videoStream.Width;
             var inputHeight = videoStream.Height;
             var inputAspect = (double)inputWidth / inputHeight;
-            var outputAspect = (double)config.Width / config.Height;
+            
+            // Preview Optimization: Downscale to 480p
+            int targetWidth = config.Width;
+            int targetHeight = config.Height;
+            
+            if (isPreview)
+            {
+                targetHeight = 480;
+                targetWidth = (int)(targetHeight * inputAspect);
+                // Ensure even dimensions
+                targetWidth = (targetWidth / 2) * 2;
+                // Cap width if it gets too crazy (e.g. ultra-wide)
+                if (targetWidth > 854) targetWidth = 854; 
+            }
+
+            var outputAspect = (double)targetWidth / targetHeight;
 
             string? texturePath = null;
             if (style == VideoStyle.Canvas)
@@ -380,12 +397,12 @@ public class ShortVideoComposer : IShortVideoComposer
             // reuse BlurBackground filter
             var bgFilter = BuildBlurBackgroundFilter(
                 inputWidth, inputHeight, 
-                config.Width, config.Height,
+                targetWidth, targetHeight,
                 inputAspect, outputAspect
             );
 
             string filterComplex;
-            var artFilter = BuildArtisticFilter(style, "[vout]", "[styled]", texturePath != null);
+            var artFilter = BuildArtisticFilter(style, "[vout]", "[styled]", texturePath != null, targetWidth, targetHeight);
             
             if (style == VideoStyle.Canvas && texturePath != null)
             {
@@ -412,9 +429,13 @@ public class ShortVideoComposer : IShortVideoComposer
                 durationLimit = "-t 15";
             }
             
+            // Preview Optimization: Use ultrafast preset
+            var preset = isPreview ? "ultrafast" : _preset;
+            var crf = isPreview ? 28 : _crf;
+
             var arguments = $"{inputs} -filter_complex \"{filterComplex}\" " +
                            $"-map \"[styled]\" -map 0:a? " +
-                           $"-c:v libx264 -preset {_preset} -crf {_crf} -threads 0 " +
+                           $"-c:v libx264 -preset {preset} -crf {crf} -threads 0 " +
                            $"-c:a aac -b:a 128k -ac 2 -ar 44100 " +
                            $"{durationLimit} -y \"{outputPath}\"";
 
@@ -855,7 +876,7 @@ public class ShortVideoComposer : IShortVideoComposer
             if (applyStyle)
             {
                 // artistic filter takes [vout] from bgFilter and outputs [styled]
-                var artFilter = BuildArtisticFilter(effectiveStyle, "[vout]", "[styled]", texturePath != null);
+                var artFilter = BuildArtisticFilter(effectiveStyle, "[vout]", "[styled]", texturePath != null, config.Width, config.Height);
                 
                 if (effectiveStyle == VideoStyle.Canvas && texturePath != null)
                 {
@@ -1021,7 +1042,7 @@ public class ShortVideoComposer : IShortVideoComposer
     /// <summary>
     /// Builds FFmpeg filter chain for artistic effects.
     /// </summary>
-    private string BuildArtisticFilter(VideoStyle style, string inputPad, string outputPad, bool hasTexture)
+    private string BuildArtisticFilter(VideoStyle style, string inputPad, string outputPad, bool hasTexture, int? width = null, int? height = null)
     {
         // Reference commands from User Request:
         // Painting: fps=12,smartblur=lr=2.0:ls=-0.5:lt=-5.0,eq=saturation=0.6:contrast=1.2:brightness=-0.05,colorbalance=rs=0.1:gs=0.05:bs=-0.2,vignette=PI/4
@@ -1052,18 +1073,25 @@ public class ShortVideoComposer : IShortVideoComposer
                     // 2. Prepare texture: scale to video size, crop -> [tex]
                     // 3. Blend: [base][tex] -> outputPad
                     
-                    // Note: We need to know dimensions for texture scaling, 
-                    // but since we are appending this to a chain where we don't strictly know the resolution at string-build time
-                    // we can use 'iw' and 'ih' which refer to the input of the filter.
-                    // However, in a complex filter chain, [1:v] does not inherit dimensions from [0:v]. 
-                    // We can use scale2ref or just force the known output dimensions from config if possible.
-                    // But here we are inside a helper.
-                    // Let's use scale2ref to make texture match video stream
-                    
-                    return $"{inputPad}fps=12,smartblur=lr=2:ls=-0.5,eq=saturation=0.7:contrast=1.1[base];" +
-                           $"[1:v][base]scale2ref[tex][base_ref];" + 
-                           $"[tex]setsar=1[tex_adj];" + // Ensure SAR matches
-                           $"[base_ref][tex_adj]blend=all_mode=overlay:all_opacity=0.4{outputPad}";
+                    // Explicit scaling is more robust than scale2ref for image loops
+                    var scaleFilter = (width.HasValue && height.HasValue)
+                        ? $"scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height}"
+                        : "scale2ref[tex][base_ref];[tex]setsar=1[tex_adj];[base_ref][tex_adj]";
+
+                    if (width.HasValue && height.HasValue)
+                    {
+                        return $"{inputPad}fps=12,smartblur=lr=2:ls=-0.5,eq=saturation=0.7:contrast=1.1[base];" +
+                               $"[1:v]{scaleFilter}[tex];" + 
+                               $"[base][tex]blend=all_mode=overlay:all_opacity=0.4{outputPad}";
+                    }
+                    else
+                    {
+                        // Fallback to scale2ref if dimensions unknown (shouldn't happen in current flow)
+                        return $"{inputPad}fps=12,smartblur=lr=2:ls=-0.5,eq=saturation=0.7:contrast=1.1[base];" +
+                               $"[1:v][base]scale2ref[tex][base_ref];" + 
+                               $"[tex]setsar=1[tex_adj];" + 
+                               $"[base_ref][tex_adj]blend=all_mode=overlay:all_opacity=0.4{outputPad}";
+                    }
                 }
                 else
                 {

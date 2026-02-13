@@ -93,6 +93,12 @@ public class BrollPromptItem
     /// <summary>Filter application error message</summary>
     public string? FilterError { get; set; }
 
+    /// <summary>Current progress of filter application (0-100)</summary>
+    public int FilterProgress { get; set; }
+
+    /// <summary>Status text for filter application (e.g. "Downloading...", "Rendering...")</summary>
+    public string FilterStatus { get; set; } = string.Empty;
+
     private static readonly Random _random = new();
     public static KenBurnsMotionType GetRandomMotion()
     {
