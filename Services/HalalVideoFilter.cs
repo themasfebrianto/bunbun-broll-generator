@@ -75,7 +75,50 @@ public class HalalVideoFilter : IHalalVideoFilter
         "face", "portrait", "hands", "feet", "walking person",
         "people walking", "shadow person", "person standing",
         "person sitting", "person walking", "feet walking",
-        "hands praying", "hands typing", "family"
+        "hands praying", "hands typing", "family",
+
+        // HUMAN-ADJACENT — stock footage for these almost always shows people
+        "mirror", "reflection", "mirror reflection", "broken mirror",
+        "shadow", "shadow figure", "shadow walking",
+        "window person", "door opening", "doorway",
+        "selfie", "self portrait", "looking",
+        "waiting", "standing", "sitting", "walking",
+        "running", "praying", "crying", "laughing",
+        "speaking", "talking", "listening",
+        "hand holding", "handshake", "embrace",
+        "footsteps", "footprint", "fingerprint"
+    };
+
+    // Human-adjacent keywords to REPLACE with safe nature/urban alternatives
+    // These terms don't explicitly mention humans but stock footage results always show people
+    private static readonly Dictionary<string, string> HumanAdjacentReplacements = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["mirror"] = "crystal glass abstract",
+        ["mirror reflection"] = "water surface reflection",
+        ["broken mirror"] = "cracked earth texture",
+        ["broken mirror reflection"] = "shattered glass ground",
+        ["reflection"] = "water surface reflection",
+        ["shadow"] = "dark clouds moving",
+        ["shadow figure"] = "fog rolling hills",
+        ["shadow walking"] = "wind through grass",
+        ["doorway"] = "ancient stone archway",
+        ["door opening"] = "light through clouds",
+        ["window"] = "rain drops glass",
+        ["waiting"] = "still lake sunrise",
+        ["standing"] = "tall tree solitary",
+        ["sitting"] = "calm river stones",
+        ["walking"] = "path through forest",
+        ["running"] = "flowing river rapids",
+        ["praying"] = "mosque interior light",
+        ["crying"] = "rain on leaves",
+        ["laughing"] = "sunlight through trees",
+        ["speaking"] = "wind chimes moving",
+        ["talking"] = "birds singing branch",
+        ["listening"] = "calm ocean shore",
+        ["embrace"] = "intertwined tree branches",
+        ["handshake"] = "bridge connecting sides",
+        ["footsteps"] = "path through sand",
+        ["footprint"] = "sand dunes wind"
     };
 
     // Female-related keywords to REPLACE with nature/urban alternatives (NO HUMAN SUBJECTS)
@@ -165,6 +208,15 @@ public class HalalVideoFilter : IHalalVideoFilter
             var translatedKeyword = TranslateIndonesian(keyword);
             var lowerKeyword = translatedKeyword.ToLowerInvariant();
 
+            // Check human-adjacent replacement first (mirror, reflection, shadow, etc.)
+            var adjacentReplaced = TryReplaceHumanAdjacentKeyword(translatedKeyword);
+            if (adjacentReplaced != translatedKeyword)
+            {
+                _logger.LogDebug("Halal filter: Human-adjacent replaced '{Original}' -> '{Replaced}'", keyword, adjacentReplaced);
+                filtered.Add(adjacentReplaced);
+                continue;
+            }
+
             // Check if keyword contains any blocked words
             var isBlocked = BlockedKeywords.Any(blocked =>
                 lowerKeyword.Contains(blocked) || blocked.Contains(lowerKeyword));
@@ -236,6 +288,22 @@ public class HalalVideoFilter : IHalalVideoFilter
         }
 
         return enhanced.Distinct().ToList();
+    }
+
+    private string TryReplaceHumanAdjacentKeyword(string keyword)
+    {
+        var lower = keyword.ToLowerInvariant();
+        
+        // Check exact replacements first (longer patterns first for specificity)
+        foreach (var (pattern, replacement) in HumanAdjacentReplacements.OrderByDescending(p => p.Key.Length))
+        {
+            if (lower.Contains(pattern.ToLowerInvariant()))
+            {
+                return replacement;
+            }
+        }
+
+        return keyword;
     }
 
     private string TryReplaceFemaleKeyword(string keyword)

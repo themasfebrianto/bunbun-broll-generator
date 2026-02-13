@@ -77,6 +77,8 @@ RULES:
 - Translate ALL to English
 - 2-3 words per keyword (not single words)
 - ABSOLUTE RULE: NO PEOPLE, NO HUMAN FACES, NO HUMAN BODY PARTS, NO SILHOUETTES, NO HUMAN ACTIVITY, NO CROWDS, NO PERSON, NO HANDS, NO FEET.
+- ALSO AVOID HUMAN-ADJACENT TERMS that return human footage from stock sites: mirror, reflection, shadow, window, doorway, selfie, walking, standing, sitting, running, praying, crying, laughing, embrace, handshake, footsteps, footprint.
+  Instead use nature/urban metaphors: 'broken mirror' -> 'cracked earth texture', 'reflection' -> 'water surface reflection', 'shadow' -> 'dark clouds moving', 'walking' -> 'path through forest'
 - Avoid religious/sensitive triggers
 - fallbackKeywords: always include safe universals like ""ocean waves"", ""sunset clouds"", ""mountain landscape""
 
@@ -691,6 +693,8 @@ RULES:
 - Translate all prompts to English
 - For BROLL: Keep prompts short (2-5 words), focused on NATURE (for ancient/prophetic) or URBAN (for modern).
 - For BROLL: NEVER mention 'person', 'man', 'woman', 'people', 'crowd', 'face', 'silhouette', 'hands', 'feet', 'shadow person'.
+- For BROLL: ALSO AVOID human-adjacent terms that return human footage: 'mirror', 'reflection', 'shadow', 'window', 'doorway', 'selfie', 'walking', 'standing', 'sitting', 'running', 'praying', 'crying', 'laughing', 'embrace', 'handshake', 'footsteps', 'footprint'.
+  Use nature/urban metaphors instead: 'broken mirror' -> 'cracked earth texture', 'reflection' -> 'water surface', 'shadow' -> 'dark clouds'
 - For IMAGE_GEN: Include era prefix, detailed scene, locked style suffix
 - Never depict prophet faces
 - Avoid sensitive/haram visual triggers";
