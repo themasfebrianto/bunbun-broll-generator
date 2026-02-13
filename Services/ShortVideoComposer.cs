@@ -405,19 +405,21 @@ public class ShortVideoComposer : IShortVideoComposer
                 inputs += $" -loop 1 -i \"{texturePath}\"";
             }
 
-            // Determine if we should cut to a specific duration? 
-            // For preview, let's keep original duration but cap it at say 10s if it's too long?
-            // Actually, best to just process the whole clip or at least the relevant part.
-            // But since this is specific to a segment, we might want to respect the target duration?
-            // For now, let's just process the whole file, but users should be careful with long videos.
+            // Cap preview duration to 15s to avoid long FFmpeg processing
+            var durationLimit = "";
+            if (mediaInfo.Duration.TotalSeconds > 15)
+            {
+                durationLimit = "-t 15";
+            }
             
             var arguments = $"{inputs} -filter_complex \"{filterComplex}\" " +
                            $"-map \"[styled]\" -map 0:a? " +
                            $"-c:v libx264 -preset {_preset} -crf {_crf} -threads 0 " +
                            $"-c:a aac -b:a 128k -ac 2 -ar 44100 " +
-                           $"-y \"{outputPath}\"";
+                           $"{durationLimit} -y \"{outputPath}\"";
 
             _logger.LogInformation("Applying style {Style} to {Path} -> {Output}", style, inputPath, outputPath);
+            _logger.LogDebug("FFmpeg filter command: {Cmd}", arguments);
 
             using var process = new Process
             {
@@ -438,20 +440,40 @@ public class ShortVideoComposer : IShortVideoComposer
             var stderrTask = process.StandardError.ReadToEndAsync();
             var stdoutTask = process.StandardOutput.ReadToEndAsync();
             
-            await process.WaitForExitAsync(cancellationToken);
+            // Timeout: 60 seconds max for preview filter
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(60));
+            
+            try
+            {
+                await process.WaitForExitAsync(timeoutCts.Token);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                // Timeout hit, not user cancellation
+                try { process.Kill(entireProcessTree: true); } catch { }
+                var partialStderr = await stderrTask;
+                _logger.LogWarning("FFmpeg style preview timed out after 60s. Partial stderr: {Err}", 
+                    partialStderr.Length > 500 ? partialStderr[^500..] : partialStderr);
+                throw new TimeoutException($"Filter timed out after 60 seconds. The video may be too long or complex.");
+            }
             
             var stderr = await stderrTask;
             var stdout = await stdoutTask;
 
             if (process.ExitCode != 0)
             {
-                _logger.LogWarning("FFmpeg style application failed via {Style}. Exit code: {Code}. Error: {Error}", 
-                    style, process.ExitCode, stderr);
-                return null;
+                // Extract last few lines of stderr for a meaningful error
+                var stderrLines = stderr.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+                var errorSummary = string.Join(" | ", stderrLines.TakeLast(3)).Trim();
+                _logger.LogWarning("FFmpeg style failed [{Style}]. Exit: {Code}. Error: {Error}", 
+                    style, process.ExitCode, errorSummary);
+                throw new InvalidOperationException($"FFmpeg filter failed: {errorSummary}");
             }
 
-            if (process.ExitCode == 0 && File.Exists(outputPath))
+            if (File.Exists(outputPath))
             {
+                _logger.LogInformation("Style {Style} applied successfully -> {Output}", style, outputPath);
                 return outputPath;
             }
             

@@ -1180,7 +1180,7 @@
                                                     <div class="aspect-video relative">
                                                         @{
                                                             var previewSrc = !string.IsNullOrEmpty(item.FilteredVideoPath) 
-                                                                ? $"project-assets/{System.IO.Path.GetFileName(item.FilteredVideoPath)}" 
+                                                                ? $"{GetAssetUrl(item.FilteredVideoPath)}?v={DateTime.Now.Ticks}" 
                                                                 : selectedVideo.DownloadUrl;
                                                         }
                                                         <video src="@previewSrc"
@@ -3091,13 +3091,13 @@
 
             if (!string.IsNullOrEmpty(filteredPath))
             {
-                // Move to project assets folder so it can be served
-                var projectAssetsDir = Path.Combine(Directory.GetCurrentDirectory(), "output", "project-assets");
-                Directory.CreateDirectory(projectAssetsDir);
+                // Move to output folder — static files map /project-assets → output/
+                var outputDir = Path.Combine(Directory.GetCurrentDirectory(), "output");
+                Directory.CreateDirectory(outputDir);
                 var finalFileName = $"filtered_{Guid.NewGuid():N}.mp4";
-                var finalPath = Path.Combine(projectAssetsDir, finalFileName);
+                var finalPath = Path.Combine(outputDir, finalFileName);
                 
-                File.Move(filteredPath, finalPath);
+                File.Move(filteredPath, finalPath, overwrite: true);
                 item.FilteredVideoPath = finalPath;
             }
             else
