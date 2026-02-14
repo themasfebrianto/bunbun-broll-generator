@@ -488,7 +488,7 @@
 
         try
         {
-            var outputDir = Path.Combine(Directory.GetCurrentDirectory(), "output", _currentJob.Id, "whisk_images");
+            var outputDir = Path.Combine(Directory.GetCurrentDirectory(), "output", _currentJob.Id, "whisks_images");
             var prompt = sentence.WhiskPrompt ?? sentence.Text;
             var result = await WhiskGenerator.GenerateImageAsync(prompt, outputDir, $"sent_{sentence.Id}");
             if (result.Success)

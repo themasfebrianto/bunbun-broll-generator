@@ -1503,8 +1503,8 @@
         {
             // Use session's output directory for Whisk images
             var outputDir = !string.IsNullOrEmpty(_resultSession?.OutputDirectory)
-                ? Path.Combine(_resultSession.OutputDirectory, "whisk_images")
-                : Path.Combine(Directory.GetCurrentDirectory(), "output", _sessionId ?? "temp", "whisk_images");
+                ? Path.Combine(_resultSession.OutputDirectory, "whisks_images")
+                : Path.Combine(Directory.GetCurrentDirectory(), "output", _sessionId ?? "temp", "whisks_images");
             Directory.CreateDirectory(outputDir);
 
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(120));
