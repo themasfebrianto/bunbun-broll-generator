@@ -1,0 +1,139 @@
+@namespace BunbunBroll.Components.Views.Broll
+@using BunbunBroll.Models
+@using BunbunBroll.Components.Common
+
+<div class="max-w-[42rem] mx-auto pt-6 pb-8 px-4">
+    <nav class="breadcrumb mb-6">
+        <a href="/" class="breadcrumb-item">
+            <Icon Name="home" Size="14" />
+            Home
+        </a>
+        <span class="breadcrumb-sep">/</span>
+        <span class="breadcrumb-current">@FormTitle</span>
+    </nav>
+
+    <Card>
+        <div class="space-y-6">
+            <!-- Project Name -->
+            <FormField Label="Judul Project" Required="true">
+                <input type="text"
+                       class="input"
+                       @bind="ProjectName"
+                       @bind:event="oninput"
+                       placeholder="Contoh: sabar dalam ikhtiar" />
+            </FormField>
+
+            <!-- Script Body -->
+            <FormField Label="Isi Script" Description="Setiap kalimat bikin satu pencarian video." Required="true">
+                <textarea class="input min-h-[160px] resize-none"
+                          @bind="ScriptText"
+                          @bind:event="oninput"
+                          placeholder="Tempel script kamu di sini..."></textarea>
+            </FormField>
+
+            <!-- Settings Row -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
+                <!-- Mood Selection -->
+                <FormField Label="Mood Visual">
+                    <div class="flex gap-2">
+                        @foreach (var mood in Moods)
+                        {
+                            var isSelected = SelectedMood == mood.Key;
+                            <button type="button"
+                                    class="flex flex-col items-center justify-center w-full h-14 rounded-lg border transition-colors duration-150 @(isSelected ? "border-foreground bg-muted" : "border-border hover:border-foreground/30")"
+                                    @onclick="() => SelectMood(mood.Key)">
+                                <Icon Name="@mood.Icon" Size="16" Class="@GetIconClass(isSelected)" />
+                                <span class="text-[10px] font-medium @(isSelected ? "text-foreground" : "text-muted-foreground")">@mood.Label</span>
+                            </button>
+                        }
+                    </div>
+                </FormField>
+
+                <!-- Halal Filter Toggle -->
+                <div class="flex items-center space-x-2 pb-2">
+                    <button type="button"
+                            role="switch"
+                            aria-checked="@HalalFilterEnabled"
+                            class="peer inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 @(HalalFilterEnabled ? "bg-primary" : "bg-input")"
+                            @onclick="ToggleHalalFilter">
+                        <span class="pointer-events-none block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform @(HalalFilterEnabled ? "translate-x-4" : "translate-x-0")"></span>
+                    </button>
+                    <label class="text-sm font-medium leading-none">Halal Mode</label>
+                </div>
+            </div>
+
+            <!-- Action Button -->
+            <div class="pt-6 space-y-4">
+                <button class="btn-primary h-11 w-full"
+                        @onclick="OnSubmit"
+                        disabled="@(!CanSubmit || IsLoading)">
+                    @if (IsLoading)
+                    {
+                        <Icon Name="spinner" Size="16" Class="animate-spin mr-2" />
+                        <span>Bentar lagi ya... @ProcessedCount dari @TotalCount</span>
+                    }
+                    else
+                    {
+                        <span>Cari B-Roll</span>
+                    }
+                </button>
+
+                @if (IsLoading)
+                {
+                    <div class="space-y-2">
+                        <div class="progress-container">
+                            <div class="progress-bar" style="width: @GetProgressPercent()%"></div>
+                        </div>
+                        @if (!string.IsNullOrEmpty(StatusMessage))
+                        {
+                            <p class="text-xs text-muted-foreground text-center">@StatusMessage</p>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </Card>
+</div>
+
+@code {
+    [Parameter] public string FormTitle { get; set; } = "Sequence Baru";
+    [Parameter] public string ProjectName { get; set; } = "";
+    [Parameter] public EventCallback<string> ProjectNameChanged { get; set; }
+    [Parameter] public string ScriptText { get; set; } = "";
+    [Parameter] public EventCallback<string> ScriptTextChanged { get; set; }
+    [Parameter] public string SelectedMood { get; set; } = "";
+    [Parameter] public EventCallback<string> SelectedMoodChanged { get; set; }
+    [Parameter] public bool HalalFilterEnabled { get; set; } = true;
+    [Parameter] public EventCallback<bool> HalalFilterEnabledChanged { get; set; }
+    [Parameter] public bool IsLoading { get; set; }
+    [Parameter] public int ProcessedCount { get; set; }
+    [Parameter] public int TotalCount { get; set; }
+    [Parameter] public string? StatusMessage { get; set; }
+    [Parameter] public EventCallback OnSubmit { get; set; }
+
+    private bool CanSubmit => !string.IsNullOrWhiteSpace(ProjectName) && !string.IsNullOrWhiteSpace(ScriptText);
+
+    private readonly (string Key, string Label, string Icon)[] Moods = new[]
+    {
+        ("", "Auto", "clock"),
+        ("Cinematic", "Cinema", "video"),
+        ("Moody", "Moody", "moon"),
+        ("Bright", "Bright", "sun")
+    };
+
+    private async Task SelectMood(string mood)
+    {
+        SelectedMood = mood;
+        await SelectedMoodChanged.InvokeAsync(mood);
+    }
+
+    private async Task ToggleHalalFilter()
+    {
+        HalalFilterEnabled = !HalalFilterEnabled;
+        await HalalFilterEnabledChanged.InvokeAsync(HalalFilterEnabled);
+    }
+
+    private int GetProgressPercent() => TotalCount > 0 ? (ProcessedCount * 100 / TotalCount) : 0;
+
+    private string GetIconClass(bool isSelected) => isSelected ? "mb-1 text-foreground" : "mb-1 text-muted-foreground";
+}

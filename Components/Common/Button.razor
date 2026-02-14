@@ -1,0 +1,67 @@
+@namespace BunbunBroll.Components.Common
+
+<button type="@Type"
+        class="@GetButtonClasses()"
+        disabled="@IsDisabled"
+        @onclick="OnClick"
+        title="@Title"
+        @attributes="AdditionalAttributes">
+    @if (IsLoading)
+    {
+        <Icon Name="spinner" Size="IconSize" Class="animate-spin mr-2" />
+    }
+    else if (!string.IsNullOrEmpty(Icon))
+    {
+        <Icon Name="@Icon" Size="IconSize" Class="@GetIconClasses()" />
+    }
+    @if (!string.IsNullOrEmpty(Text) || ChildContent == null)
+    {
+        <span>@Text</span>
+    }
+    @ChildContent
+</button>
+
+@code {
+    [Parameter] public string Type { get; set; } = "button";
+    [Parameter] public string Variant { get; set; } = "primary"; // primary, secondary, ghost, destructive
+    [Parameter] public string Size { get; set; } = "default"; // default, sm, lg, icon
+    [Parameter] public string? Text { get; set; }
+    [Parameter] public string? Icon { get; set; }
+    [Parameter] public int IconSize { get; set; } = 16;
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public bool IsLoading { get; set; }
+    [Parameter] public bool IsDisabled { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public EventCallback<MouseEventArgs> OnClick { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string GetButtonClasses() => $"{GetVariantClasses()} {GetSizeClasses()} {GetDisabledClasses()}".Trim();
+
+    private string GetVariantClasses() => Variant.ToLowerInvariant() switch
+    {
+        "primary" => "inline-flex items-center justify-center rounded-lg text-sm font-medium bg-primary text-primary-foreground transition-opacity duration-150 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+        "secondary" => "inline-flex items-center justify-center rounded-lg text-sm font-medium bg-transparent text-foreground border border-border transition-colors duration-150 hover:bg-muted hover:border-foreground/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+        "ghost" => "inline-flex items-center justify-center rounded-lg text-sm font-medium bg-transparent text-foreground transition-colors duration-150 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+        "destructive" => "inline-flex items-center justify-center rounded-lg text-sm font-medium bg-destructive text-destructive-foreground transition-opacity duration-150 hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive focus-visible:ring-offset-2",
+        "link" => "inline-flex items-center justify-center text-sm font-medium text-primary underline-offset-4 hover:underline",
+        _ => "inline-flex items-center justify-center rounded-lg text-sm font-medium bg-primary text-primary-foreground"
+    };
+
+    private string GetSizeClasses() => Size.ToLowerInvariant() switch
+    {
+        "sm" => "h-8 px-3 text-xs",
+        "lg" => "h-11 px-6 text-base",
+        "icon" => "h-9 w-9 p-0",
+        "icon-sm" => "h-8 w-8 p-0",
+        _ => "h-10 px-4"
+    };
+
+    private string GetDisabledClasses() => (IsDisabled || IsLoading) ? "disabled:pointer-events-none disabled:opacity-50" : "";
+
+    private string GetIconClasses()
+    {
+        if (string.IsNullOrEmpty(Text) && ChildContent == null)
+            return "";
+        return "mr-2";
+    }
+}

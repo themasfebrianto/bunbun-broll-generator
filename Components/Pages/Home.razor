@@ -1,4 +1,4 @@
-﻿@page "/generator"
+@page "/generator"
 @page "/editor/{ProjectId}"
 @rendermode InteractiveServer
 @inject IPipelineOrchestrator Orchestrator
@@ -17,644 +17,57 @@
 <div class="animate-in">
     @if (_currentJob == null)
     {
-        <!-- COMPOSER VIEW -->
-        <div class="max-w-[42rem] mx-auto pt-6 pb-8 px-4">
-            <nav class="breadcrumb mb-6">
-                <a href="/" class="breadcrumb-item">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0h4"/></svg>
-                    Home
-                </a>
-                <span class="breadcrumb-sep">/</span>
-                <span class="breadcrumb-current">Sequence Baru</span>
-            </nav>
-
-            <div class="card p-8 space-y-6">
-                <!-- Project Name -->
-                <div class="space-y-2">
-                    <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                        Judul Project
-                    </label>
-                    <input type="text"
-                           class="input"
-                           @bind="_projectName"
-                           placeholder="Contoh : sabar dalam ikhtiar" />
-                </div>
-
-                <!-- Script Body -->
-                <div class="space-y-2">
-                    <label class="text-sm font-medium leading-none">
-                        Isi Script
-                    </label>
-                    <textarea class="input min-h-[160px] resize-none"
-                              @bind="_scriptText"
-                              placeholder="Tempel script kamu di sini..."></textarea>
-                    <p class="text-xs text-muted-foreground">Setiap kalimat bikin satu pencarian video.</p>
-                </div>
-
-                <!-- Settings Row -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
-                    <div class="space-y-3">
-                        <label class="text-sm font-medium leading-none">Mood Visual</label>
-                        <div class="flex gap-2">
-                            <!-- Default -->
-                            <button type="button" 
-                                    class="flex flex-col items-center justify-center w-full h-14 rounded-lg border transition-colors duration-150 @(_selectedMood == "" ? "border-foreground bg-muted" : "border-border hover:border-foreground/30")"
-                                    @onclick="SelectMoodAuto">
-                                <svg class="h-4 w-4 mb-1 @(_selectedMood == "" ? "text-foreground" : "text-muted-foreground")" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                    <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
-                                </svg>
-                                <span class="text-[10px] font-medium @(_selectedMood == "" ? "text-foreground" : "text-muted-foreground")">Auto</span>
-                            </button>
-                            <!-- Cinematic -->
-                            <button type="button" 
-                                    class="flex flex-col items-center justify-center w-full h-14 rounded-lg border transition-colors duration-150 @(_selectedMood == "Cinematic" ? "border-foreground bg-muted" : "border-border hover:border-foreground/30")"
-                                    @onclick="SelectMoodCinematic">
-                                <svg class="h-4 w-4 mb-1 @(_selectedMood == "Cinematic" ? "text-foreground" : "text-muted-foreground")" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                    <rect x="2" y="2" width="20" height="20" rx="2"/><path d="M7 2v20M17 2v20M2 12h20M2 7h5M2 17h5M17 7h5M17 17h5"/>
-                                </svg>
-                                <span class="text-[10px] font-medium @(_selectedMood == "Cinematic" ? "text-foreground" : "text-muted-foreground")">Cinema</span>
-                            </button>
-                            <!-- Moody -->
-                            <button type="button" 
-                                    class="flex flex-col items-center justify-center w-full h-14 rounded-lg border transition-colors duration-150 @(_selectedMood == "Moody" ? "border-foreground bg-muted" : "border-border hover:border-foreground/30")"
-                                    @onclick="SelectMoodMoody">
-                                <svg class="h-4 w-4 mb-1 @(_selectedMood == "Moody" ? "text-foreground" : "text-muted-foreground")" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                    <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
-                                </svg>
-                                <span class="text-[10px] font-medium @(_selectedMood == "Moody" ? "text-foreground" : "text-muted-foreground")">Moody</span>
-                            </button>
-                            <!-- Bright -->
-                            <button type="button" 
-                                    class="flex flex-col items-center justify-center w-full h-14 rounded-lg border transition-colors duration-150 @(_selectedMood == "Bright" ? "border-foreground bg-muted" : "border-border hover:border-foreground/30")"
-                                    @onclick="SelectMoodBright">
-                                <svg class="h-4 w-4 mb-1 @(_selectedMood == "Bright" ? "text-foreground" : "text-muted-foreground")" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                    <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
-                                </svg>
-                                <span class="text-[10px] font-medium @(_selectedMood == "Bright" ? "text-foreground" : "text-muted-foreground")">Bright</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="flex items-center space-x-2 pb-2">
-                        <button type="button" 
-                                role="switch"
-                                aria-checked="@_halalFilterEnabled"
-                                class="peer inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50 @(_halalFilterEnabled ? "bg-primary" : "bg-input")"
-                                @onclick="ToggleHalalFilter">
-                            <span class="pointer-events-none block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform @(_halalFilterEnabled ? "translate-x-4" : "translate-x-0")"></span>
-                        </button>
-                        <label class="text-sm font-medium leading-none">Halal Mode</label>
-                    </div>
-                </div>
-
-                <!-- Action -->
-                <div class="pt-6 space-y-4">
-                    <button class="btn-primary h-11 w-full"
-                            @onclick="StartSearch"
-                            disabled="@(!CanGenerate || _isSearching)">
-                        @if (_isSearching)
-                        {
-                            <svg class="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            <span>Bentar lagi ya... @_processedCount dari @_totalCount</span>
-                        }
-                        else
-                        {
-                            <span>Cari B-Roll</span>
-                        }
-                    </button>
-                    
-                    @if (_isSearching)
-                    {
-                        <div class="space-y-2">
-                            <div class="progress-container">
-                                <div class="progress-bar" style="width: @(_totalCount > 0 ? (_processedCount * 100 / _totalCount) : 0)%"></div>
-                            </div>
-                            @if (!string.IsNullOrEmpty(_statusMessage))
-                            {
-                                <p class="text-xs text-muted-foreground text-center">@_statusMessage</p>
-                            }
-                        </div>
-                    }
-                </div>
-            </div>
-        </div>
+        <!-- Input Form View -->
+        <BrollInputForm 
+            FormTitle="@GetFormTitle()"
+            @bind-ProjectName="_projectName"
+            @bind-ScriptText="_scriptText"
+            @bind-SelectedMood="_selectedMood"
+            @bind-HalalFilterEnabled="_halalFilterEnabled"
+            IsLoading="_isSearching"
+            ProcessedCount="_processedCount"
+            TotalCount="_totalCount"
+            StatusMessage="_statusMessage"
+            OnSubmit="StartSearch" />
+    }
+    else if (_showFullPageLoading)
+    {
+        <!-- Full Page Loading -->
+        <FullPageLoading
+            ProcessedCount="@_processedCount"
+            TotalCount="@_totalCount"
+            EtaText="@GetEtaText()"
+            CurrentStage="@_currentStage"
+            StageMessage="@_statusMessage" />
     }
     else
     {
-        <!-- Full Page Loading Overlay -->
-        @if (_showFullPageLoading)
-        {
-            <FullPageLoading
-                ProcessedCount="@_processedCount"
-                TotalCount="@_totalCount"
-                EtaText="@GetEtaText()"
-                CurrentStage="@_currentStage"
-                StageMessage="@_statusMessage" />
-        }
-    }
-
-    @if (_currentJob != null && !_showFullPageLoading)
-    {
-        <!-- RESULTS VIEW -->
-        <div class="max-w-[1200px] mx-auto py-8 lg:px-8 px-4">
-            <div class="flex flex-col lg:flex-row gap-12 items-start">
-                
-                <!-- Sticky Sidebar -->
-                <div class="lg:w-[260px] w-full shrink-0 lg:sticky lg:top-20 space-y-4">
-                    <button class="btn-secondary h-9 w-full lg:w-auto" @onclick="ResetJob">
-                        <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"></path></svg>
-                        Balik ke Editor
-                    </button>
-
-                    <div class="card p-5 space-y-4">
-                        <div class="space-y-1">
-                            <p class="text-xs text-muted-foreground">Project</p>
-                            <p class="font-medium truncate">@_currentJob.ProjectName</p>
-                        </div>
-
-                        @if (!string.IsNullOrEmpty(_currentJob.Mood))
-                        {
-                            <div class="space-y-1">
-                                <p class="text-xs text-muted-foreground">Visual Style</p>
-                                <div class="flex items-center gap-2">
-                                    <span class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
-                                        @_currentJob.Mood
-                                    </span>
-                                </div>
-                            </div>
-                        }
-
-                        <div class="grid grid-cols-2 gap-4 pt-2 border-t border-border">
-                            <div>
-                                <p class="text-xs text-muted-foreground mb-1">Ready</p>
-                                <p class="text-2xl font-bold font-mono">@_currentJob.PreviewReadySentences</p>
-                            </div>
-                            <div>
-                                <p class="text-xs text-muted-foreground mb-1">Total</p>
-                                <p class="text-2xl font-bold font-mono">@_currentJob.TotalSentences</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- ============================================ -->
-                    <!-- SECTION 1: Raw B-Roll Downloads -->
-                    <!-- ============================================ -->
-                    <div class="card p-4 space-y-3">
-                        <div class="flex items-center gap-2">
-                            <svg class="h-4 w-4 text-muted-foreground" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-                            </svg>
-                            <span class="text-sm font-medium">Raw B-Roll Clips</span>
-                        </div>
-                        
-                        <button class="btn-secondary h-10 w-full"
-                                @onclick="DownloadAsZip" 
-                                disabled="@(_isDownloading || _currentJob.PreviewReadySentences == 0)">
-                            @if (_isDownloading)
-                            {
-                                <svg class="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                                <span>@_statusMessage</span>
-                            }
-                            else
-                            {
-                                <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                                <span>Download Semua (@_currentJob.PreviewReadySentences klip)</span>
-                            }
-                        </button>
-                        
-                        <!-- Secondary actions -->
-                        <div class="grid grid-cols-2 gap-2">
-                            <button class="btn-secondary h-9 text-xs"
-                                    @onclick="ExportDownloadLinks"
-                                    disabled="@(_currentJob.PreviewReadySentences == 0)">
-                                <svg class="mr-1.5 h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16c0 1.1.9 2 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/><path d="M14 3v5h5M16 13H8M16 17H8M10 9H8"/></svg>
-                                Ekspor Link
-                            </button>
-
-                            <button class="btn-secondary h-9 text-xs" @onclick="SaveCurrentProject">
-                                <svg class="mr-1.5 h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v13a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-                                Simpen Project
-                            </button>
-                        </div>
-
-                        <p class="text-center text-[10px] text-muted-foreground">Original landscape clips from Pexels/Pixabay</p>
-                    </div>
-
-                    <!-- ============================================ -->
-                    <!-- SECTION 2: Auto Short Video Generator (HIDDEN FOR NOW) -->
-                    <!-- ============================================ -->
-                    @if (false && _ffmpegAvailable)
-                    {
-                        <div class="card p-4 space-y-4">
-                            <div class="flex items-center gap-2">
-                                <svg class="h-4 w-4 text-primary" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                    <rect x="2" y="2" width="20" height="20" rx="2"/><path d="M10 8l6 4-6 4V8z"/>
-                                </svg>
-                                <span class="text-sm font-medium">Auto Short Video</span>
-                                <span class="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">NEW</span>
-                            </div>
-
-                            <!-- Aspect Ratio Selector -->
-                            <div class="space-y-2">
-                                <label class="text-xs font-medium text-muted-foreground">Aspect Ratio</label>
-                                <div class="grid grid-cols-4 gap-1.5">
-                                    @foreach (var ratio in Enum.GetValues<AspectRatio>())
-                                    {
-                                        <button type="button"
-                                                class="flex flex-col items-center justify-center p-2 rounded-md border text-xs transition-colors @(_selectedRatio == ratio ? "border-primary bg-primary/10" : "border-border hover:border-foreground/30")"
-                                                @onclick="() => SelectRatio(ratio)">
-                                            <!-- Visual ratio preview -->
-                                            <div class="mb-1 flex items-center justify-center" style="width: 24px; height: 24px;">
-                                                @switch (ratio)
-                                                {
-                                                    case AspectRatio.Portrait_9x16:
-                                                        <div class="w-3 h-5 border-2 rounded-sm @(_selectedRatio == ratio ? "border-primary" : "border-muted-foreground")"></div>
-                                                        break;
-                                                    case AspectRatio.Square_1x1:
-                                                        <div class="w-4 h-4 border-2 rounded-sm @(_selectedRatio == ratio ? "border-primary" : "border-muted-foreground")"></div>
-                                                        break;
-                                                    case AspectRatio.Portrait_4x5:
-                                                        <div class="w-3.5 h-4 border-2 rounded-sm @(_selectedRatio == ratio ? "border-primary" : "border-muted-foreground")"></div>
-                                                        break;
-                                                    case AspectRatio.Landscape_16x9:
-                                                        <div class="w-5 h-3 border-2 rounded-sm @(_selectedRatio == ratio ? "border-primary" : "border-muted-foreground")"></div>
-                                                        break;
-                                                }
-                                            </div>
-                                            <span class="text-[9px] font-medium @(_selectedRatio == ratio ? "text-primary" : "text-muted-foreground")">@ratio.GetDisplayName()</span>
-                                        </button>
-                                    }
-                                </div>
-                                <p class="text-[10px] text-muted-foreground text-center">@_selectedRatio.GetDescription()</p>
-                            </div>
-
-                            <!-- Category Selector -->
-                            <div class="space-y-2">
-                                <label class="text-xs font-medium text-muted-foreground">Content Style</label>
-                                <div class="grid grid-cols-3 gap-1.5">
-                                    @foreach (var category in CategoryPresets.GetAllCategories())
-                                    {
-                                        <button type="button"
-                                                class="flex flex-col items-center justify-center h-12 rounded-md border text-xs transition-colors @(_selectedCategory == category.Category ? "border-foreground bg-muted" : "border-border hover:border-foreground/30")"
-                                                @onclick="() => SelectCategory(category.Category)">
-                                            <span class="text-sm">@category.Icon</span>
-                                            <span class="text-[9px] @(_selectedCategory == category.Category ? "text-foreground" : "text-muted-foreground")">@category.DisplayName</span>
-                                        </button>
-                                    }
-                                </div>
-                            </div>
-
-                            <!-- Duration -->
-                            <div class="space-y-1.5">
-                                <div class="flex justify-between text-xs">
-                                    <span class="text-muted-foreground">Duration</span>
-                                    <span class="font-mono font-medium">@_targetDuration s</span>
-                                </div>
-                                <input type="range" min="15" max="60" step="5"
-                                       @bind="_targetDuration" @bind:event="oninput"
-                                       class="w-full h-1.5 bg-muted rounded-full appearance-none cursor-pointer accent-primary" />
-                            </div>
-
-                            <!-- Transition Selector -->
-                            <div class="space-y-2">
-                                <label class="text-xs font-medium text-muted-foreground">Transition</label>
-                                <select class="input h-9 text-xs w-full"
-                                        @bind="_selectedTransition">
-                                    @foreach (var transition in Enum.GetValues<TransitionType>())
-                                    {
-                                        <option value="@transition">@transition.GetDisplayName()</option>
-                                    }
-                                </select>
-                            </div>
-
-                            <!-- Hook Text (Collapsible) -->
-                            <details class="group">
-                                <summary class="text-xs text-muted-foreground cursor-pointer hover:text-foreground flex items-center gap-1">
-                                    <svg class="h-3 w-3 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
-                                    Advanced Options
-                                </summary>
-                                <div class="pt-3 space-y-2">
-                                    <label class="text-xs text-muted-foreground">Hook Text (Opening)</label>
-                                    <input type="text" class="input h-8 text-xs"
-                                           @bind="_hookText"
-                                           placeholder="e.g. Tahukah kamu? 🤔" />
-                                </div>
-                            </details>
-
-                            <!-- Generate Button -->
-                            <button class="btn-primary h-11 w-full"
-                                    @onclick="GenerateShortVideo"
-                                    disabled="@(_isGeneratingShortVideo || _currentJob.PreviewReadySentences == 0)">
-                                @if (_isGeneratingShortVideo)
-                                {
-                                    <svg class="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                    <span>Generating @_selectedRatio.GetDisplayName()...</span>
-                                }
-                                else
-                                {
-                                    <svg class="mr-2 h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                        <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/>
-                                        <circle cx="12" cy="13" r="3"/>
-                                    </svg>
-                                    <span>Generate</span>
-                                }
-                            </button>
-
-                            <!-- Progress Bar (only show when generating) -->
-                            @if (_isGeneratingShortVideo)
-                            {
-                                <div class="space-y-2 p-3 rounded-lg bg-muted/50 border border-border">
-                                    <!-- Stage & Time -->
-                                    <div class="flex items-center justify-between text-xs">
-                                        <span class="font-medium text-primary">@_generateStage</span>
-                                        <span class="font-mono text-muted-foreground">
-                                            @TimeSpan.FromSeconds(_elapsedSeconds).ToString(@"mm\:ss")
-                                        </span>
-                                    </div>
-                                    
-                                    <!-- Progress Bar -->
-                                    <div class="h-2 w-full bg-muted rounded-full overflow-hidden">
-                                        <div class="h-full bg-gradient-to-r from-primary to-primary/70 transition-all duration-300 ease-out rounded-full"
-                                             style="width: @(_generateProgress)%"></div>
-                                    </div>
-                                    
-                                    <!-- Message & Percent -->
-                                    <div class="flex items-center justify-between text-[10px] text-muted-foreground">
-                                        <span class="truncate max-w-[70%]">@_generateMessage</span>
-                                        <span class="font-mono font-medium">@_generateProgress%</span>
-                                    </div>
-                                </div>
-                            }
-
-                            <!-- Result -->
-                            @if (_shortVideoResult?.Success == true)
-                            {
-                                <div class="p-3 rounded-md bg-green-500/10 border border-green-500/30 space-y-2">
-                                    <div class="flex items-center gap-2">
-                                        <svg class="h-4 w-4 text-green-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-                                        <p class="text-xs text-green-600 dark:text-green-400 font-medium">
-                                            Video ready! @_shortVideoResult.DurationSeconds s • @FormatFileSize(_shortVideoResult.FileSizeBytes)
-                                        </p>
-                                    </div>
-                                    <button class="btn-secondary h-8 w-full text-xs"
-                                            @onclick="DownloadShortVideo">
-                                        <svg class="mr-1.5 h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-                                        </svg>
-                                        Download MP4
-                                    </button>
-                                </div>
-                            }
-                            else if (_shortVideoResult?.Success == false)
-                            {
-                                <div class="p-2 rounded-md bg-red-500/10 border border-red-500/30">
-                                    <p class="text-xs text-red-500">
-                                        @_shortVideoResult.ErrorMessage
-                                    </p>
-                                </div>
-                            }
-                        </div>
-                    }
-                    else if (false)
-                    {
-                        <div class="card p-4">
-                            <div class="flex items-center gap-2 text-muted-foreground">
-                                <svg class="h-4 w-4 text-yellow-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                                    <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-                                </svg>
-                                <span class="text-xs">FFmpeg required for Short Video</span>
-                            </div>
-                        </div>
-                    }
-                </div>
-
-                <!-- Feed Content -->
-                <div class="flex-1 min-w-0">
-                    @if (!string.IsNullOrEmpty(_statusMessage))
-                    {
-                        <div class="flex items-center gap-2 text-xs text-muted-foreground mb-8 bg-muted/50 p-2 px-3 rounded-md border border-border/50">
-                            <span class="flex h-1.5 w-1.5 rounded-full bg-primary animate-pulse"></span>
-                            <span>@_statusMessage</span>
-                        </div>
-                    }
-
-                    <div class="space-y-16">
-                        @foreach (var segment in _currentJob.Segments)
-                        {
-                            <div class="space-y-8">
-                                <div class="flex items-center gap-4">
-                                    <h2 class="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground/50">@segment.Title</h2>
-                                    <div class="h-[1px] flex-1 bg-border/50"></div>
-                                </div>
-                                
-                                <div class="space-y-12">
-                                    @foreach (var sentence in segment.Sentences)
-                                    {
-                                        <div class="flex flex-col md:flex-row gap-8 items-start relative group @(_isRegeneratingKeywords == sentence.Id || _researchingSentenceId == sentence.Id || _isGeneratingWhisk == sentence.Id ? "shimmer-effect" : "")">
-                                            <!-- Indicator Line -->
-                                            <div class="absolute -left-6 top-1 bottom-1 w-0.5 bg-border/30 group-hover:bg-primary/50 transition-colors hidden lg:block"></div>
-                                            
-                                            <!-- Text Content -->
-                                            <div class="flex-1 space-y-4">
-                                                <div class="flex items-center gap-3">
-                                                    <span class="text-[10px] font-mono font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">#@sentence.Id.ToString("D2")</span>
-                                                    <span class="text-[10px] font-medium text-muted-foreground">@sentence.EstimatedDurationSeconds.ToString("F1")s duration</span>
-                                                </div>
-                                                <p class="text-xl leading-relaxed text-foreground font-medium">@sentence.Text</p>
-                                                
-                                                <div class="flex flex-wrap gap-2 items-center">
-                                                    @if (!string.IsNullOrEmpty(_currentJob?.Mood) && _currentJob.Mood != "")
-                                                    {
-                                                        <span class="inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-medium bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
-                                                            @_currentJob.Mood
-                                                        </span>
-                                                    }
-                                                    @foreach (var kw in sentence.Keywords.Take(3))
-                                                    {
-                                                        <span class="inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary text-secondary-foreground">@kw</span>
-                                                    }
-                                                    @if (!string.IsNullOrEmpty(sentence.KeywordSet?.SuggestedCategory))
-                                                    {
-                                                        <span class="inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-medium bg-primary/10 text-primary border border-primary/20">@sentence.KeywordSet.SuggestedCategory</span>
-                                                    }
-                                                    <button class="inline-flex items-center justify-center rounded-md text-[10px] font-medium h-5 px-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                                                            title="Cari Keyword Lagi"
-                                                            disabled="@(_isRegeneratingKeywords == sentence.Id)"
-                                                            @onclick="() => RegenerateKeywords(sentence)">
-                                                        @if (_isRegeneratingKeywords == sentence.Id)
-                                                        {
-                                                            <svg class="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                                              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                                            </svg>
-                                                        }
-                                                        else
-                                                        {
-                                                            <svg class="h-3 w-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8L19 13M17.8 6.2L19 5M3 21l9-9M12.2 6.2L11 5"/></svg>
-                                                            <span class="ml-1">Regen</span>
-                                                        }
-                                                    </button>
-                                                </div>
-                                            </div>
-
-                                            <!-- Visual Side -->
-                                            <div class="md:w-[320px] w-full shrink-0">
-                                                @if (_researchingSentenceId == sentence.Id && sentence.SearchResults.Count > 1)
-                                                {
-                                                    <div class="rounded-xl border bg-card p-2 shadow-lg space-y-2">
-                                                        <div class="grid grid-cols-2 gap-1.5">
-                                                            @foreach (var video in sentence.SearchResults)
-                                                            {
-                                                                <div class="aspect-video relative rounded-md overflow-hidden cursor-pointer border-2 transition-all @(sentence.SelectedVideo?.Id == video.Id ? "border-primary" : "border-transparent")"
-                                                                     @onclick="() => SelectVideo(sentence, video)">
-                                                                    <video src="@video.DownloadUrl" muted loop class="absolute inset-0 w-full h-full object-cover"></video>
-                                                                </div>
-                                                            }
-                                                        </div>
-                                                        <button class="inline-flex items-center justify-center rounded-md text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground shadow hover:bg-primary/90 h-8 px-3 w-full"
-                                                                @onclick="() => ConfirmSelection(sentence)">
-                                                            Pilih Video Ini
-                                                        </button>
-                                                    </div>
-                                                }
-                                                else if (sentence.SelectedVideo != null)
-                                                {
-                                                    <div class="rounded-xl border bg-card overflow-hidden shadow group/video">
-                                                        <div class="aspect-video relative bg-black">
-                                                            <video src="@sentence.SelectedVideo.DownloadUrl" controls muted loop class="absolute inset-0 w-full h-full object-cover"></video>
-                                                        </div>
-
-                                                        <!-- Duration Match Indicator -->
-                                                        <div class="flex items-center justify-between px-2 py-1 bg-muted/80 text-[10px] border-t">
-                                                            <div class="flex items-center gap-2">
-                                                                <span class="text-muted-foreground">@sentence.SelectedVideo.DurationSeconds s video</span>
-                                                                <span class="text-muted-foreground">vs</span>
-                                                                <span class="text-muted-foreground">@sentence.EstimatedDurationSeconds:F1 s sentence</span>
-                                                            </div>
-                                                            @{
-                                                                var matchScore = sentence.SelectedVideo.CalculateDurationMatchScore((int)Math.Ceiling(sentence.EstimatedDurationSeconds));
-                                                                var scoreColor = matchScore >= 80 ? "text-green-600" : matchScore >= 50 ? "text-yellow-600" : "text-red-600";
-                                                            }
-                                                            <span class="@scoreColor font-medium">@matchScore% match</span>
-                                                        </div>
-
-                                                        <div class="flex items-center justify-between p-1 bg-muted/30 border-t">
-                                                            <button class="inline-flex items-center justify-center rounded-md text-xs font-medium transition-colors h-8 w-8 hover:bg-black/10 dark:hover:bg-white/10"
-                                                                    @onclick="() => ResearchSentence(sentence)">
-                                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.85.99 6.57 2.57L21 8M21 3v5h-5"/></svg>
-                                                            </button>
-                                                            @if (sentence.SelectedVideo != null)
-                                                            {
-                                                                <button class="inline-flex items-center justify-center rounded-md text-[10px] font-semibold h-7 px-3 border border-input opacity-70 hover:opacity-100 transition-opacity"
-                                                                        @onclick="() => DownloadSingleDirect(sentence)">
-                                                                    <svg class="mr-1 h-3 w-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                                                                    Download
-                                                                </button>
-                                                            }
-                                                        </div>
-                                                    </div>
-                                                }
-                                                 else if (!string.IsNullOrEmpty(sentence.WhiskImagePath) && File.Exists(sentence.WhiskImagePath))
-                                                {
-                                                    <div class="rounded-xl border bg-card overflow-hidden shadow group/video">
-                                                        <div class="aspect-video relative bg-black">
-                                                            <img src="@GetWhiskDisplayUrl(sentence.WhiskImagePath)" class="absolute inset-0 w-full h-full object-cover" />
-                                                            <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover/video:opacity-100 transition-opacity">
-                                                                <span class="text-xs text-white font-medium bg-black/60 px-2 py-1 rounded">Ken Burns Effect applied on export</span>
-                                                            </div>
-                                                        </div>
-
-                                                        <div class="flex items-center justify-between px-2 py-1 bg-muted/80 text-[10px] border-t">
-                                                            <div class="flex items-center gap-2">
-                                                                <span class="text-purple-600 font-medium">✨ AI Image</span>
-                                                                <select class="bg-transparent border-none p-0 text-[10px] focus:ring-0 cursor-pointer" 
-                                                                        @bind="sentence.WhiskMotionType">
-                                                                    @foreach (var motion in Enum.GetValues<KenBurnsMotionType>())
-                                                                    {
-                                                                        <option value="@motion">@motion</option>
-                                                                    }
-                                                                </select>
-                                                            </div>
-                                                        </div>
-
-                                                        <div class="flex items-center justify-between p-1 bg-muted/30 border-t">
-                                                            <button class="inline-flex items-center justify-center rounded-md text-xs font-medium transition-colors h-8 w-8 hover:bg-black/10 dark:hover:bg-white/10"
-                                                                    title="Regenerate Image"
-                                                                    @onclick="() => HandleGenerateWhiskImage(sentence)">
-                                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.85.99 6.57 2.57L21 8M21 3v5h-5"/></svg>
-                                                            </button>
-                                                            <button class="inline-flex items-center justify-center rounded-md text-[10px] font-semibold h-7 px-3 border border-input opacity-70 hover:opacity-100 transition-opacity"
-                                                                    @onclick="() => sentence.WhiskImagePath = null">
-                                                                Cari Video Lagi
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                }
-                                                else if (sentence.Status == SentenceStatus.NoResults || sentence.SelectedVideo == null)
-                                                {
-                                                    <div class="aspect-video rounded-xl border border-dashed flex flex-col items-center justify-center space-y-3 bg-muted/20 p-4">
-                                                        <span class="text-[10px] text-muted-foreground font-medium uppercase tracking-tighter text-center">
-                                                            @(sentence.Status == SentenceStatus.NoResults ? "Gak ada video yang cocok" : "Pilih visual untuk kalimat ini")
-                                                        </span>
-                                                        <div class="flex gap-2">
-                                                            <button class="inline-flex items-center justify-center rounded-md text-[10px] font-semibold h-7 px-3 border border-input shadow-sm hover:bg-accent" 
-                                                                    @onclick="() => ResearchSentence(sentence)">
-                                                                Cari Video
-                                                            </button>
-                                                            <button class="inline-flex items-center justify-center rounded-md text-[10px] font-semibold h-7 px-3 bg-purple-600 text-white shadow-sm hover:bg-purple-700 disabled:opacity-50" 
-                                                                    disabled="@(_isGeneratingWhisk == sentence.Id)"
-                                                                    @onclick="() => HandleGenerateWhiskImage(sentence)">
-                                                                @if (_isGeneratingWhisk == sentence.Id)
-                                                                {
-                                                                    <svg class="animate-spin h-3 w-3 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                                                    </svg>
-                                                                    <span>Generating...</span>
-                                                                }
-                                                                else
-                                                                {
-                                                                    <svg class="mr-1 h-3 w-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
-                                                                    <span>Generate Image</span>
-                                                                }
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                }
-                                                else
-                                                {
-                                                    <div class="aspect-video rounded-xl border bg-muted animate-pulse"></div>
-                                                }
-                                            </div>
-                                        </div>
-                                    }
-                                </div>
-                            </div>
-                        }
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Mobile Sticky Progress -->
-        <StickyProgress
-            ProcessedCount="@_processedCount"
-            TotalCount="@_totalCount"
-            IsDone="@(_currentJob?.Status == JobStatus.PreviewReady)" />
+        <!-- Results View -->
+        <BrollResultsView 
+            Job="_currentJob"
+            StatusMessage="_statusMessage"
+            ResearchingSentenceId="_researchingSentenceId"
+            RegeneratingSentenceId="_isRegeneratingKeywords"
+            GeneratingImageSentenceId="_isGeneratingWhisk"
+            IsDownloading="_isDownloading"
+            ShowShortVideoPanel="false"
+            ShowMobileProgress="true"
+            OnBack="ResetJob"
+            OnDownloadZip="DownloadAsZip"
+            OnExportLinks="ExportDownloadLinks"
+            OnSaveProject="SaveCurrentProject"
+            OnResearch="ResearchSentence"
+            OnDownload="DownloadSingleDirect"
+            OnRegenerateKeywords="RegenerateKeywords"
+            OnGenerateImage="HandleGenerateWhiskImage"
+            OnClearImage="ClearWhiskImage"
+            OnSelectVideoPair="HandleSelectVideo"
+            OnConfirmVideo="ConfirmSelection" />
     }
 </div>
 
 @code {
+    // Form State
     private string _projectName = "";
     private string _scriptText = "";
     private string _selectedMood = "";
@@ -663,46 +76,25 @@
     private bool _isDownloading = false;
     private int? _isGeneratingWhisk = null;
     private bool _halalFilterEnabled = true;
+    
+    // Job State
     private ProcessingJob? _currentJob;
     private CancellationTokenSource? _cts;
     private int? _researchingSentenceId;
     private int? _isRegeneratingKeywords;
     private int _processedCount = 0;
     private int _totalCount = 0;
-    [Parameter] public string? ProjectId { get; set; }
-
-    // === Short Video Generation State ===
-    private bool _shortVideoMode = false;
-    private bool _isGeneratingShortVideo = false;
-    private bool _ffmpegAvailable = false;
-    private ContentCategory _selectedCategory = ContentCategory.Islami;
-    private AspectRatio _selectedRatio = AspectRatio.Portrait_9x16;
-    private TransitionType _selectedTransition = TransitionType.Fade;
-    private int _targetDuration = 30;
-    private bool _autoCut = true;
-    private bool _addTransitions = true;
-    private bool _addTextOverlay = true;
-    private bool _addBackgroundMusic = false;
-    private string _hookText = "";
-    private ShortVideoResult? _shortVideoResult;
     
-    // Progress tracking
-    private int _generateProgress = 0;
-    private string _generateStage = "";
-    private string _generateMessage = "";
-    private System.Diagnostics.Stopwatch? _generateStopwatch;
-    private System.Threading.Timer? _elapsedTimer;
-    private int _elapsedSeconds = 0;
-
-    // === Loading Feedback State ===
+    // Loading State
     private DateTime _processStartTime;
-    private int _currentStage = 0; // 0=None, 1=Keywords, 2=Search, 3=Done
+    private int _currentStage = 0;
     private bool _showFullPageLoading = false;
+    
     private const int STAGE_KEYWORDS = 1;
     private const int STAGE_SEARCH = 2;
     private const int STAGE_DONE = 3;
 
-    private bool CanGenerate => !string.IsNullOrWhiteSpace(_projectName) && !string.IsNullOrWhiteSpace(_scriptText);
+    [Parameter] public string? ProjectId { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
@@ -710,14 +102,13 @@
         Orchestrator.OnSentenceProgress += HandleProgress;
         Orchestrator.OnJobProgress += HandleJobProgress;
 
-        // Check FFmpeg availability for short video generation
-        _ffmpegAvailable = await ShortVideoComposer.IsFFmpegAvailableAsync();
-
         if (!string.IsNullOrEmpty(ProjectId))
         {
             await LoadSavedProject(ProjectId);
         }
     }
+
+    private string GetFormTitle() => string.IsNullOrEmpty(ProjectId) ? "Sequence Baru" : "Edit Project";
 
     private async Task LoadSavedProject(string id)
     {
@@ -752,7 +143,6 @@
                     {
                         Id = sent.Id,
                         Text = sent.Text,
-                        // Restore KeywordSet from database
                         KeywordSet = sent.GetKeywordSet(),
                         Status = SentenceStatus.PreviewReady
                     };
@@ -765,12 +155,10 @@
                             DownloadUrl = sent.VideoUrl,
                             PreviewUrl = sent.VideoPreviewUrl ?? "",
                             ThumbnailUrl = sent.VideoThumbUrl ?? "",
-                            // CRITICAL: Restore duration for accurate % match calculation
                             DurationSeconds = sent.VideoDuration
                         };
                     }
 
-                    // Restore Whisk Image
                     sentence.WhiskImagePath = sent.WhiskImagePath;
                     if (Enum.TryParse<KenBurnsMotionType>(sent.WhiskMotionType, out var motion))
                     {
@@ -795,15 +183,10 @@
         HalalFilter.IsEnabled = _halalFilterEnabled;
     }
 
-    // Mood selection helpers
-    private void SelectMoodAuto() { _selectedMood = ""; StateHasChanged(); }
-    private void SelectMoodCinematic() { _selectedMood = "Cinematic"; StateHasChanged(); }
-    private void SelectMoodMoody() { _selectedMood = "Moody"; StateHasChanged(); }
-    private void SelectMoodBright() { _selectedMood = "Bright"; StateHasChanged(); }
-
     private async Task StartSearch()
     {
-        if (!CanGenerate) return;
+        if (string.IsNullOrWhiteSpace(_projectName) || string.IsNullOrWhiteSpace(_scriptText)) return;
+        
         _processStartTime = DateTime.Now;
         _showFullPageLoading = true;
         _isSearching = true;
@@ -842,9 +225,6 @@
         StateHasChanged();
     }
 
-    /// <summary>
-    /// Regenerate keywords using AI (not fallback) and then re-search for videos
-    /// </summary>
     private async Task RegenerateKeywords(ScriptSentence sentence)
     {
         if (_currentJob == null) return;
@@ -854,7 +234,6 @@
         
         try
         {
-            // Call AI to extract fresh keywords
             var keywordResult = await IntelligenceService.ExtractKeywordsAsync(
                 sentence.Text, 
                 _currentJob.Mood, 
@@ -862,16 +241,12 @@
             
             if (keywordResult.Success && keywordResult.KeywordSet.TotalCount > 0)
             {
-                // Apply new layered keywords
                 sentence.KeywordSet = keywordResult.KeywordSet;
-                _statusMessage = $"✓ Generated {sentence.KeywordSet.TotalCount} keywords ({sentence.KeywordSet.SuggestedCategory ?? "auto"})";
+                _statusMessage = $"✓ Generated {sentence.KeywordSet.TotalCount} keywords";
                 
-                // Now re-search with new keywords
                 _researchingSentenceId = sentence.Id;
                 StateHasChanged();
                 await Orchestrator.ResearchSentenceAsync(_currentJob, sentence, null, _cts?.Token ?? default);
-                
-                // Save the updated project
                 await SaveCurrentProject();
             }
             else
@@ -891,9 +266,9 @@
         }
     }
 
-    private void SelectVideo(ScriptSentence sentence, VideoAsset video)
+    private void HandleSelectVideo((ScriptSentence sentence, VideoAsset video) pair)
     {
-        sentence.SelectedVideo = video;
+        pair.sentence.SelectedVideo = pair.video;
         StateHasChanged();
     }
 
@@ -913,9 +288,6 @@
         }
     }
 
-    /// <summary>
-    /// Generate sanitized filename: ProjectTitle_01_keyword.mp4
-    /// </summary>
     private string GenerateFileName(int index, ScriptSentence sentence)
     {
         var projectSlug = SanitizeForFilename(_currentJob?.ProjectName ?? "project");
@@ -935,14 +307,10 @@
         return sanitized.Length > 30 ? sanitized[..30] : sanitized;
     }
 
-    /// <summary>
-    /// Download a single video directly from CDN
-    /// </summary>
     private async Task DownloadSingleDirect(ScriptSentence sentence)
     {
         if (_currentJob == null || sentence.SelectedVideo == null) return;
 
-        // Find the sentence index
         var index = 1;
         foreach (var s in _currentJob.Segments.SelectMany(seg => seg.Sentences))
         {
@@ -966,9 +334,6 @@
         }
     }
 
-    /// <summary>
-    /// Download all videos as a single ZIP file (one-click!)
-    /// </summary>
     private async Task DownloadAsZip()
     {
         if (_currentJob == null) return;
@@ -990,14 +355,11 @@
 
             var projectSlug = SanitizeForFilename(_currentJob.ProjectName);
             var zipFilename = $"{projectSlug}_broll.zip";
-            
-            // Convert to JS-compatible format
             var filesArray = downloads.Select(d => new { url = d.Url, filename = d.Filename }).ToArray();
 
             _statusMessage = $"Fetching {downloads.Count} videos...";
             StateHasChanged();
 
-            // Call JavaScript to create ZIP
             var result = await JS.InvokeAsync<ZipResult>("downloadAsZip", zipFilename, filesArray);
 
             if (result != null)
@@ -1025,31 +387,6 @@
         }
     }
 
-    // Helper class for JS interop result
-    private class ZipResult
-    {
-        public int Success { get; set; }
-        public int Failed { get; set; }
-        public int Total { get; set; }
-    }
-
-    // Progress handler for JS callback (not used in current implementation but available)
-    private class ProgressHandler
-    {
-        private readonly Home _home;
-        public ProgressHandler(Home home) => _home = home;
-
-        [JSInvokable]
-        public void UpdateProgress(int progress, string message)
-        {
-            _home._statusMessage = message;
-            _home.InvokeAsync(_home.StateHasChanged);
-        }
-    }
-
-    /// <summary>
-    /// Export all download links as a text file
-    /// </summary>
     private async Task ExportDownloadLinks()
     {
         if (_currentJob == null) return;
@@ -1065,14 +402,12 @@
         var content = $"# {_currentJob.ProjectName} - B-Roll Download Links\n";
         content += $"# Generated: {DateTime.Now:yyyy-MM-dd HH:mm}\n";
         content += $"# Total: {downloads.Count} videos\n\n";
-        content += "# Format: filename | url\n\n";
 
         foreach (var (url, filename, _) in downloads)
         {
             content += $"{filename}\n{url}\n\n";
         }
 
-        // Download as text file
         var bytes = System.Text.Encoding.UTF8.GetBytes(content);
         var base64 = Convert.ToBase64String(bytes);
         await JS.InvokeVoidAsync("downloadFile", $"{projectSlug}_links.txt", base64, "text/plain");
@@ -1114,7 +449,6 @@
         _processedCount = e.Sentence.Id;
         _totalCount = e.Job.TotalSentences;
 
-        // Detect stage from job status
         _currentStage = e.Job.Status switch
         {
             JobStatus.Segmenting => STAGE_KEYWORDS,
@@ -1133,9 +467,6 @@
         InvokeAsync(StateHasChanged);
     }
 
-    /// <summary>
-    /// Calculate estimated time remaining for the process
-    /// </summary>
     private string GetEtaText()
     {
         if (_totalCount == 0 || _processedCount == 0) return "Hitung waktu...";
@@ -1149,36 +480,6 @@
             : $"Kurang lebih {(int)(etaSeconds / 60)} menit lagi";
     }
 
-    public void Dispose()
-    {
-        Orchestrator.OnSentenceProgress -= HandleProgress;
-        Orchestrator.OnJobProgress -= HandleJobProgress;
-        _cts?.Dispose();
-        _elapsedTimer?.Dispose();
-    }
-
-    // === Short Video Generation Methods ===
-
-    private void ToggleShortVideoMode()
-    {
-        _shortVideoMode = !_shortVideoMode;
-        _shortVideoResult = null;
-    }
-
-    private void SelectCategory(ContentCategory category)
-    {
-        _selectedCategory = category;
-        // Apply category-specific keyword modifiers to mood
-        var config = CategoryPresets.GetConfig(category);
-        // Optionally update mood based on category
-    }
-
-    private void SelectRatio(AspectRatio ratio)
-    {
-        _selectedRatio = ratio;
-        _shortVideoResult = null; // Clear previous result when ratio changes
-    }
-
     private async Task HandleGenerateWhiskImage(ScriptSentence sentence)
     {
         if (_currentJob == null) return;
@@ -1188,14 +489,12 @@
         try
         {
             var outputDir = Path.Combine(Directory.GetCurrentDirectory(), "output", _currentJob.Id, "whisk_images");
-            
-            // Use the LLM-generated image prompt if available, otherwise fall back to raw script text
             var prompt = sentence.WhiskPrompt ?? sentence.Text;
             var result = await WhiskGenerator.GenerateImageAsync(prompt, outputDir, $"sent_{sentence.Id}");
             if (result.Success)
             {
                 sentence.WhiskImagePath = result.ImagePath;
-                sentence.SelectedVideo = null; // Clear video if image is chosen
+                sentence.SelectedVideo = null;
                 await ProjectService.SaveJobAsProjectAsync(_currentJob);
                 ToastService.ShowSuccess("AI Image generated!");
             }
@@ -1216,171 +515,23 @@
         }
     }
 
-    private async Task GenerateShortVideo()
+    private void ClearWhiskImage(ScriptSentence sentence)
     {
-        if (_currentJob == null) return;
-
-        _isGeneratingShortVideo = true;
-        _statusMessage = "Preparing short video...";
-        _shortVideoResult = null;
-        
-        // Initialize progress tracking
-        _generateProgress = 0;
-        _generateStage = "Initializing";
-        _generateMessage = "Starting...";
-        _elapsedSeconds = 0;
-        _generateStopwatch = System.Diagnostics.Stopwatch.StartNew();
-        
-        // Start smooth elapsed timer (updates every second)
-        _elapsedTimer?.Dispose();
-        _elapsedTimer = new System.Threading.Timer(async _ =>
-        {
-            _elapsedSeconds++;
-            await InvokeAsync(StateHasChanged);
-        }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
-        
+        sentence.WhiskImagePath = null;
         StateHasChanged();
-
-        try
-        {
-            // Collect clips from the current job
-            var clips = new List<VideoClip>();
-            foreach (var sentence in _currentJob.Segments.SelectMany(s => s.Sentences))
-            {
-                if (sentence.SelectedVideo != null)
-                {
-                    clips.Add(new VideoClip
-                    {
-                        SourceUrl = sentence.SelectedVideo.DownloadUrl,
-                        SourcePath = sentence.SelectedVideo.LocalPath ?? "",
-                        AssociatedText = sentence.Text,
-                        DurationSeconds = sentence.SelectedVideo.DurationSeconds
-                    });
-                }
-                else if (!string.IsNullOrEmpty(sentence.WhiskImagePath))
-                {
-                    // Add as Image clip with Ken Burns effect
-                    clips.Add(VideoClip.FromImage(
-                        sentence.WhiskImagePath,
-                        sentence.Text,
-                        sentence.EstimatedDurationSeconds,
-                        sentence.WhiskMotionType
-                    ));
-                }
-            }
-
-            if (clips.Count == 0)
-            {
-                _statusMessage = "No videos selected. Please select videos first.";
-                _isGeneratingShortVideo = false;
-                _generateStopwatch?.Stop();
-                StateHasChanged();
-                return;
-            }
-
-            var config = new ShortVideoConfig
-            {
-                Ratio = _selectedRatio,
-                Category = _selectedCategory,
-                Transition = _selectedTransition,
-                TargetDurationSeconds = _targetDuration,
-                AutoCut = _autoCut,
-                AddTransitions = _addTransitions,
-                AddTextOverlay = _addTextOverlay,
-                AddBackgroundMusic = _addBackgroundMusic,
-                HookText = _addTextOverlay ? _hookText : null
-            };
-
-            var progress = new Progress<CompositionProgress>(p =>
-            {
-                _generateProgress = p.Percent;
-                _generateStage = p.Stage;
-                _generateMessage = p.Message;
-                _statusMessage = $"{p.Stage}: {p.Message} ({p.Percent}%)";
-                InvokeAsync(StateHasChanged);
-            });
-
-            _shortVideoResult = await ShortVideoComposer.ComposeAsync(
-                clips,
-                config,
-                progress,
-                _cts?.Token ?? default
-            );
-
-            _generateStopwatch?.Stop();
-            _elapsedTimer?.Dispose();
-            _elapsedTimer = null;
-            var elapsed = _generateStopwatch?.Elapsed.TotalSeconds ?? 0;
-
-            if (_shortVideoResult.Success)
-            {
-                _statusMessage = $"✓ Generated in {elapsed:F1}s! Duration: {_shortVideoResult.DurationSeconds}s, Size: {FormatFileSize(_shortVideoResult.FileSizeBytes)}";
-            }
-            else
-            {
-                _statusMessage = $"✗ Generation failed: {_shortVideoResult.ErrorMessage}";
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Short video generation failed");
-            _statusMessage = $"Error: {ex.Message}";
-            _generateStopwatch?.Stop();
-            _elapsedTimer?.Dispose();
-            _elapsedTimer = null;
-        }
-        finally
-        {
-            _isGeneratingShortVideo = false;
-            StateHasChanged();
-        }
     }
 
-    private async Task DownloadShortVideo()
+    public void Dispose()
     {
-        if (_shortVideoResult?.OutputPath == null) return;
-
-        try
-        {
-            var fileName = Path.GetFileName(_shortVideoResult.OutputPath);
-            var bytes = await File.ReadAllBytesAsync(_shortVideoResult.OutputPath);
-            var base64 = Convert.ToBase64String(bytes);
-            await JS.InvokeVoidAsync("downloadFile", fileName, base64, "video/mp4");
-            _statusMessage = $"Downloaded: {fileName}";
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Short video download failed");
-            _statusMessage = $"Download error: {ex.Message}";
-        }
+        Orchestrator.OnSentenceProgress -= HandleProgress;
+        Orchestrator.OnJobProgress -= HandleJobProgress;
+        _cts?.Dispose();
     }
 
-    private static string FormatFileSize(long bytes)
+    private class ZipResult
     {
-        string[] sizes = { "B", "KB", "MB", "GB" };
-        double len = bytes;
-        int order = 0;
-        while (len >= 1024 && order < sizes.Length - 1)
-        {
-            order++;
-            len /= 1024;
-        }
-        return $"{len:0.##} {sizes[order]}";
-    }
-
-    private string GetWhiskDisplayUrl(string absolutePath)
-    {
-        if (string.IsNullOrEmpty(absolutePath)) return "";
-        
-        // Convert /home/user/Documents/BunbunBroll/WhiskImages/ID/file.png to /WhiskImages/ID/file.png
-        var baseDir = Path.Combine(Directory.GetCurrentDirectory(), "output");
-        if (absolutePath.StartsWith(baseDir))
-        {
-            var relative = absolutePath.Substring(baseDir.Length).Replace("\\", "/");
-            if (!relative.StartsWith("/")) relative = "/" + relative;
-            return "/project-assets" + relative;
-        }
-        
-        return absolutePath;
+        public int Success { get; set; }
+        public int Failed { get; set; }
+        public int Total { get; set; }
     }
 }

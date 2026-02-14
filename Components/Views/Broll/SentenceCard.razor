@@ -1,0 +1,214 @@
+@namespace BunbunBroll.Components.Views.Broll
+@using BunbunBroll.Models
+@using BunbunBroll.Components.Common
+
+<div class="flex flex-col md:flex-row gap-8 items-start relative group @(GetShimmerClass())">
+    <!-- Indicator Line -->
+    <div class="absolute -left-6 top-1 bottom-1 w-0.5 bg-border/30 group-hover:bg-primary/50 transition-colors hidden lg:block"></div>
+    
+    <!-- Text Content -->
+    <div class="flex-1 space-y-4">
+        <div class="flex items-center gap-3">
+            <span class="text-[10px] font-mono font-medium text-muted-foreground bg-muted px-1.5 py-0.5 rounded">#@Sentence.Id.ToString("D2")</span>
+            <span class="text-[10px] font-medium text-muted-foreground">@Sentence.EstimatedDurationSeconds.ToString("F1")s duration</span>
+        </div>
+        <p class="text-xl leading-relaxed text-foreground font-medium">@Sentence.Text</p>
+        
+        <div class="flex flex-wrap gap-2 items-center">
+            @if (!string.IsNullOrEmpty(Mood))
+            {
+                <Badge Variant="primary">@Mood</Badge>
+            }
+            @foreach (var kw in Sentence.Keywords.Take(3))
+            {
+                <Badge Variant="secondary">@kw</Badge>
+            }
+            @if (!string.IsNullOrEmpty(Sentence.KeywordSet?.SuggestedCategory))
+            {
+                <Badge Variant="outline">@Sentence.KeywordSet.SuggestedCategory</Badge>
+            }
+            <button class="inline-flex items-center justify-center rounded-md text-[10px] font-medium h-5 px-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                    title="Cari Keyword Lagi"
+                    disabled="@IsRegeneratingKeywords"
+                    @onclick="OnRegenerateKeywords">
+                @if (IsRegeneratingKeywords)
+                {
+                    <Icon Name="spinner" Size="12" Class="animate-spin" />
+                }
+                else
+                {
+                    <Icon Name="refresh" Size="12" />
+                    <span class="ml-1">Regen</span>
+                }
+            </button>
+        </div>
+    </div>
+
+    <!-- Visual Side -->
+    <div class="md:w-[320px] w-full shrink-0">
+        @if (IsResearching && Sentence.SearchResults.Count > 1)
+        {
+            <!-- Video Selection Grid -->
+            <div class="rounded-xl border bg-card p-2 shadow-lg space-y-2">
+                <div class="grid grid-cols-2 gap-1.5">
+                    @foreach (var video in Sentence.SearchResults)
+                    {
+                        var currentVideo = video;
+                        <div class="aspect-video relative rounded-md overflow-hidden cursor-pointer border-2 transition-all @(Sentence.SelectedVideo?.Id == currentVideo.Id ? "border-primary" : "border-transparent")"
+                             @onclick="() => HandleSelectVideo(currentVideo)">
+                            <video src="@currentVideo.DownloadUrl" muted loop class="absolute inset-0 w-full h-full object-cover"></video>
+                        </div>
+                    }
+                </div>
+                <button class="btn-primary h-8 w-full text-xs"
+                        @onclick="OnConfirmVideo">
+                    Pilih Video Ini
+                </button>
+            </div>
+        }
+        else if (Sentence.SelectedVideo != null)
+        {
+            <!-- Selected Video Player -->
+            <div class="rounded-xl border bg-card overflow-hidden shadow group/video">
+                <div class="aspect-video relative bg-black">
+                    <video src="@Sentence.SelectedVideo.DownloadUrl" controls muted loop class="absolute inset-0 w-full h-full object-cover"></video>
+                </div>
+
+                <!-- Duration Match Indicator -->
+                <div class="flex items-center justify-between px-2 py-1 bg-muted/80 text-[10px] border-t">
+                    <div class="flex items-center gap-2">
+                        <span class="text-muted-foreground">@Sentence.SelectedVideo.DurationSeconds s video</span>
+                        <span class="text-muted-foreground">vs</span>
+                        <span class="text-muted-foreground">@Sentence.EstimatedDurationSeconds:F1 s sentence</span>
+                    </div>
+                    @{
+                        var matchScore = Sentence.SelectedVideo.CalculateDurationMatchScore((int)Math.Ceiling(Sentence.EstimatedDurationSeconds));
+                        var scoreColor = matchScore >= 80 ? "text-green-600" : matchScore >= 50 ? "text-yellow-600" : "text-red-600";
+                    }
+                    <span class="@scoreColor font-medium">@matchScore% match</span>
+                </div>
+
+                <div class="flex items-center justify-between p-1 bg-muted/30 border-t">
+                    <button class="inline-flex items-center justify-center rounded-md text-xs font-medium transition-colors h-8 w-8 hover:bg-black/10 dark:hover:bg-white/10"
+                            @onclick="OnResearch">
+                        <Icon Name="refresh" Size="14" />
+                    </button>
+                    <button class="inline-flex items-center justify-center rounded-md text-[10px] font-semibold h-7 px-3 border border-input opacity-70 hover:opacity-100 transition-opacity"
+                            @onclick="OnDownload">
+                        <Icon Name="download" Size="12" Class="mr-1" />
+                        Download
+                    </button>
+                </div>
+            </div>
+        }
+        else if (!string.IsNullOrEmpty(Sentence.WhiskImagePath) && File.Exists(Sentence.WhiskImagePath))
+        {
+            <!-- AI Image Display -->
+            <div class="rounded-xl border bg-card overflow-hidden shadow group/video">
+                <div class="aspect-video relative bg-black">
+                    <img src="@GetWhiskDisplayUrl(Sentence.WhiskImagePath)" class="absolute inset-0 w-full h-full object-cover" />
+                    <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover/video:opacity-100 transition-opacity">
+                        <span class="text-xs text-white font-medium bg-black/60 px-2 py-1 rounded">Ken Burns Effect applied on export</span>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between px-2 py-1 bg-muted/80 text-[10px] border-t">
+                    <div class="flex items-center gap-2">
+                        <span class="text-purple-600 font-medium">✨ AI Image</span>
+                        <select class="bg-transparent border-none p-0 text-[10px] focus:ring-0 cursor-pointer" 
+                                @bind="Sentence.WhiskMotionType">
+                            @foreach (var motion in Enum.GetValues<KenBurnsMotionType>())
+                            {
+                                <option value="@motion">@motion</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between p-1 bg-muted/30 border-t">
+                    <button class="inline-flex items-center justify-center rounded-md text-xs font-medium transition-colors h-8 w-8 hover:bg-black/10 dark:hover:bg-white/10"
+                            title="Regenerate Image"
+                            @onclick="OnGenerateImage">
+                        <Icon Name="refresh" Size="14" />
+                    </button>
+                    <button class="inline-flex items-center justify-center rounded-md text-[10px] font-semibold h-7 px-3 border border-input opacity-70 hover:opacity-100 transition-opacity"
+                            @onclick="OnClearImage">
+                        Cari Video Lagi
+                    </button>
+                </div>
+            </div>
+        }
+        else if (Sentence.Status == SentenceStatus.NoResults || Sentence.SelectedVideo == null)
+        {
+            <!-- Empty State -->
+            <div class="aspect-video rounded-xl border border-dashed flex flex-col items-center justify-center space-y-3 bg-muted/20 p-4">
+                <span class="text-[10px] text-muted-foreground font-medium uppercase tracking-tighter text-center">
+                    @(Sentence.Status == SentenceStatus.NoResults ? "Gak ada video yang cocok" : "Pilih visual untuk kalimat ini")
+                </span>
+                <div class="flex gap-2">
+                    <button class="inline-flex items-center justify-center rounded-md text-[10px] font-semibold h-7 px-3 border border-input shadow-sm hover:bg-accent"
+                            @onclick="OnResearch">
+                        Cari Video
+                    </button>
+                    <button class="inline-flex items-center justify-center rounded-md text-[10px] font-semibold h-7 px-3 bg-purple-600 text-white shadow-sm hover:bg-purple-700 disabled:opacity-50"
+                            disabled="@IsGeneratingImage"
+                            @onclick="OnGenerateImage">
+                        @if (IsGeneratingImage)
+                        {
+                            <Icon Name="spinner" Size="12" Class="animate-spin mr-1" />
+                            <span>Generating...</span>
+                        }
+                        else
+                        {
+                            <Icon Name="image" Size="12" Class="mr-1" />
+                            <span>Generate Image</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        }
+        else
+        {
+            <!-- Loading State -->
+            <div class="aspect-video rounded-xl border bg-muted animate-pulse"></div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public ScriptSentence Sentence { get; set; } = null!;
+    [Parameter] public string? Mood { get; set; }
+    [Parameter] public bool IsResearching { get; set; }
+    [Parameter] public bool IsRegeneratingKeywords { get; set; }
+    [Parameter] public bool IsGeneratingImage { get; set; }
+    [Parameter] public EventCallback<VideoAsset> OnSelectVideo { get; set; }
+    [Parameter] public EventCallback OnConfirmVideo { get; set; }
+    [Parameter] public EventCallback OnResearch { get; set; }
+    [Parameter] public EventCallback OnDownload { get; set; }
+    [Parameter] public EventCallback OnRegenerateKeywords { get; set; }
+    [Parameter] public EventCallback OnGenerateImage { get; set; }
+    [Parameter] public EventCallback OnClearImage { get; set; }
+
+    private string GetShimmerClass() => (IsRegeneratingKeywords || IsResearching || IsGeneratingImage) ? "shimmer-effect" : "";
+
+    private string GetWhiskDisplayUrl(string absolutePath)
+    {
+        if (string.IsNullOrEmpty(absolutePath)) return "";
+        
+        var baseDir = Path.Combine(Directory.GetCurrentDirectory(), "output");
+        if (absolutePath.StartsWith(baseDir))
+        {
+            var relative = absolutePath.Substring(baseDir.Length).Replace("\\", "/");
+            if (!relative.StartsWith("/")) relative = "/" + relative;
+            return "/project-assets" + relative;
+        }
+        
+        return absolutePath;
+    }
+
+    private async Task HandleSelectVideo(VideoAsset video)
+    {
+        if (OnSelectVideo.HasDelegate)
+            await OnSelectVideo.InvokeAsync(video);
+    }
+}

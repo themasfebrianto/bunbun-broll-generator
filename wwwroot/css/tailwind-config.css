@@ -1,0 +1,240 @@
+/* Tailwind CSS Custom Configuration */
+/* This file contains the base styles and Tailwind config */
+
+@layer base {
+  /* Vercel-Style Light Mode - Clean & Minimal */
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 0%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 0%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 0%;
+    --primary: 0 0% 9%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 9%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 45%;
+    --accent: 0 0% 96%;
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
+    --ring: 0 0% 9%;
+    --radius: 0.5rem;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 0%;
+  }
+  
+  /* Vercel-Style Dark Mode - Pure Black */
+  .dark {
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
+    --card: 0 0% 7%;
+    --card-foreground: 0 0% 100%;
+    --popover: 0 0% 7%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 0 0% 100%;
+    --primary-foreground: 0 0% 0%;
+    --secondary: 0 0% 12%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 0 0% 12%;
+    --muted-foreground: 0 0% 65%;
+    --accent: 0 0% 12%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 142 70% 45%;
+    --success-foreground: 0 0% 100%;
+    --border: 0 0% 18%;
+    --input: 0 0% 18%;
+    --ring: 0 0% 83%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 0%;
+  }
+}
+
+@layer components {
+  /* Vercel-style header - solid bg, 1px border */
+  .app-header {
+    @apply sticky top-0 z-50 w-full border-b border-border bg-background;
+  }
+  .header-content {
+    @apply container flex h-16 items-center justify-between;
+  }
+  .logo {
+    @apply flex items-center gap-2 font-semibold tracking-tight text-foreground transition-opacity hover:opacity-70;
+  }
+  .nav-links {
+    @apply flex items-center gap-6 text-sm;
+  }
+  .nav-link {
+    @apply text-muted-foreground transition-colors duration-150 hover:text-foreground;
+  }
+  .nav-link.active {
+    @apply text-foreground font-medium;
+  }
+  .app-footer {
+    @apply border-t border-border py-6 md:px-8 md:py-0;
+  }
+  .footer-content {
+    @apply container flex flex-col items-center justify-between gap-4 md:h-24 md:flex-row;
+  }
+  
+  /* Vercel-style buttons */
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-lg text-sm font-medium 
+           bg-primary text-primary-foreground h-10 px-4
+           transition-opacity duration-150 hover:opacity-90
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2
+           disabled:pointer-events-none disabled:opacity-50;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-lg text-sm font-medium 
+           bg-transparent text-foreground border border-border h-10 px-4
+           transition-colors duration-150 hover:bg-muted hover:border-foreground/20
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2
+           disabled:pointer-events-none disabled:opacity-50;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center rounded-lg text-sm font-medium 
+           bg-transparent text-foreground h-10 px-4
+           transition-colors duration-150 hover:bg-muted
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2
+           disabled:pointer-events-none disabled:opacity-50;
+  }
+  .btn-destructive {
+    @apply inline-flex items-center justify-center rounded-lg text-sm font-medium 
+           bg-destructive text-destructive-foreground h-10 px-4
+           transition-opacity duration-150 hover:opacity-90
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive focus-visible:ring-offset-2
+           disabled:pointer-events-none disabled:opacity-50;
+  }
+  
+  /* Vercel-style cards - 1px border, no shadow */
+  .card {
+    @apply rounded-lg border border-border bg-card text-card-foreground
+           transition-colors duration-150;
+  }
+  .card-hover {
+    @apply hover:border-foreground/20;
+  }
+  
+  /* Vercel-style inputs */
+  .input {
+    @apply flex h-10 w-full rounded-lg border border-border bg-transparent px-3 py-2 text-sm
+           transition-colors duration-150
+           placeholder:text-muted-foreground
+           hover:border-foreground/30
+           focus:outline-none focus:border-foreground
+           disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  select.input {
+    @apply appearance-none bg-no-repeat pr-10 cursor-pointer;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 0.5rem center;
+    background-size: 1.5em 1.5em;
+    color-scheme: light;
+  }
+
+  .dark select.input {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    color-scheme: dark;
+  }
+
+  select.input option {
+    background-color: hsl(var(--card));
+    color: hsl(var(--foreground));
+  }
+  
+  /* Vercel-style badges */
+  .badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
+           bg-muted text-muted-foreground;
+  }
+  .badge-mono {
+    @apply font-mono text-[11px] tracking-tight;
+  }
+  
+  /* Toast container */
+  .toast-container {
+    @apply fixed bottom-4 right-4 z-[100] flex flex-col gap-2;
+  }
+  .toast {
+    @apply flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 text-sm shadow-lg
+           animate-in slide-in-from-bottom-2;
+  }
+  .toast-success {
+    @apply border-success/30 bg-success/10 text-success;
+  }
+  .toast-error {
+    @apply border-destructive/30 bg-destructive/10 text-destructive;
+  }
+  
+  /* Modal/Dialog */
+  .modal-backdrop {
+    @apply fixed inset-0 z-50 bg-background/80 backdrop-blur-sm;
+  }
+  .modal {
+    @apply fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2
+           rounded-lg border border-border bg-card p-6 shadow-lg;
+  }
+
+  /* Breadcrumb */
+  .breadcrumb {
+    @apply flex items-center gap-2 text-sm;
+  }
+  .breadcrumb-item {
+    @apply flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors;
+  }
+  .breadcrumb-sep {
+    @apply text-muted-foreground;
+  }
+  .breadcrumb-current {
+    @apply font-medium text-foreground;
+  }
+
+  /* Progress bar */
+  .progress-container {
+    @apply w-full h-2 bg-muted rounded-full overflow-hidden;
+  }
+  .progress-bar {
+    @apply h-full bg-primary transition-all duration-300 ease-out rounded-full;
+  }
+
+  /* Skeleton loading */
+  .skeleton {
+    @apply animate-pulse bg-muted;
+  }
+}
+
+@layer utilities {
+  /* Animations */
+  .animate-in {
+    animation: fadeIn 0.2s ease;
+  }
+  .slide-in-from-bottom-2 {
+    animation: slideInFromBottom 0.2s ease;
+  }
+  .slide-in-from-top-2 {
+    animation: slideInFromTop 0.2s ease;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes slideInFromBottom {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes slideInFromTop {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}

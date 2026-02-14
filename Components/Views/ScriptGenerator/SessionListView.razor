@@ -1,0 +1,209 @@
+@namespace BunbunBroll.Components.Views.ScriptGenerator
+@using BunbunBroll.Models
+@using BunbunBroll.Services
+@using BunbunBroll.Components.Common
+
+<div class="max-w-[52rem] mx-auto space-y-4">
+    <div class="flex justify-end gap-3">
+        <Button Text="Batch Generate"
+                Icon="layers"
+                Variant="secondary"
+                OnClick="OnShowBatchForm" />
+        <Button Text="Buat Script Baru"
+                Icon="plus"
+                OnClick="OnShowConfigForm" />
+    </div>
+
+    @if (IsLoading)
+    {
+        <div class="card p-12 text-center text-muted-foreground">
+            <Icon Name="spinner" Size="24" Class="animate-spin mx-auto mb-3 text-primary" />
+            <p>Memuat sesi...</p>
+        </div>
+    }
+    else if (Sessions.Count == 0)
+    {
+        <Card>
+            <div class="text-muted-foreground space-y-3 text-center">
+                <Icon Name="file" Size="48" Class="mx-auto opacity-40" />
+                <p class="text-lg font-medium">Belum ada script</p>
+                <p class="text-sm">Klik "Buat Script Baru" untuk memulai.</p>
+            </div>
+        </Card>
+    }
+    else
+    {
+        @foreach (var session in Sessions)
+        {
+            var currentSession = session;
+            <div class="card p-5 cursor-pointer hover:border-primary/40 transition-colors group"
+                 @onclick="() => HandleViewSession(currentSession)">
+                <div class="flex items-start justify-between gap-4">
+                    <div class="min-w-0 flex-1 space-y-1">
+                        <h3 class="font-semibold text-base truncate">@session.Topic</h3>
+                        <div class="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                            <Badge Variant="mono">@session.Id</Badge>
+                            @if (!string.IsNullOrEmpty(session.ChannelName))
+                            {
+                                <Badge Variant="primary">@session.ChannelName</Badge>
+                            }
+                            <span>·</span>
+                            <span>@FormatDate(session.CreatedAt)</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3 shrink-0">
+                        @if (IsSessionRunning(session.Id))
+                        {
+                            var job = GetActiveJob(session.Id);
+                            var pct = GetProgressPercent(job);
+                            <div class="text-right text-xs text-muted-foreground space-y-1">
+                                <div class="flex items-center gap-1.5">
+                                    <Icon Name="spinner" Size="12" Class="animate-spin text-primary" />
+                                    <span class="font-medium text-primary">@($"{pct:F0}%")</span>
+                                </div>
+                                <div class="w-16 h-1 bg-muted rounded-full overflow-hidden">
+                                    <div class="h-full bg-primary rounded-full transition-all duration-500" style="width: @($"{pct:F0}%")"></div>
+                                </div>
+                            </div>
+                        }
+                        else if (session.Status == SessionStatus.Completed)
+                        {
+                            var totalWords = session.Phases.Sum(p => p.WordCount ?? 0);
+                            var totalMins = (int)(session.Phases.Sum(p => p.DurationSeconds ?? 0) / 60);
+                            <div class="text-right text-xs text-muted-foreground">
+                                <span class="font-medium text-foreground">@totalWords</span> kata
+                                <br />~@totalMins menit
+                            </div>
+                        }
+                        @GetStatusBadge(session.Status)
+                        <button class="btn-ghost text-xs px-1.5 py-1 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:bg-destructive/10"
+                                title="Hapus sesi"
+                                @onclick="() => HandleDeleteSession(currentSession)"
+                                @onclick:stopPropagation="true">
+                            <Icon Name="trash" Size="16" />
+                        </button>
+                    </div>
+                </div>
+                
+                @if (session.Phases.Count > 0)
+                {
+                    <div class="mt-3 flex gap-[3px]">
+                        @foreach (var phase in session.Phases.OrderBy(p => p.Order))
+                        {
+                            var bgClass = phase.Status switch
+                            {
+                                PhaseStatus.Completed => "bg-success",
+                                PhaseStatus.Failed => "bg-destructive",
+                                PhaseStatus.InProgress => "bg-primary animate-pulse",
+                                _ => "bg-muted-foreground/20"
+                            };
+                            <div class="h-1.5 flex-1 rounded-full @bgClass" title="@phase.PhaseName (@phase.Status)"></div>
+                        }
+                    </div>
+                }
+
+                @if (BRollSummaries.TryGetValue(session.Id, out var broll))
+                {
+                    <div class="mt-3 pt-3 border-t border-border/50">
+                        <div class="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                            @if (broll.VideoCount > 0)
+                            {
+                                <span class="inline-flex items-center gap-1">
+                                    <span>🎬</span>
+                                    <span>@broll.VideoCount broll</span>
+                                </span>
+                            }
+                            @if (broll.ImageGenCount > 0)
+                            {
+                                <span class="inline-flex items-center gap-1">
+                                    <span>🎨</span>
+                                    <span>@broll.ImageGenCount image gen</span>
+                                </span>
+                            }
+                            @{
+                                var readyCount = broll.VideosSelected + broll.ImagesReady;
+                            }
+                            @if (readyCount > 0)
+                            {
+                                <span class="inline-flex items-center gap-1 @(readyCount >= broll.TotalSegments ? "text-success" : "")">
+                                    <span>✅</span>
+                                    <span>@readyCount/@broll.TotalSegments ready</span>
+                                </span>
+                            }
+                        </div>
+
+                        @if (broll.ThumbnailPaths.Count > 0)
+                        {
+                            <div class="flex gap-1.5 mt-2">
+                                @foreach (var thumbPath in broll.ThumbnailPaths)
+                                {
+                                    <div class="w-12 h-12 rounded-md overflow-hidden bg-muted border border-border/50">
+                                        <img src="@GetAssetUrl(thumbPath)" 
+                                             alt="B-Roll thumbnail" 
+                                             class="w-full h-full object-cover" 
+                                             loading="lazy" />
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public List<ScriptGenerationSession> Sessions { get; set; } = new();
+    [Parameter] public Dictionary<string, BRollSummary> BRollSummaries { get; set; } = new();
+    [Parameter] public bool IsLoading { get; set; }
+    [Parameter] public Func<string, bool> IsSessionRunning { get; set; } = _ => false;
+    [Parameter] public Func<string, GenerationJob?> GetActiveJob { get; set; } = _ => null;
+    [Parameter] public EventCallback OnShowBatchForm { get; set; }
+    [Parameter] public EventCallback OnShowConfigForm { get; set; }
+    [Parameter] public EventCallback<ScriptGenerationSession> OnViewSession { get; set; }
+    [Parameter] public EventCallback<ScriptGenerationSession> OnDeleteSession { get; set; }
+
+    private static string FormatDate(DateTime date)
+    {
+        var elapsed = DateTime.UtcNow - date;
+        if (elapsed.TotalMinutes < 1) return "baru saja";
+        if (elapsed.TotalHours < 1) return $"{(int)elapsed.TotalMinutes}m lalu";
+        if (elapsed.TotalDays < 1) return $"{(int)elapsed.TotalHours}j lalu";
+        if (elapsed.TotalDays < 7) return $"{(int)elapsed.TotalDays}h lalu";
+        return date.ToString("dd MMM yyyy");
+    }
+
+    private static double GetProgressPercent(GenerationJob? job) => 
+        job != null && job.TotalPhases > 0 ? (double)job.CompletedPhases / job.TotalPhases * 100 : 0;
+
+    private static RenderFragment GetStatusBadge(SessionStatus status)
+    {
+        return status switch
+        {
+            SessionStatus.Completed => @<Badge Variant="success">Selesai</Badge>,
+            SessionStatus.Running => @<Badge Variant="primary">Proses</Badge>,
+            SessionStatus.Pending => @<Badge>Menunggu</Badge>,
+            SessionStatus.Failed => @<Badge Variant="destructive">Gagal</Badge>,
+            _ => @<Badge>@status</Badge>
+        };
+    }
+
+    private static string GetAssetUrl(string path)
+    {
+        // Convert absolute path to URL
+        return path.Replace("\\", "/");
+    }
+
+    private async Task HandleViewSession(ScriptGenerationSession session)
+    {
+        if (OnViewSession.HasDelegate)
+            await OnViewSession.InvokeAsync(session);
+    }
+
+    private async Task HandleDeleteSession(ScriptGenerationSession session)
+    {
+        if (OnDeleteSession.HasDelegate)
+            await OnDeleteSession.InvokeAsync(session);
+    }
+}

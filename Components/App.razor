@@ -1,8 +1,22 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en" class="dark">
+<!-- Theme initialization - MUST run synchronously before any content to prevent flash -->
 <script>
-// MUST run synchronously before any content to prevent flash
-(function(){try{var t=localStorage.getItem('theme');if(t==='light'){document.documentElement.classList.remove('dark');document.documentElement.style.colorScheme='light';}else{document.documentElement.style.colorScheme='dark';}}catch(e){}})();
+    (function() {
+        try {
+            var t = localStorage.getItem('theme');
+            if (t === 'light') {
+                document.documentElement.classList.remove('dark');
+                document.documentElement.style.colorScheme = 'light';
+            } else {
+                document.documentElement.classList.add('dark');
+                document.documentElement.style.colorScheme = 'dark';
+            }
+        } catch (e) {
+            document.documentElement.classList.add('dark');
+            document.documentElement.style.colorScheme = 'dark';
+        }
+    })();
 </script>
 
 <head>
@@ -11,8 +25,7 @@
     <base href="/" />
     <title>Bunbun B-Roll Generator</title>
     
-    <!-- Tailwind CSS Play CDN -->
-    <!-- Google Fonts: Inter + Geist Mono -->
+    <!-- Google Fonts: Inter + JetBrains Mono -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -26,9 +39,7 @@
           container: {
             center: true,
             padding: "2rem",
-            screens: {
-              "2xl": "1400px",
-            },
+            screens: { "2xl": "1400px" },
           },
           extend: {
             colors: {
@@ -52,6 +63,10 @@
               success: {
                 DEFAULT: "hsl(var(--success))",
                 foreground: "hsl(var(--success-foreground))",
+              },
+              warning: {
+                DEFAULT: "hsl(var(--warning))",
+                foreground: "hsl(var(--warning-foreground))",
               },
               muted: {
                 DEFAULT: "hsl(var(--muted))",
@@ -83,6 +98,24 @@
         },
       }
     </script>
+    
+    <!-- Theme functions for Blazor interop -->
+    <script>
+        window.toggleTheme = function() {
+            var isDark = document.documentElement.classList.toggle('dark');
+            document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
+            try {
+                localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            } catch (e) {}
+            return isDark;
+        };
+
+        window.getTheme = function() {
+            return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+        };
+    </script>
+    
+    <!-- Custom Styles - Must use text/tailwindcss for @layer and @apply directives -->
     <style type="text/tailwindcss">
       @@layer base {
         /* Vercel-Style Light Mode - Clean & Minimal */
@@ -109,6 +142,8 @@
           --input: 0 0% 90%;
           --ring: 0 0% 9%;
           --radius: 0.5rem;
+          --warning: 38 92% 50%;
+          --warning-foreground: 0 0% 0%;
         }
         
         /* Vercel-Style Dark Mode - Pure Black */
@@ -134,6 +169,8 @@
           --border: 0 0% 18%;
           --input: 0 0% 18%;
           --ring: 0 0% 83%;
+          --warning: 38 92% 50%;
+          --warning-foreground: 0 0% 0%;
         }
       }
 
@@ -263,6 +300,33 @@
           @@apply fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2
                  rounded-lg border border-border bg-card p-6 shadow-lg;
         }
+
+        /* Breadcrumb */
+        .breadcrumb {
+          @@apply flex items-center gap-2 text-sm;
+        }
+        .breadcrumb-item {
+          @@apply flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors;
+        }
+        .breadcrumb-sep {
+          @@apply text-muted-foreground;
+        }
+        .breadcrumb-current {
+          @@apply font-medium text-foreground;
+        }
+
+        /* Progress bar */
+        .progress-container {
+          @@apply w-full h-2 bg-muted rounded-full overflow-hidden;
+        }
+        .progress-bar {
+          @@apply h-full bg-primary transition-all duration-300 ease-out rounded-full;
+        }
+
+        /* Skeleton loading */
+        .skeleton {
+          @@apply animate-pulse bg-muted;
+        }
       }
       
       @@layer utilities {
@@ -292,25 +356,10 @@
       }
     </style>
     
-    <script>
-        // Theme toggle and get functions (initialization happens inline in <html> tag)
-        window.toggleTheme = () => {
-            const isDark = document.documentElement.classList.toggle('dark');
-            document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
-            try {
-                localStorage.setItem('theme', isDark ? 'dark' : 'light');
-            } catch (e) {}
-            return isDark;
-        };
-
-        window.getTheme = () => {
-            return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
-        };
-    </script>
-    
     <!-- JSZip for client-side ZIP creation -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     
+    <!-- App Styles -->
     <link rel="stylesheet" href="/app.css" />
     <link rel="stylesheet" href="BunbunBroll.styles.css" />
     <link rel="icon" type="image/png" href="favicon.png" />
@@ -321,194 +370,7 @@
     <Routes />
     <script src="/app.js"></script>
     <script src="_framework/blazor.web.js" autostart="false"></script>
-    <script>
-        // Robust Blazor Server reconnection handling for mobile
-        (function() {
-            let reconnectAttempts = 0;
-            const maxReconnectAttempts = 30;
-            let isReconnecting = false;
-            let reconnectTimer = null;
-
-            // Calculate backoff delay: starts at 1s, maxes at 30s
-            function getBackoffDelay(attempt) {
-                return Math.min(1000 * Math.pow(1.5, attempt), 30000);
-            }
-
-            // Show subtle reconnecting indicator
-            function showReconnectingUI() {
-                let indicator = document.getElementById('reconnect-indicator');
-                if (!indicator) {
-                    indicator = document.createElement('div');
-                    indicator.id = 'reconnect-indicator';
-                    indicator.innerHTML = `
-                        <div style="position:fixed;bottom:16px;left:50%;transform:translateX(-50%);
-                                    background:hsl(0 0% 10%);color:white;padding:8px 16px;
-                                    border-radius:8px;font-size:12px;z-index:9999;
-                                    display:flex;align-items:center;gap:8px;
-                                    box-shadow:0 4px 12px rgba(0,0,0,0.3);">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" 
-                                 stroke-width="2" style="animation:spin 1s linear infinite">
-                                <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.85.99 6.57 2.57L21 8"/>
-                                <path d="M21 3v5h-5"/>
-                            </svg>
-                            <span>Reconnecting...</span>
-                        </div>
-                        <style>@@keyframes spin{to{transform:rotate(360deg)}}</style>
-                    `;
-                    document.body.appendChild(indicator);
-                }
-                indicator.style.display = 'block';
-            }
-
-            function hideReconnectingUI() {
-                const indicator = document.getElementById('reconnect-indicator');
-                if (indicator) indicator.style.display = 'none';
-            }
-
-            // Force page reload
-            function forceReload() {
-                console.log('Blazor: Forcing page reload...');
-                hideReconnectingUI();
-                window.location.reload();
-            }
-
-            // Start Blazor with custom reconnection handling
-            Blazor.start({
-                reconnectionOptions: {
-                    maxRetries: maxReconnectAttempts,
-                    retryIntervalMilliseconds: 2000
-                }
-            }).then(() => {
-                console.log('Blazor: Connected successfully');
-                hideReconnectingUI();
-                reconnectAttempts = 0;
-            }).catch(err => {
-                console.warn('Blazor: Initial connection failed:', err);
-                // Try to reload after a delay
-                setTimeout(forceReload, 3000);
-            });
-
-            // Override the default reconnection handler
-            Blazor.defaultReconnectionHandler._reconnectionDisplay = {
-                show: () => {
-                    isReconnecting = true;
-                    showReconnectingUI();
-                    console.log('Blazor: Connection lost, attempting to reconnect...');
-                },
-                hide: () => {
-                    isReconnecting = false;
-                    hideReconnectingUI();
-                    reconnectAttempts = 0;
-                    console.log('Blazor: Reconnected successfully');
-                },
-                failed: () => {
-                    console.log('Blazor: Reconnection failed after all attempts');
-                    hideReconnectingUI();
-                    // Show reload button or auto-reload
-                    showReloadPrompt();
-                },
-                update: (currentAttempt) => {
-                    reconnectAttempts = currentAttempt;
-                    console.log(`Blazor: Reconnection attempt ${currentAttempt}/${maxReconnectAttempts}`);
-                }
-            };
-
-            // Show reload prompt with auto-reload countdown
-            function showReloadPrompt() {
-                let prompt = document.getElementById('reload-prompt');
-                if (!prompt) {
-                    prompt = document.createElement('div');
-                    prompt.id = 'reload-prompt';
-                    prompt.innerHTML = `
-                        <div style="position:fixed;inset:0;background:rgba(0,0,0,0.8);
-                                    display:flex;align-items:center;justify-content:center;z-index:9999;">
-                            <div style="background:hsl(0 0% 7%);border:1px solid hsl(0 0% 18%);
-                                        padding:24px;border-radius:12px;text-align:center;max-width:300px;">
-                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" 
-                                     stroke-width="1.5" style="margin:0 auto 16px;color:#fbbf24">
-                                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                                    <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-                                </svg>
-                                <h3 style="color:white;margin:0 0 8px;font-size:16px;font-weight:600;">Connection Lost</h3>
-                                <p style="color:#a1a1aa;margin:0 0 16px;font-size:13px;">
-                                    Auto-reload in <span id="reload-countdown">5</span>s
-                                </p>
-                                <button onclick="window.location.reload()" 
-                                        style="background:white;color:black;border:none;padding:10px 24px;
-                                               border-radius:6px;font-size:14px;font-weight:500;cursor:pointer;">
-                                    Reload Now
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                    document.body.appendChild(prompt);
-                    
-                    // Auto-reload countdown
-                    let countdown = 5;
-                    const countdownEl = document.getElementById('reload-countdown');
-                    const countdownInterval = setInterval(() => {
-                        countdown--;
-                        if (countdownEl) countdownEl.textContent = countdown;
-                        if (countdown <= 0) {
-                            clearInterval(countdownInterval);
-                            forceReload();
-                        }
-                    }, 1000);
-                }
-            }
-
-            // Handle visibility change (user returns to tab/app)
-            document.addEventListener('visibilitychange', () => {
-                if (document.visibilityState === 'visible') {
-                    console.log('Blazor: Tab became visible, checking connection...');
-                    
-                    // Clear any pending reconnect timer
-                    if (reconnectTimer) {
-                        clearTimeout(reconnectTimer);
-                        reconnectTimer = null;
-                    }
-
-                    // If we're in a reconnecting state, try to speed things up
-                    if (isReconnecting) {
-                        console.log('Blazor: Forcing immediate reconnection attempt...');
-                        // The Blazor reconnection handler will continue automatically
-                    }
-                    
-                    // Check if the circuit is still alive by looking for Blazor's internal state
-                    // If not reconnecting but connection seems dead, reload
-                    reconnectTimer = setTimeout(() => {
-                        // If still showing reconnect UI after 5 seconds, force reload
-                        if (document.getElementById('reconnect-indicator')?.style.display === 'block') {
-                            console.log('Blazor: Connection appears dead, forcing reload...');
-                            forceReload();
-                        }
-                    }, 5000);
-                }
-            });
-
-            // Handle online/offline events
-            window.addEventListener('online', () => {
-                console.log('Blazor: Network is back online');
-                if (isReconnecting) {
-                    // Will automatically continue reconnection attempts
-                } else if (document.getElementById('reload-prompt')) {
-                    forceReload();
-                }
-            });
-
-            window.addEventListener('offline', () => {
-                console.log('Blazor: Network went offline');
-            });
-
-            // Handle page show event (for back/forward cache)
-            window.addEventListener('pageshow', (event) => {
-                if (event.persisted) {
-                    console.log('Blazor: Page restored from bfcache, reloading...');
-                    forceReload();
-                }
-            });
-        })();
-    </script>
+    <script src="/js/blazor-reconnect.js"></script>
 </body>
 
 </html>

@@ -1,0 +1,176 @@
+@namespace BunbunBroll.Components.Views.Broll
+@using BunbunBroll.Models
+@using BunbunBroll.Components.Common
+
+<div class="max-w-[1200px] mx-auto py-8 lg:px-8 px-4">
+    <div class="flex flex-col lg:flex-row gap-12 items-start">
+        
+        <!-- Sidebar -->
+        <BrollSidebar 
+            ProjectName="@Job.ProjectName"
+            Mood="@Job.Mood"
+            ReadyCount="@GetReadyCount()"
+            TotalCount="@Job.TotalSentences"
+            IsDownloading="@IsDownloading"
+            ShowShortVideoPanel="@ShowShortVideoPanel"
+            SelectedRatio="@SelectedRatio"
+            IsGeneratingShortVideo="@IsGeneratingShortVideo"
+            GenerateProgress="@GenerateProgress"
+            GenerateStage="@GenerateStage"
+            GenerateMessage="@GenerateMessage"
+            ElapsedSeconds="@ElapsedSeconds"
+            ShortVideoResult="@ShortVideoResult"
+            OnBack="@OnBack"
+            OnDownloadZip="@OnDownloadZip"
+            OnExportLinks="@OnExportLinks"
+            OnSaveProject="@OnSaveProject"
+            OnSelectRatio="@OnSelectRatio"
+            OnGenerateShortVideo="@OnGenerateShortVideo"
+            OnDownloadShortVideo="@OnDownloadShortVideo" />
+
+        <!-- Feed Content -->
+        <div class="flex-1 min-w-0">
+            @if (!string.IsNullOrEmpty(StatusMessage))
+            {
+                <div class="flex items-center gap-2 text-xs text-muted-foreground mb-8 bg-muted/50 p-2 px-3 rounded-md border border-border/50">
+                    <span class="flex h-1.5 w-1.5 rounded-full bg-primary animate-pulse"></span>
+                    <span>@StatusMessage</span>
+                </div>
+            }
+
+            <div class="space-y-16">
+                @foreach (var segment in Job.Segments)
+                {
+                    <div class="space-y-8">
+                        <div class="flex items-center gap-4">
+                            <h2 class="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground/50">@segment.Title</h2>
+                            <div class="h-[1px] flex-1 bg-border/50"></div>
+                        </div>
+                        
+                        <div class="space-y-12">
+                            @foreach (var sentence in segment.Sentences)
+                            {
+                                var currentSentence = sentence;
+                                <SentenceCard 
+                                    Sentence="@currentSentence"
+                                    Mood="@Job.Mood"
+                                    IsResearching="@(ResearchingSentenceId == currentSentence.Id)"
+                                    IsRegeneratingKeywords="@(RegeneratingSentenceId == currentSentence.Id)"
+                                    IsGeneratingImage="@(GeneratingImageSentenceId == currentSentence.Id)"
+                                    OnSelectVideo="@(v => HandleSelectVideo(currentSentence, v))"
+                                    OnConfirmVideo="@(() => HandleConfirmVideo(currentSentence))"
+                                    OnResearch="@(() => HandleResearch(currentSentence))"
+                                    OnDownload="@(() => HandleDownload(currentSentence))"
+                                    OnRegenerateKeywords="@(() => HandleRegenerateKeywords(currentSentence))"
+                                    OnGenerateImage="@(() => HandleGenerateImage(currentSentence))"
+                                    OnClearImage="@(() => HandleClearImage(currentSentence))" />
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Mobile Sticky Progress -->
+@if (ShowMobileProgress)
+{
+    <div class="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur border-t border-border p-3">
+        <div class="flex items-center gap-3 text-sm">
+            <span class="shrink-0">🔄 @GetProgressPercent()%</span>
+            <div class="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                <div class="h-full bg-primary transition-all duration-300" style="width: @GetProgressPercent()%"></div>
+            </div>
+            <span class="shrink-0 text-muted-foreground text-xs">@GetReadyCount()/@Job.TotalSentences kelar</span>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public ProcessingJob Job { get; set; } = null!;
+    [Parameter] public string? StatusMessage { get; set; }
+    [Parameter] public int? ResearchingSentenceId { get; set; }
+    [Parameter] public int? RegeneratingSentenceId { get; set; }
+    [Parameter] public int? GeneratingImageSentenceId { get; set; }
+    [Parameter] public bool IsDownloading { get; set; }
+    [Parameter] public bool ShowShortVideoPanel { get; set; }
+    [Parameter] public bool ShowMobileProgress { get; set; }
+    
+    // Short Video Props
+    [Parameter] public AspectRatio SelectedRatio { get; set; }
+    [Parameter] public bool IsGeneratingShortVideo { get; set; }
+    [Parameter] public int GenerateProgress { get; set; }
+    [Parameter] public string GenerateStage { get; set; } = "";
+    [Parameter] public string GenerateMessage { get; set; } = "";
+    [Parameter] public int ElapsedSeconds { get; set; }
+    [Parameter] public ShortVideoResult? ShortVideoResult { get; set; }
+    
+    // Events
+    [Parameter] public EventCallback OnBack { get; set; }
+    [Parameter] public EventCallback OnDownloadZip { get; set; }
+    [Parameter] public EventCallback OnExportLinks { get; set; }
+    [Parameter] public EventCallback OnSaveProject { get; set; }
+    [Parameter] public EventCallback<AspectRatio> OnSelectRatio { get; set; }
+    [Parameter] public EventCallback OnGenerateShortVideo { get; set; }
+    [Parameter] public EventCallback OnDownloadShortVideo { get; set; }
+    [Parameter] public EventCallback<ScriptSentence> OnResearch { get; set; }
+    [Parameter] public EventCallback<ScriptSentence> OnDownload { get; set; }
+    [Parameter] public EventCallback<ScriptSentence> OnRegenerateKeywords { get; set; }
+    [Parameter] public EventCallback<ScriptSentence> OnGenerateImage { get; set; }
+    [Parameter] public EventCallback<ScriptSentence> OnClearImage { get; set; }
+    [Parameter] public EventCallback<(ScriptSentence Sentence, VideoAsset Video)> OnSelectVideoPair { get; set; }
+    [Parameter] public EventCallback<ScriptSentence> OnConfirmVideo { get; set; }
+
+    private int GetReadyCount() => Job.Segments.SelectMany(s => s.Sentences).Count(s => s.SelectedVideo != null);
+    private int GetProgressPercent() => Job.TotalSentences > 0 ? (GetReadyCount() * 100 / Job.TotalSentences) : 0;
+
+    private async Task OnSelectVideo(ScriptSentence sentence, VideoAsset video)
+    {
+        if (OnSelectVideoPair.HasDelegate)
+        {
+            await OnSelectVideoPair.InvokeAsync((sentence, video));
+        }
+    }
+
+    private async Task HandleSelectVideo(ScriptSentence sentence, VideoAsset video)
+    {
+        await OnSelectVideo(sentence, video);
+    }
+
+    private async Task HandleConfirmVideo(ScriptSentence sentence)
+    {
+        if (OnConfirmVideo.HasDelegate)
+            await OnConfirmVideo.InvokeAsync(sentence);
+    }
+
+    private async Task HandleResearch(ScriptSentence sentence)
+    {
+        if (OnResearch.HasDelegate)
+            await OnResearch.InvokeAsync(sentence);
+    }
+
+    private async Task HandleDownload(ScriptSentence sentence)
+    {
+        if (OnDownload.HasDelegate)
+            await OnDownload.InvokeAsync(sentence);
+    }
+
+    private async Task HandleRegenerateKeywords(ScriptSentence sentence)
+    {
+        if (OnRegenerateKeywords.HasDelegate)
+            await OnRegenerateKeywords.InvokeAsync(sentence);
+    }
+
+    private async Task HandleGenerateImage(ScriptSentence sentence)
+    {
+        if (OnGenerateImage.HasDelegate)
+            await OnGenerateImage.InvokeAsync(sentence);
+    }
+
+    private async Task HandleClearImage(ScriptSentence sentence)
+    {
+        if (OnClearImage.HasDelegate)
+            await OnClearImage.InvokeAsync(sentence);
+    }
+}

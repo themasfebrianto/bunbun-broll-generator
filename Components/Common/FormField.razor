@@ -1,0 +1,52 @@
+@namespace BunbunBroll.Components.Common
+
+<div class="@GetContainerClasses()" @attributes="AdditionalAttributes">
+    @if (!string.IsNullOrEmpty(Label))
+    {
+        <label class="@GetLabelClasses()" for="@For">
+            @Label
+            @if (Required)
+            {
+                <span class="text-destructive ml-1">*</span>
+            }
+        </label>
+    }
+    
+    @ChildContent
+    
+    @if (!string.IsNullOrEmpty(Description))
+    {
+        <p class="text-xs text-muted-foreground">@Description</p>
+    }
+    
+    @if (!string.IsNullOrEmpty(Error))
+    {
+        <p class="text-xs text-destructive flex items-center gap-1">
+            <Icon Name="warning" Size="12" />
+            @Error
+        </p>
+    }
+</div>
+
+@code {
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public string? For { get; set; }
+    [Parameter] public string? Description { get; set; }
+    [Parameter] public string? Error { get; set; }
+    [Parameter] public bool Required { get; set; }
+    [Parameter] public string Size { get; set; } = "default"; // default, sm
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string GetContainerClasses() => Size.ToLowerInvariant() switch
+    {
+        "sm" => "space-y-1.5",
+        _ => "space-y-2"
+    };
+
+    private string GetLabelClasses() => Size.ToLowerInvariant() switch
+    {
+        "sm" => "text-xs font-medium leading-none",
+        _ => "text-sm font-medium leading-none"
+    };
+}

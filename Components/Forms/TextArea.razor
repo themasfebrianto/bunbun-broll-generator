@@ -1,0 +1,65 @@
+@namespace BunbunBroll.Components.Forms
+@using BunbunBroll.Components.Common
+@inherits InputBase<string?>
+
+<FormField Label="@Label" 
+           For="@ElementId" 
+           Description="@Description" 
+           Error="@GetErrorMessage()"
+           Required="@Required">
+    <textarea id="@ElementId"
+              class="@GetInputClasses()"
+              placeholder="@Placeholder"
+              rows="@Rows"
+              disabled="@Disabled"
+              readonly="@ReadOnly"
+              @bind="CurrentValue"
+              @attributes="AdditionalAttributes"></textarea>
+</FormField>
+
+@code {
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public string? Description { get; set; }
+    [Parameter] public string? Placeholder { get; set; }
+    [Parameter] public int Rows { get; set; } = 4;
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public bool ReadOnly { get; set; }
+    [Parameter] public bool Required { get; set; }
+    [Parameter] public bool Resize { get; set; } = true;
+
+    private string ElementId { get; } = $"textarea-{Guid.NewGuid():N}";
+
+    protected override bool TryParseValueFromString(string? value, out string? result, out string validationErrorMessage)
+    {
+        result = value;
+        validationErrorMessage = "";
+        return true;
+    }
+
+    private string GetInputClasses()
+    {
+        var classes = new List<string> 
+        { 
+            "w-full rounded-lg border border-border bg-transparent px-3 py-2 text-sm transition-colors duration-150 placeholder:text-muted-foreground hover:border-foreground/30 focus:outline-none focus:border-foreground disabled:cursor-not-allowed disabled:opacity-50"
+        };
+        
+        if (!Resize)
+            classes.Add("resize-none");
+        else
+            classes.Add("resize-y");
+        
+        if (EditContext?.GetValidationMessages(FieldIdentifier).Any() == true)
+        {
+            classes.Remove("border-border");
+            classes.Add("border-destructive");
+        }
+        
+        return string.Join(" ", classes);
+    }
+
+    private string? GetErrorMessage()
+    {
+        if (EditContext == null) return null;
+        return EditContext.GetValidationMessages(FieldIdentifier).FirstOrDefault();
+    }
+}

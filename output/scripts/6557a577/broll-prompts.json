@@ -17,7 +17,7 @@
     "Style": "Canvas",
     "Filter": "Warm",
     "Texture": "FilmGrain",
-    "FilteredVideoPath": "E:\\VibeCode\\ScriptFlow_workspace\\bunbun-broll-generator\\output\\filtered_a6bbacc5bb574f409d759977768cd756.mp4"
+    "FilteredVideoPath": "E:\\VibeCode\\ScriptFlow_workspace\\bunbun-broll-generator\\output\\filtered_c4eb44b2e9d644a4b275b64e5647e728.mp4"
   },
   {
     "Index": 1,
@@ -71,8 +71,8 @@
     "WhiskError": null,
     "SelectedVideoUrl": null,
     "KenBurnsMotion": "DiagonalZoomOut",
-    "WhiskVideoStatus": "Pending",
-    "WhiskVideoPath": null,
+    "WhiskVideoStatus": "Done",
+    "WhiskVideoPath": "E:\\VibeCode\\ScriptFlow_workspace\\bunbun-broll-generator\\output\\6557a577\\whisk_images\\img-53_kb.mp4",
     "WhiskVideoError": null,
     "Style": "None",
     "Filter": "None",

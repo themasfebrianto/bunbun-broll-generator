@@ -1,0 +1,88 @@
+@namespace BunbunBroll.Components.Common
+
+<div class="@GetCardClasses()" @onclick="HandleClick" @attributes="AdditionalAttributes">
+    @if (HeaderContent != null || !string.IsNullOrEmpty(Title))
+    {
+        <div class="@GetHeaderClasses()">
+            @if (!string.IsNullOrEmpty(Title))
+            {
+                <div class="flex items-center justify-between">
+                    <h3 class="font-semibold">@Title</h3>
+                    @if (HeaderActions != null)
+                    {
+                        <div class="flex items-center gap-2">
+                            @HeaderActions
+                        </div>
+                    }
+                </div>
+            }
+            @HeaderContent
+        </div>
+    }
+    
+    <div class="@GetContentClasses()">
+        @ChildContent
+    </div>
+    
+    @if (FooterContent != null)
+    {
+        <div class="@GetFooterClasses()">
+            @FooterContent
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public bool IsHoverable { get; set; }
+    [Parameter] public bool IsClickable { get; set; }
+    [Parameter] public bool NoPadding { get; set; }
+    [Parameter] public string Padding { get; set; } = "p-6"; // p-4, p-5, p-6, p-8
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public RenderFragment? HeaderContent { get; set; }
+    [Parameter] public RenderFragment? HeaderActions { get; set; }
+    [Parameter] public RenderFragment? FooterContent { get; set; }
+    [Parameter] public EventCallback<MouseEventArgs> OnClick { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string GetCardClasses()
+    {
+        var classes = new List<string> { "rounded-lg border border-border bg-card text-card-foreground transition-colors duration-150" };
+        
+        if (IsHoverable || IsClickable)
+            classes.Add("hover:border-foreground/20");
+        
+        if (IsClickable || OnClick.HasDelegate)
+            classes.Add("cursor-pointer");
+        
+        return string.Join(" ", classes);
+    }
+
+    private string GetHeaderClasses()
+    {
+        var classes = new List<string> { "border-b border-border/50" };
+        classes.Add(NoPadding ? "px-6 py-4" : Padding);
+        return string.Join(" ", classes);
+    }
+
+    private string GetContentClasses()
+    {
+        if (NoPadding) return "";
+        return Padding;
+    }
+
+    private string GetFooterClasses()
+    {
+        var classes = new List<string> { "border-t border-border/50" };
+        classes.Add(NoPadding ? "px-6 py-4" : Padding);
+        return string.Join(" ", classes);
+    }
+
+    private async Task HandleClick(MouseEventArgs args)
+    {
+        if (OnClick.HasDelegate)
+        {
+            await OnClick.InvokeAsync(args);
+        }
+    }
+}
