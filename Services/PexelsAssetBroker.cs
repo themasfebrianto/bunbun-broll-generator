@@ -83,7 +83,8 @@ public class PexelsAssetBroker : IAssetBroker
         int maxDuration,
         CancellationToken cancellationToken)
     {
-        var query = Uri.EscapeDataString(keyword);
+        var sanitizeQuery = $"{keyword} landscape no people empty cinematic";
+        var query = Uri.EscapeDataString(sanitizeQuery);
         var url = $"videos/search?query={query}&orientation=landscape&size=medium&per_page=15";
 
         _logger.LogDebug("Searching Pexels: {Query} (duration: {Min}-{Max}s)", keyword, minDuration, maxDuration);

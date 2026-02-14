@@ -82,39 +82,67 @@ public class SrtService : ISrtService
 
         var currentText = new StringBuilder();
         TimeSpan? blockStart = null;
+        var softLimitSeconds = maxDurationSeconds * 0.7; // Lower soft limit for fallbacks (target ~18s)
 
         for (int i = 0; i < entries.Count; i++)
         {
             var entry = entries[i];
+            var trimmedText = entry.Text.Trim();
             
             if (blockStart == null) 
             {
                 blockStart = entry.StartTime;
-                currentText.Append(entry.Text);
+                currentText.Append(trimmedText);
             }
             else
             {
                 var potentialDuration = (entry.EndTime - blockStart.Value).TotalSeconds;
+                
+                // Detection 1: Punctuation (Preferred)
+                bool isSentenceEnd = Regex.IsMatch(trimmedText, @"[\.\?\!…][""'\u201d\u2019\)]?$");
+
+                // Detection 2: Silence Gaps (Fallback)
+                bool hasSignificantGap = false;
+                if (i < entries.Count - 1)
+                {
+                    var nextEntry = entries[i + 1];
+                    var gap = (nextEntry.StartTime - entry.EndTime).TotalSeconds;
+                    if (gap > 0.45) // Pause between speech > 450ms
+                    {
+                        hasSignificantGap = true;
+                    }
+                }
+
                 if (potentialDuration > maxDurationSeconds)
                 {
-                    // Adding this entry would exceed the limit. 
-                    // Close the current block and start a new one with this entry.
+                    // Hard Split: Exceeds absolute max duration
                     result.Add((FormatTimestamp(blockStart.Value), currentText.ToString().Trim()));
                     
                     blockStart = entry.StartTime;
                     currentText.Clear();
-                    currentText.Append(entry.Text);
+                    currentText.Append(trimmedText);
+                }
+                else if (potentialDuration > softLimitSeconds && (isSentenceEnd || hasSignificantGap))
+                {
+                    // Smart Split: natural punctuation OR natural pause
+                    if (currentText.Length > 0) currentText.Append(" ");
+                    currentText.Append(trimmedText);
+                    
+                    result.Add((FormatTimestamp(blockStart.Value), currentText.ToString().Trim()));
+                    
+                    blockStart = null;
+                    currentText.Clear();
                 }
                 else
                 {
                     // Fits in current block
                     if (currentText.Length > 0) currentText.Append(" ");
-                    currentText.Append(entry.Text);
+                    currentText.Append(trimmedText);
                 }
             }
 
-            // Always add the last block if it wasn't just added
-            if (i == entries.Count - 1)
+            // Always add the last block if it wasn't just added and exists
+            if (i == entries.Count - 1 && blockStart != null)
             {
                 result.Add((FormatTimestamp(blockStart.Value), currentText.ToString().Trim()));
             }

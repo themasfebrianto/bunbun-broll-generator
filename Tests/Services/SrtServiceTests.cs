@@ -22,26 +22,51 @@ public class SrtServiceTests
     }
 
     [Fact]
-    public void MergeToSegments_AggregatesUnder35s()
+    public void MergeToSegments_SmartSplitAtSentenceEnd()
     {
         var entries = new List<SrtEntry>
         {
-            new() { StartTime = TimeSpan.FromSeconds(0), EndTime = TimeSpan.FromSeconds(10), Text = "One" },
-            new() { StartTime = TimeSpan.FromSeconds(10), EndTime = TimeSpan.FromSeconds(20), Text = "Two" },
-            new() { StartTime = TimeSpan.FromSeconds(20), EndTime = TimeSpan.FromSeconds(30), Text = "Three" },
-            new() { StartTime = TimeSpan.FromSeconds(30), EndTime = TimeSpan.FromSeconds(40), Text = "Four" }
+            new() { StartTime = TimeSpan.FromSeconds(0), EndTime = TimeSpan.FromSeconds(5), Text = "This is a sentence." },
+            new() { StartTime = TimeSpan.FromSeconds(5), EndTime = TimeSpan.FromSeconds(10), Text = "This is another sentence." },
+            new() { StartTime = TimeSpan.FromSeconds(10), EndTime = TimeSpan.FromSeconds(21), Text = "Long segment that might continue." },
+            new() { StartTime = TimeSpan.FromSeconds(21), EndTime = TimeSpan.FromSeconds(24), Text = "Ending now." },
+            new() { StartTime = TimeSpan.FromSeconds(24), EndTime = TimeSpan.FromSeconds(30), Text = "New topic started." }
         };
 
-        var merged = _service.MergeToSegments(entries, 35.0);
+        // max 25s. Soft limit 20s (80%).
+        var merged = _service.MergeToSegments(entries, 25.0);
 
-        // Expected: 
-        // 1. One + Two + Three (0s to 30s) = 30s < 35s. 
-        // 2. Add Four (0s to 40s) = 40s > 35s. So [One, Two, Three] merged, [Four] separate.
+        // Expected:
+        // 1. [0, 5], [5, 10] combined. Total 10s.
+        // 2. Add [10, 21]. Total 21s. Ends with "."? Yes. 21 > 20 (soft limit).
+        //    Segment 1: "This is a sentence. This is another sentence. Long segment that might continue."
+        // 3. Segment 2: [21s - ...] "Ending now. New topic started."
+        
+        Assert.Equal(2, merged.Count);
+        Assert.DoesNotContain("Ending now.", merged[0].Text);
+        Assert.Contains("Ending now.", merged[1].Text);
+    }
+
+    [Fact]
+    public void MergeToSegments_EnforcesHardLimit()
+    {
+        var entries = new List<SrtEntry>
+        {
+            new() { StartTime = TimeSpan.FromSeconds(0), EndTime = TimeSpan.FromSeconds(10), Text = "Keep going" },
+            new() { StartTime = TimeSpan.FromSeconds(10), EndTime = TimeSpan.FromSeconds(20), Text = "No punctuation" },
+            new() { StartTime = TimeSpan.FromSeconds(20), EndTime = TimeSpan.FromSeconds(30), Text = "Exceeds 25s limit" }
+        };
+
+        var merged = _service.MergeToSegments(entries, 25.0);
+
+        // Expected:
+        // 1. [0-10], [10-20] combined. Total 20s. No punctuation.
+        // 2. Adding [20-30] makes it 30s (> 25s). 
+        //    Segment 1: [0-20] "Keep going No punctuation"
+        //    Segment 2: [20-30] "Exceeds 25s limit"
         Assert.Equal(2, merged.Count);
         Assert.Equal("[00:00.000]", merged[0].Timestamp);
-        Assert.Equal("One Two Three", merged[0].Text);
-        Assert.Equal("[00:30.000]", merged[1].Timestamp);
-        Assert.Equal("Four", merged[1].Text);
+        Assert.Equal("Keep going No punctuation", merged[0].Text);
     }
 
     [Fact]
@@ -52,8 +77,31 @@ public class SrtServiceTests
             new() { StartTime = TimeSpan.FromMilliseconds(1500), EndTime = TimeSpan.FromSeconds(10), Text = "Test" }
         };
 
-        var merged = _service.MergeToSegments(entries, 35.0);
+        var merged = _service.MergeToSegments(entries, 25.0);
 
         Assert.Equal("[00:01.500]", merged[0].Timestamp);
+    }
+
+    [Fact]
+    public void MergeToSegments_SplitsAtGapsWithoutPunctuation()
+    {
+        var entries = new List<SrtEntry>
+        {
+            new() { StartTime = TimeSpan.FromSeconds(0), EndTime = TimeSpan.FromSeconds(10), Text = "No punctuation here" },
+            new() { StartTime = TimeSpan.FromSeconds(10), EndTime = TimeSpan.FromSeconds(20), Text = "Still no punctuation but big gap" },
+            // Gap of 1.0s between this and next entry
+            new() { StartTime = TimeSpan.FromSeconds(21), EndTime = TimeSpan.FromSeconds(25), Text = "This should be new segment" }
+        };
+
+        // max 25s. Soft limit 17.5s (70% of 25).
+        var merged = _service.MergeToSegments(entries, 25.0);
+
+        // Expected splitting:
+        // Segment 1: "No punctuation here Still no punctuation but big gap" (0s to 20s)
+        // Segment 2: "This should be new segment" (21s to 25s)
+        
+        Assert.Equal(2, merged.Count);
+        Assert.Contains("big gap", merged[0].Text);
+        Assert.DoesNotContain("new segment", merged[0].Text);
     }
 }

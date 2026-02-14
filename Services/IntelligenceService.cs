@@ -86,9 +86,10 @@ OUTPUT (JSON only, no markdown):
 RULES:
 - Translate ALL to English
 - 2-3 words per keyword (not single words)
-- ABSOLUTE RULE: NO PEOPLE, NO HUMAN FACES, NO HUMAN BODY PARTS, NO SILHOUETTES, NO HUMAN ACTIVITY, NO CROWDS, NO PERSON, NO HANDS, NO FEET.
-- ALSO AVOID HUMAN-ADJACENT TERMS that return human footage from stock sites: mirror, reflection, shadow, window, doorway, selfie, walking, standing, sitting, running, praying, crying, laughing, embrace, handshake, footsteps, footprint.
-  Instead use nature/urban metaphors: 'broken mirror' -> 'cracked earth texture', 'reflection' -> 'water surface reflection', 'shadow' -> 'dark clouds moving', 'walking' -> 'path through forest'
+- ABSOLUTE RULE: NO PEOPLE, NO HUMAN FACES, NO HUMAN BODY PARTS, NO SILHOUETTES, NO HUMAN ACTIVITY, NO PERSON, NO HANDS, NO FEET, NO CROWDS, NO EYES.
+- NO HUMAN-CENTRIC LABOR: No hands planting, no hands typing, no feet walking, no manual work being performed by people.
+- ALSO AVOID HUMAN-ADJACENT TERMS that return human footage from stock sites: mirror, reflection, shadow, window, doorway, selfie, walking, standing, sitting, running, praying, crying, laughing, embrace, handshake, footsteps, footprint, tools, phone, computer, keyboard.
+  Instead use nature/urban metaphors: 'broken mirror' -> 'cracked earth texture', 'reflection' -> 'water surface reflection', 'shadow' -> 'dark clouds moving', 'walking' -> 'path through forest', 'manual labor' -> 'nature's cycle', 'planting' -> 'green seedling macro timelapse'
 - Avoid religious/sensitive triggers
 - fallbackKeywords: always include safe universals like ""ocean waves"", ""sunset clouds"", ""mountain landscape""
 
@@ -649,10 +650,11 @@ IMPORTANT: When user specifies a Visual Style, weave those terms into PRIMARY, M
 
 For each segment, classify as:
 1. **BROLL** - Use stock footage (Pexels/Pixabay) with ABSOLUTELY NO HUMAN SUBJECTS when the content depicts:
-   - Real-world landscapes, nature, atmospheric shots, cityscapes (empty), urban (architectural)
+   - Real-world landscapes, nature, atmospheric shots, cityscapes (empty), urban (architectural), textures
    - Atmospheric footage (rain, clouds, sunrise, ocean, forest, mountains)
-   - Objects, technology, textures, abstract light
-   - ABSOLUTE RULE: NO PEOPLE, NO SILHOUETTES, NO HUMAN ACTIVITY, NO PERSON, NO HANDS, NO FEET, NO CROWDS.
+   - Objects (non-human), technology (abstract), textures, abstract light
+   - ABSOLUTE RULE: NO PEOPLE, NO SILHOUETTES, NO HUMAN ACTIVITY, NO PERSON, NO HANDS, NO FEET, NO CROWDS, NO EYES.
+   - NO MANUAL LABOR: Do not show hands planting, digging, or working. Use NATURE METAPHOR (e.g., 'planting' -> 'seedling growing timelapse').
    - If the script implies human action, use a NATURE or URBAN METAPHOR (e.g., 'faith grows' -> 'growing plant timelapse', 'people gather' -> 'city skyline aerial')
 
 2. **IMAGE_GEN** - Use AI image generation (Whisk / Imagen) when the content depicts:
@@ -681,7 +683,10 @@ BROLL ERA-BASED VISUAL CONTEXT (CRITICAL FOR BROLL ONLY):
 - REGARDLESS OF ERA: NEVER include any human presence in BROLL prompts
 
 For BROLL segments: Generate a concise English search query for cinematic footage (2-5 words).
-ABSOLUTE RULE for BROLL: DO NOT INCLUDE PEOPLE, HUMANS, FACES, SILHOUETTES, PERSON, HANDS, FEET, or any HUMAN ACTIVITY in the prompt. Use nature or urban metaphors.
+ABSOLUTE RULE for BROLL: DO NOT INCLUDE PEOPLE, HUMANS, FACES, SILHOUETTES, PERSON, HANDS, FEET, EYES, or any HUMAN ACTIVITY in the prompt. Use nature, architecture, or abstract metaphors.
+- For actions like planting/sowing: use 'seedling growing' or 'soil texture'. 
+- For actions like traveling: use 'road aerial' or 'moving clouds'.
+- Always prioritize WIDE SHOTS or MACRO (non-human).
 
 For IMAGE_GEN segments: Generate a detailed Whisk-style prompt following this structure:
   [ERA PREFIX] [Detailed scene description: setting, action, lighting, atmosphere, characters]{{LOCKED_STYLE}}

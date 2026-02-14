@@ -159,7 +159,7 @@
             OnGenerateAllKenBurnsVideos="HandleGenerateAllKenBurnsVideos"
             OnResetAllImageStates='() => RequestConfirmation("Reset All Images", "🗑️ DESTRUCTIVE: Ini akan menghapus SEMUA image dan video. Anda harus men-generate ulang semuanya. Yakin?", HandleResetAllImageStates)'
             OnResetAllVideoStates='() => RequestConfirmation("Reset KB Videos", "⚠️ Ini akan menghapus semua video Ken Burns yang sudah jadi. Image asli tetap aman. Lanjutkan?", HandleResetAllVideoStates)'
-            OnGeneratePrompts="HandleSendToBroll"
+            OnGeneratePrompts="RunBrollClassification"
             OnToggleMediaType="HandleToggleMediaType"
             OnSearchSegment="HandleSearchSingleSegment"
             OnRegenSegmentKeywords="HandleRegenSegmentKeywords"
@@ -199,8 +199,8 @@
 @* ============ Global Confirmation Modal ============ *@
 <ConfirmationModal 
     IsVisible="_showConfirmDialog"
-    Title="_confirmTitle"
-    Message="_confirmMessage"
+    Title="@_confirmTitle"
+    Message="@_confirmMessage"
     OnCancel="CancelConfirm"
     OnConfirm="ExecuteConfirm" />
 
@@ -919,19 +919,19 @@
             await LoadBrollPromptsFromDisk();
         }
 
-        if (_brollPromptItems.Count > 0)
-        {
-            _currentView = "broll-prompts";
-            StateHasChanged();
-            return;
-        }
+        _currentView = "broll-prompts";
+        StateHasChanged();
+    }
+
+    private async Task RunBrollClassification()
+    {
+        if (_resultSession == null || _resultSections.Count == 0) return;
 
         _isClassifyingBroll = true;
         _classifyError = null;
         _classifyTotalSegments = 0;
         _classifyCompletedSegments = 0;
         _brollPromptItems.Clear();
-        _currentView = "broll-prompts";
         StateHasChanged();
 
         try
@@ -1019,7 +1019,7 @@
     private async Task HandleReclassifyBroll()
     {
         InvalidateBrollClassification();
-        await HandleSendToBroll();
+        await RunBrollClassification();
     }
 
     private async Task HandleSelectVideo((BrollPromptItem item, VideoAsset video) args)
@@ -1229,6 +1229,7 @@
                             matchingItem.SearchResults.Clear();
                         }
                     }
+                    _classifyCompletedSegments = batchResults.Count;
                     await InvokeAsync(StateHasChanged);
                 });
 
@@ -1813,6 +1814,10 @@
     {
         if (_resultSession == null) return;
         _isImportingSrt = true;
+        
+        // DESTRUCTIVE: Delete all old assets and prompts first
+        InvalidateBrollClassification();
+        
         StateHasChanged();
         await Task.Delay(50); // Yield UI
 
@@ -1822,145 +1827,88 @@
             using var reader = new System.IO.StreamReader(stream, System.Text.Encoding.UTF8);
             var srtContent = await reader.ReadToEndAsync();
 
-            // NEW LOGIC: Parse SRT to segments and merge with existing B-roll prompts
             var segments = ParseSrtToSegments(srtContent);
             
             if (segments.Count == 0)
             {
                 _errorMessage = "Gagal memproses file SRT: Tidak ada segment yang valid.";
+                _isImportingSrt = false;
+                StateHasChanged();
                 return;
             }
 
-            _brollPromptItems ??= new List<BrollPromptItem>();
-            if (_brollPromptItems.Count == 0)
+            // Create fresh items
+            _brollPromptItems = segments.Select((seg, i) => new BrollPromptItem
             {
-                await LoadBrollPromptsFromDisk();
-            }
+                Index = i + 1,
+                Timestamp = seg.Timestamp,
+                ScriptText = seg.Text,
+                MediaType = BrollMediaType.BrollVideo 
+            }).ToList();
 
-            // MERGE LOGIC:
-            // 1. Update existing items (Index match) with new Timestamp/Text.
-            // 2. Add new items for new segments.
-            // 3. Remove items if SRT is shorter than existing list (Sync length).
-
-            var mergedList = new List<BrollPromptItem>();
-            var newSegmentsToProcess = new List<(int Index, string Timestamp, string Text)>();
-
-            for (int i = 0; i < segments.Count; i++)
-            {
-                var seg = segments[i];
-                if (i < _brollPromptItems.Count)
-                {
-                    // Update existing
-                    var existing = _brollPromptItems[i];
-                    existing.Timestamp = seg.Timestamp;
-                    existing.ScriptText = seg.Text; 
-                    // Preserve existing visual prompts and media
-                    mergedList.Add(existing);
-                }
-                else
-                {
-                    // New item
-                    var newItem = new BrollPromptItem
-                    {
-                        Index = i + 1,
-                        Timestamp = seg.Timestamp,
-                        ScriptText = seg.Text,
-                        MediaType = BrollMediaType.BrollVideo 
-                    };
-                    mergedList.Add(newItem);
-                    newSegmentsToProcess.Add((i, seg.Timestamp, seg.Text));
-                }
-            }
-
-            _brollPromptItems = mergedList;
             await SaveBrollPromptsToDisk();
 
             _currentView = "broll-prompts";
             StateHasChanged();
 
-            // Generate prompts ONLY for new items
-            if (newSegmentsToProcess.Count > 0)
-            {
-                _isClassifyingBroll = true;
-                _classifyError = null;
-                _classifyTotalSegments = newSegmentsToProcess.Count;
-                _classifyCompletedSegments = 0;
-                StateHasChanged();
+            // Run full AI classification
+            _isClassifyingBroll = true;
+            _classifyError = null;
+            _classifyTotalSegments = _brollPromptItems.Count;
+            _classifyCompletedSegments = 0;
+            StateHasChanged();
 
-                _ = InvokeAsync(async () =>
+            try
+            {
+                var segmentsForAi = _brollPromptItems.Select(x => (x.Timestamp, x.ScriptText)).ToList();
+                
+                var generatedItems = await IntelligenceService.ClassifyAndGeneratePromptsAsync(
+                    segmentsForAi, _resultSession.Topic,
+                    onBatchComplete: async batchResults =>
+                    {
+                        _classifyCompletedSegments = batchResults.Count;
+                        await InvokeAsync(StateHasChanged);
+                    });
+
+                if (generatedItems.Count == _brollPromptItems.Count)
                 {
-                    try
+                    for (int k = 0; k < generatedItems.Count; k++)
                     {
-                        // Prepare partial list for AI
-                        var segmentsForAi = newSegmentsToProcess.Select(x => (x.Timestamp, x.Text)).ToList();
-                        
-                        // Generate
-                        var generatedBatches = await IntelligenceService.ClassifyAndGeneratePromptsAsync(
-                            segmentsForAi, _resultSession.Topic,
-                            onBatchComplete: async batchResults =>
-                            {
-                                // Handle batch completion progress if needed
-                                _classifyCompletedSegments += batchResults.Count;
-                                await InvokeAsync(StateHasChanged);
-                            });
-
-                        // Map generated results back to the main list
-                        // generatedBatches will have Index 1..N based on the sub-list we sent.
-                        // We map them back to the original indices stored in newSegmentsToProcess.
-                        
-                        if (generatedBatches.Count == newSegmentsToProcess.Count)
-                        {
-                            for (int k = 0; k < generatedBatches.Count; k++)
-                            {
-                                var genItem = generatedBatches[k];
-                                var targetIndex = newSegmentsToProcess[k].Index; // Original index in _brollPromptItems
-                                
-                                if (targetIndex < _brollPromptItems.Count)
-                                {
-                                    var target = _brollPromptItems[targetIndex];
-                                    target.Prompt = genItem.Prompt;
-                                    target.MediaType = genItem.MediaType;
-                                    // target.WhiskImagePath = genItem.WhiskImagePath; // Usually null/temp
-                                    target.Reasoning = genItem.Reasoning;
-                                    target.Style = genItem.Style;
-                                }
-                            }
-                            
-                            await SaveBrollPromptsToDisk();
-                        }
+                        var gen = generatedItems[k];
+                        var target = _brollPromptItems[k];
+                        target.Prompt = gen.Prompt;
+                        target.MediaType = gen.MediaType;
+                        target.Reasoning = gen.Reasoning;
+                        target.Style = gen.Style;
                     }
-                    catch (Exception ex)
-                    {
-                        _classifyError = $"Gagal generate prompt baru: {ex.Message}";
-                        _errorMessage = _classifyError;
-                    }
-                    finally
-                    {
-                        _isClassifyingBroll = false;
-                        _isImportingSrt = false;
-                        StateHasChanged();
-                    }
-                });
+                    
+                    await SaveBrollPromptsToDisk();
+                }
             }
-            else
+            catch (Exception ex)
             {
+                _classifyError = $"Gagal generate prompt: {ex.Message}";
+                _errorMessage = _classifyError;
+            }
+            finally
+            {
+                _isClassifyingBroll = false;
                 _isImportingSrt = false;
                 StateHasChanged();
             }
-
-            return;
         }
         catch (Exception ex)
         {
             _errorMessage = $"Gagal import SRT: {ex.Message}";
             _isImportingSrt = false;
+            StateHasChanged();
         }
     }
 
     private List<(string Timestamp, string Text)> ParseSrtToSegments(string srtContent)
     {
         var entries = SrtService.ParseSrt(srtContent);
-        return SrtService.MergeToSegments(entries, 35.0);
+        return SrtService.MergeToSegments(entries, 25.0);
     }
 
   
