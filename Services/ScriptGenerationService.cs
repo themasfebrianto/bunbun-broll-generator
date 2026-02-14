@@ -189,6 +189,18 @@ public class ScriptGenerationService : IScriptGenerationService
         await _orchestrator.SaveSessionAsync(session);
     }
 
+    public async Task ReplaceSessionPhasesAsync(string sessionId, List<ScriptGenerationPhase> newPhases)
+    {
+        var session = await _orchestrator.LoadSessionAsync(sessionId)
+            ?? throw new ArgumentException($"Session '{sessionId}' not found");
+
+        // Simple replace
+        session.Phases = newPhases;
+        session.UpdatedAt = DateTime.UtcNow;
+
+        await _orchestrator.SaveSessionAsync(session);
+    }
+
     public async Task UpdatePhaseContentAsync(string sessionId, string phaseId, string content)
     {
         var session = await _orchestrator.LoadSessionAsync(sessionId)

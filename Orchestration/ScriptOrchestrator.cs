@@ -52,7 +52,7 @@ public class ScriptOrchestrator : IScriptOrchestrator
             ?? throw new ArgumentException($"Pattern '{patternId}' not found");
 
         var sessionId = customId ?? Guid.NewGuid().ToString("N")[..8];
-        var baseDir = _configuration["ScriptOutput:BaseDirectory"] ?? "output/scripts";
+        var baseDir = _configuration["ScriptOutput:BaseDirectory"] ?? "output";
         var outputDir = Path.Combine(baseDir, sessionId);
         Directory.CreateDirectory(outputDir);
 
@@ -395,8 +395,10 @@ public class ScriptOrchestrator : IScriptOrchestrator
                 // Use PhaseCoordinator for generation with retry + validation
                 var generatedPhase = await coordinator.ExecutePhaseAsync(phaseDef, context);
 
-                // Save content to file
-                var filePath = Path.Combine(context.OutputDirectory, $"{phaseDef.Order:D2}-{phaseDef.Id}.md");
+                // Save content to scripts subdirectory
+                var scriptsDir = Path.Combine(context.OutputDirectory, "scripts");
+                Directory.CreateDirectory(scriptsDir);
+                var filePath = Path.Combine(scriptsDir, $"{phaseDef.Order:D2}-{phaseDef.Id}.md");
                 await File.WriteAllTextAsync(filePath, generatedPhase.Content);
 
                 // Update DB phase
@@ -606,8 +608,10 @@ public class ScriptOrchestrator : IScriptOrchestrator
 
         var generatedPhase = await coordinator.ExecutePhaseAsync(phaseDef, context);
 
-        // Save content to file
-        var filePath = Path.Combine(context.OutputDirectory, $"{phaseDef.Order:D2}-{phaseDef.Id}.md");
+        // Save content to scripts subdirectory
+        var scriptsDir = Path.Combine(context.OutputDirectory, "scripts");
+        Directory.CreateDirectory(scriptsDir);
+        var filePath = Path.Combine(scriptsDir, $"{phaseDef.Order:D2}-{phaseDef.Id}.md");
         await File.WriteAllTextAsync(filePath, generatedPhase.Content);
 
         // Update DB phase

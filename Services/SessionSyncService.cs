@@ -32,7 +32,7 @@ public class SessionSyncService
 
         var baseDir = Directory.GetCurrentDirectory();
         _sessionsDir = Path.Combine(baseDir, "sessions");
-        _outputScriptsDir = Path.Combine(baseDir, "output", "scripts");
+        _outputScriptsDir = Path.Combine(baseDir, "output");
     }
 
     // ============================================================

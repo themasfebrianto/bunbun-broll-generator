@@ -14,6 +14,16 @@ public interface IDownloaderService
         int sequenceId, 
         string keywordSlug,
         CancellationToken cancellationToken = default);
+    
+    /// <summary>
+    /// Download video to a specific output directory instead of the default Broll_Workspace.
+    /// </summary>
+    Task<string?> DownloadVideoToDirectoryAsync(
+        VideoAsset asset,
+        string outputDirectory,
+        int sequenceId,
+        string keywordSlug,
+        CancellationToken cancellationToken = default);
 }
 
 public class DownloaderService : IDownloaderService
@@ -39,14 +49,35 @@ public class DownloaderService : IDownloaderService
         string keywordSlug,
         CancellationToken cancellationToken = default)
     {
+        // Create project directory structure in Broll_Workspace
+        var sanitizedProjectName = SanitizeFileName(projectName);
+        var projectDir = Path.Combine(_settings.OutputDirectory, sanitizedProjectName);
+        return await DownloadToDirectoryAsync(asset, projectDir, sequenceId, keywordSlug, cancellationToken);
+    }
+    
+    public async Task<string?> DownloadVideoToDirectoryAsync(
+        VideoAsset asset,
+        string outputDirectory,
+        int sequenceId,
+        string keywordSlug,
+        CancellationToken cancellationToken = default)
+    {
+        // Ensure directory exists
+        Directory.CreateDirectory(outputDirectory);
+        return await DownloadToDirectoryAsync(asset, outputDirectory, sequenceId, keywordSlug, cancellationToken);
+    }
+    
+    private async Task<string?> DownloadToDirectoryAsync(
+        VideoAsset asset,
+        string projectDir,
+        int sequenceId,
+        string keywordSlug,
+        CancellationToken cancellationToken = default)
+    {
         try
         {
-            // Create project directory structure
-            var sanitizedProjectName = SanitizeFileName(projectName);
-            var projectDir = Path.Combine(_settings.OutputDirectory, sanitizedProjectName);
-            Directory.CreateDirectory(projectDir);
 
-            // Format: /{ProjectName}/{SequenceID}_{KeywordSlug}.mp4
+            // Format: {SequenceID}_{KeywordSlug}.mp4
             var sanitizedSlug = SanitizeFileName(keywordSlug);
             var fileName = $"{sequenceId:D2}_{sanitizedSlug}.mp4";
             var filePath = Path.Combine(projectDir, fileName);
