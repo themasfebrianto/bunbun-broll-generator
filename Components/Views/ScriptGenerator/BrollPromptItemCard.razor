@@ -70,7 +70,7 @@
             }
 
             @* === Visual Effects Section === *@
-            @if (isBroll)
+            @if (isBroll || (Item.MediaType == BrollMediaType.ImageGeneration && Item.WhiskVideoStatus == WhiskGenerationStatus.Done))
             {
                 <div class="space-y-3 p-3 rounded-lg bg-muted/30 border border-border/30">
                     <div class="flex items-center justify-between">

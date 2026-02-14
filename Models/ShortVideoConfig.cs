@@ -195,6 +195,14 @@ public record VideoClip
     public double DurationSeconds { get; init; }
     public VideoStyle? Style { get; init; }
 
+    // === Separate Filter & Texture for Ken Burns and B-roll videos ===
+    
+    /// <summary>Artistic filter applied to the video (color/look adjustments)</summary>
+    public VideoFilter Filter { get; init; } = VideoFilter.None;
+    
+    /// <summary>Texture overlay applied on top of the video</summary>
+    public VideoTexture Texture { get; init; } = VideoTexture.None;
+
     public VideoClip() { }
 
     public VideoClip(string sourcePath, string text)
@@ -211,14 +219,25 @@ public record VideoClip
         DurationSeconds = duration;
     }
 
-    public static VideoClip FromImage(string imagePath, string text, double duration, KenBurnsMotionType motion = KenBurnsMotionType.SlowZoomIn)
+    /// <summary>
+    /// Create a VideoClip from an image with optional Ken Burns motion, filter, and texture.
+    /// </summary>
+    public static VideoClip FromImage(
+        string imagePath, 
+        string text, 
+        double duration, 
+        KenBurnsMotionType motion = KenBurnsMotionType.SlowZoomIn,
+        VideoFilter filter = VideoFilter.None,
+        VideoTexture texture = VideoTexture.None)
     {
         return new VideoClip
         {
             ImagePath = imagePath,
             AssociatedText = text,
             DurationSeconds = duration,
-            MotionType = motion
+            MotionType = motion,
+            Filter = filter,
+            Texture = texture
         };
     }
 }

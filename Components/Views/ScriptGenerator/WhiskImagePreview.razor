@@ -38,9 +38,39 @@ else if (Item.WhiskStatus == WhiskGenerationStatus.Done && !string.IsNullOrEmpty
 
         @if (Item.WhiskVideoStatus == WhiskGenerationStatus.Done && !string.IsNullOrEmpty(Item.WhiskVideoPath) && System.IO.File.Exists(ResolveLocalPath(Item.WhiskVideoPath)))
         {
-            <div class="rounded-lg overflow-hidden border border-primary/30 bg-black aspect-video">
-                <video src="@GetAssetUrl(Item.WhiskVideoPath)" 
+            <div class="rounded-lg overflow-hidden border border-primary/30 bg-black aspect-video relative">
+                @{
+                    var videoSrc = !string.IsNullOrEmpty(Item.FilteredVideoPath)
+                        ? $"{GetAssetUrl(Item.FilteredVideoPath)}?v={DateTime.Now.Ticks}"
+                        : GetAssetUrl(Item.WhiskVideoPath);
+                }
+                <video src="@videoSrc" 
                        class="w-full h-full object-cover" controls loop muted playsinline></video>
+
+                @* Filter Progress Overlay *@
+                @if (Item.IsFilteringVideo)
+                {
+                    <div class="absolute inset-0 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center z-10 p-4">
+                        <div class="text-xs font-semibold mb-2">@Item.FilterStatus</div>
+                        <div class="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                            <div class="h-full bg-primary transition-all duration-300" style="width: @(Item.FilterProgress)%"></div>
+                        </div>
+                    </div>
+                }
+
+                @* Filter Controls *@
+                @if (!string.IsNullOrEmpty(Item.FilteredVideoPath))
+                {
+                    <div class="absolute top-1 left-1 bg-blue-500/80 text-white text-[9px] px-1.5 py-0.5 rounded font-bold pointer-events-none">
+                        @GetEffectDisplayName()
+                    </div>
+                    <button class="absolute top-1 right-1 bg-black/60 hover:bg-black/80 text-white rounded-full p-1"
+                            title="Clear Filter"
+                            @onclick="() => { Item.FilteredVideoPath = null; }"
+                            @onclick:stopPropagation="true">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                }
             </div>
         }
         else if (Item.IsConvertingVideo)
@@ -109,5 +139,15 @@ else if (Item.WhiskStatus == WhiskGenerationStatus.Failed)
             Item.KenBurnsMotion = m;
             await OnSave.InvokeAsync();
         }
+    }
+
+    private string GetEffectDisplayName()
+    {
+        var parts = new List<string>();
+        if (Item.EffectiveFilter != VideoFilter.None)
+            parts.Add(Item.EffectiveFilter.ToString().ToUpper());
+        if (Item.EffectiveTexture != VideoTexture.None)
+            parts.Add(Item.EffectiveTexture.ToString().ToUpper());
+        return parts.Count > 0 ? string.Join(" + ", parts) : "FILTERED";
     }
 }

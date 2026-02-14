@@ -1045,8 +1045,10 @@ public class ShortVideoComposer : IShortVideoComposer
                             task.Duration,
                             config,
                             ct,
-                            task.Clip.Original.IsImage, // Pass source type
-                            task.Clip.Original.Style    // Pass per-clip style
+                            task.Clip.Original.IsImage,                             // Pass source type
+                            task.Clip.Original.Style ?? VideoStyle.None,            // Pass per-clip style
+                            task.Clip.Original.Filter,                              // Pass per-clip filter
+                            task.Clip.Original.Texture                              // Pass per-clip texture
                         );
 
                         if (File.Exists(task.OutputPath))
@@ -1254,7 +1256,9 @@ public class ShortVideoComposer : IShortVideoComposer
         ShortVideoConfig config,
         CancellationToken cancellationToken,
         bool isImageSource = false,
-        VideoStyle? overrideStyle = null)
+        VideoStyle overrideStyle = VideoStyle.None,
+        VideoFilter filter = VideoFilter.None,
+        VideoTexture texture = VideoTexture.None)
     {
         try
         {
@@ -1268,27 +1272,49 @@ public class ShortVideoComposer : IShortVideoComposer
             }
 
             // Determine effective style: override takes precedence, otherwise fallback to config
-            var effectiveStyle = overrideStyle ?? config.Style;
+            var effectiveStyle = overrideStyle != VideoStyle.None ? overrideStyle : config.Style;
+
+            // Determine effective filter and texture
+            // Explicit filter/texture takes precedence, otherwise convert from style
+            var effectiveFilter = filter;
+            var effectiveTexture = texture;
+            
+            // If filter is None but style is set, convert style to filter/texture
+            if (effectiveFilter == VideoFilter.None && effectiveTexture == VideoTexture.None && effectiveStyle != VideoStyle.None)
+            {
+                (effectiveFilter, effectiveTexture) = effectiveStyle switch
+                {
+                    VideoStyle.Painting => (VideoFilter.Painting, VideoTexture.None),
+                    VideoStyle.Sepia => (VideoFilter.Sepia, VideoTexture.None),
+                    VideoStyle.Canvas => (VideoFilter.Painting, VideoTexture.Canvas),
+                    _ => (VideoFilter.None, VideoTexture.None)
+                };
+            }
 
             // Determine if we should apply artistic style
-            // Constraint: Apply ONLY to B-roll videos, NOT image/Ken Burns clips
-            var applyStyle = effectiveStyle != VideoStyle.None && !isImageSource;
+            // NOW: Apply to BOTH B-roll videos AND Ken Burns (image) clips if filter/texture is set
+            var applyFilter = effectiveFilter != VideoFilter.None || effectiveTexture != VideoTexture.None;
             
+            // Check for texture file if texture is specified
             string? texturePath = null;
-            if (applyStyle && effectiveStyle == VideoStyle.Canvas)
+            bool isVideoTexture = false;
+            if (effectiveTexture != VideoTexture.None)
             {
-                // Find a random texture
-                var textureDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot", "assets", "textures");
-                if (Directory.Exists(textureDir))
+                var textureSource = GetTexturePath(effectiveTexture);
+                if (textureSource != null)
                 {
-                    var textures = Directory.GetFiles(textureDir, "*.*")
-                        .Where(f => f.EndsWith(".jpg") || f.EndsWith(".png") || f.EndsWith(".jpeg"))
-                        .ToArray();
-                    
-                    if (textures.Length > 0)
-                    {
-                        texturePath = textures[Random.Shared.Next(textures.Length)];
-                    }
+                    texturePath = textureSource.Path;
+                    isVideoTexture = textureSource.IsVideo;
+                }
+            }
+            // Legacy Canvas style texture lookup (only if no explicit filter/texture)
+            else if (effectiveStyle == VideoStyle.Canvas && effectiveTexture == VideoTexture.None)
+            {
+                var textureSource = GetTexturePath(VideoTexture.Canvas);
+                if (textureSource != null)
+                {
+                    texturePath = textureSource.Path;
+                    isVideoTexture = textureSource.IsVideo;
                 }
             }
 
@@ -1306,11 +1332,17 @@ public class ShortVideoComposer : IShortVideoComposer
             
             // Integrate Artistic Style if enabled
             string filterComplex;
-            if (applyStyle)
+            if (applyFilter)
             {
                 // artistic filter takes [vout] from bgFilter and outputs [styled]
-                var artFilter = BuildArtisticFilter(effectiveStyle, "[vout]", "[styled]", texturePath != null, false, config.Width, config.Height);
+                var artFilter = BuildArtisticFilterComplex(effectiveFilter, effectiveTexture, "[vout]", "[styled]", texturePath != null, isVideoTexture, config.Width, config.Height);
                 
+                filterComplex = bgFilter + ";" + artFilter;
+            }
+            else if (effectiveStyle != VideoStyle.None)
+            {
+                // Legacy style support
+                var artFilter = BuildArtisticFilter(effectiveStyle, "[vout]", "[styled]", texturePath != null, isVideoTexture, config.Width, config.Height);
                 filterComplex = bgFilter + ";" + artFilter;
             }
             else
@@ -1336,31 +1368,31 @@ public class ShortVideoComposer : IShortVideoComposer
             // Build inputs
             var inputs = $"-threads 0 -i \"{inputPath}\"";
 
-            if (effectiveStyle == VideoStyle.Canvas && texturePath != null)
+            if (texturePath != null)
             {
-                inputs += $" -loop 1 -i \"{texturePath}\"";
+                if (isVideoTexture)
+                {
+                    // For video textures: use stream_loop to repeat the video infinitely
+                    inputs += $" -stream_loop -1 -i \"{texturePath}\"";
+                }
+                else
+                {
+                    // For image textures: loop the image
+                    inputs += $" -f image2 -loop 1 -i \"{texturePath}\"";
+                }
             }
             
             // Map output
-            var mapOutput = applyStyle ? "-map \"[styled]\"" : "-map \"[vout]\"";
+            var mapOutput = applyFilter || effectiveStyle != VideoStyle.None
+                ? "-map \"[styled]\"" 
+                : "-map \"[vout]\"";
 
             var arguments = $"{inputs} -filter_complex \"{filterComplex}\" " +
                            $"{mapOutput} -map 0:a? " +
                            $"-c:v libx264 -preset {_preset} -crf {_crf} -threads 0 " +
                            $"-c:a aac -b:a 128k -ac 2 -ar 44100 " +
-                           $"-r 24 {durationArg} " + // Force 24fps for cinematic/painting look if style applied? No keep config.Fps but maybe override for style?
+                           $"-r 24 {durationArg} " +
                            $"-y \"{outputPath}\"";
-            
-            // Override FPS for painting/canvas logic if needed (usually 12 or 15)
-            // But here we rely on the filter to set fps=12 internally, so output fps should match? 
-            // Actually -r forces output framerate. 
-            // If the artistic filter reduces FPS to 12 or 15, we should probably respect that in output -r
-            // But to keep it simple and compatible with concatenation, we might want to keep standard FPS
-            // However, the visual effect comes from the low framerate.
-            // Let's stick to config.Fps for the output file to ensure smooth transitions later, 
-            // but the content will be "stuttery" due to the filter.
-            
-            // WAIT: If we use fps=12 in filter, but -r 30 in output, ffmpeg will duplicate frames. This is fine.
 
             _logger.LogDebug("FFmpeg command for clip processing: {Args}", arguments);
 

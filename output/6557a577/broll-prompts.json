@@ -51,13 +51,13 @@
     "WhiskError": null,
     "SelectedVideoUrl": null,
     "KenBurnsMotion": "DiagonalZoomOut",
-    "WhiskVideoStatus": "Pending",
-    "WhiskVideoPath": null,
+    "WhiskVideoStatus": "Done",
+    "WhiskVideoPath": "E:\\VibeCode\\ScriptFlow_workspace\\bunbun-broll-generator\\output\\6557a577\\whisk_images\\img_kb.mp4",
     "WhiskVideoError": null,
     "Style": "None",
     "Filter": "None",
-    "Texture": "None",
-    "FilteredVideoPath": null
+    "Texture": "FilmGrain",
+    "FilteredVideoPath": "E:\\VibeCode\\ScriptFlow_workspace\\bunbun-broll-generator\\output\\scripts\\6557a577\\filtered\\filtered_03_5d76d42d.mp4"
   },
   {
     "Index": 4,
@@ -207,7 +207,7 @@
     "Prompt": "1500 BC Ancient Egypt era, prophetic confrontation, vast Sinai desert landscape filled with ancient Israelites, ground covered in miraculous white Manna flakes and quails, men and women in modest loose clothing and head coverings gathering food into small baskets, a focus on hands picking up small portions, illustrating the command to take only enough for one day, divine atmosphere, golden morning sunlight, semi-realistic academic painting style with visible brushstrokes, traditional Islamic iconography mixed with Western historical art influences, dramatic high-contrast lighting with directional illumination, vibrant focal colors against muted backgrounds, expressive painterly textures, atmospheric depth, ultra-detailed, sharp focus, 8k quality, consistent visual tone",
     "Reasoning": "Regenerated image prompt",
     "WhiskStatus": "Done",
-    "WhiskImagePath": "E:\\VibeCode\\ScriptFlow_workspace\\bunbun-broll-generator\\output\\scripts\\6557a577\\whisks_images\\img.png",
+    "WhiskImagePath": "E:\\VibeCode\\ScriptFlow_workspace\\bunbun-broll-generator\\output\\6557a577\\whisks_images\\img.png",
     "WhiskError": null,
     "SelectedVideoUrl": null,
     "KenBurnsMotion": "PanRightToLeft",

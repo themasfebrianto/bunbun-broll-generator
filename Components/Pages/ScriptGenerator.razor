@@ -1718,41 +1718,55 @@
             string? localPath = null;
             VideoAsset? selectedVideo = null;
 
-            if (item.SearchResults.Count > 0)
+            if (item.MediaType == BrollMediaType.ImageGeneration)
             {
-                selectedVideo = item.SearchResults.FirstOrDefault(v => v.DownloadUrl == item.SelectedVideoUrl)
-                                    ?? item.SearchResults.First();
-                
-                if (!string.IsNullOrEmpty(selectedVideo.LocalPath) && File.Exists(selectedVideo.LocalPath))
+                if (!string.IsNullOrEmpty(item.WhiskVideoPath) && File.Exists(item.WhiskVideoPath))
                 {
-                    localPath = selectedVideo.LocalPath;
+                    localPath = item.WhiskVideoPath;
+                }
+                else
+                {
+                    throw new InvalidOperationException("No generated video available to filter. Convert image to video first.");
                 }
             }
-            else
+            else // BrollMediaType.BrollVideo
             {
-                throw new InvalidOperationException("No video selected to filter.");
-            }
-
-            if (string.IsNullOrEmpty(localPath) || !File.Exists(localPath))
-            {
-                item.FilterProgress = 10;
-                item.FilterStatus = "Downloading source...";
-                StateHasChanged();
-
-                // Download video to session's output directory
-                var videosDir = !string.IsNullOrEmpty(_resultSession?.OutputDirectory)
-                    ? Path.Combine(_resultSession.OutputDirectory, "videos")
-                    : Path.Combine(Directory.GetCurrentDirectory(), "output", _sessionId ?? "temp", "videos");
+                if (item.SearchResults.Count > 0)
+                {
+                    selectedVideo = item.SearchResults.FirstOrDefault(v => v.DownloadUrl == item.SelectedVideoUrl)
+                                        ?? item.SearchResults.First();
                     
-                localPath = await DownloaderService.DownloadVideoToDirectoryAsync(
-                    selectedVideo, videosDir, item.Index, "preview-source", CancellationToken.None);
-                
-                selectedVideo.LocalPath = localPath;
-            }
+                    if (!string.IsNullOrEmpty(selectedVideo.LocalPath) && File.Exists(selectedVideo.LocalPath))
+                    {
+                        localPath = selectedVideo.LocalPath;
+                    }
+                }
+                else
+                {
+                    throw new InvalidOperationException("No video selected to filter.");
+                }
 
-            if (string.IsNullOrEmpty(localPath) || !File.Exists(localPath))
-            {
-                throw new Exception("Could not download source video.");
+                if (string.IsNullOrEmpty(localPath) || !File.Exists(localPath))
+                {
+                    item.FilterProgress = 10;
+                    item.FilterStatus = "Downloading source...";
+                    StateHasChanged();
+
+                    // Download video to session's output directory
+                    var videosDir = !string.IsNullOrEmpty(_resultSession?.OutputDirectory)
+                        ? Path.Combine(_resultSession.OutputDirectory, "videos")
+                        : Path.Combine(Directory.GetCurrentDirectory(), "output", _sessionId ?? "temp", "videos");
+                        
+                    localPath = await DownloaderService.DownloadVideoToDirectoryAsync(
+                        selectedVideo, videosDir, item.Index, "preview-source", CancellationToken.None);
+                    
+                    selectedVideo.LocalPath = localPath;
+                }
+
+                if (string.IsNullOrEmpty(localPath) || !File.Exists(localPath))
+                {
+                    throw new Exception("Could not download source video.");
+                }
             }
 
             item.FilterProgress = 40;
@@ -1771,7 +1785,7 @@
                     ? Path.Combine(_resultSession.OutputDirectory, "filtered")
                     : Path.Combine(Directory.GetCurrentDirectory(), "output", _sessionId ?? "temp", "filtered");
                 Directory.CreateDirectory(outputDir);
-                var finalFileName = $"filtered_{item.Index:D2}_{Guid.NewGuid():N[..8]}.mp4";
+                var finalFileName = $"filtered_{item.Index:D2}_{Guid.NewGuid().ToString("N")[..8]}.mp4";
                 var finalPath = Path.Combine(outputDir, finalFileName);
                 
                 File.Move(filteredPath, finalPath, overwrite: true);
