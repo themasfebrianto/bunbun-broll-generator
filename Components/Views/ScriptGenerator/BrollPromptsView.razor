@@ -1,0 +1,349 @@
+@namespace BunbunBroll.Components.Views.ScriptGenerator
+@using BunbunBroll.Models
+@using BunbunBroll.Services
+@inject VideoStyleSettings StyleSettings
+
+<div class="space-y-6">
+    @* Header Card *@
+    <div class="card p-6">
+        <div class="flex items-start justify-between gap-4 mb-4">
+            <div class="space-y-1 min-w-0">
+                <h2 class="text-xl font-bold truncate">B-Roll Prompts: @Session?.Topic</h2>
+                <div class="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                    <span class="badge badge-mono text-[10px]">@SessionId</span>
+                    <span>·</span>
+                    <span>@TotalWords kata</span>
+                    <span>·</span>
+                    <span>~@TotalMinutes menit</span>
+                    <span>·</span>
+                    <span>@TotalPhases fase</span>
+                    @if (PromptItems.Count > 0)
+                    {
+                        <span>·</span>
+                        <span>@PromptItems.Count segments</span>
+                        <span>·</span>
+                        <span class="px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-400 text-[11px] font-semibold">🎬 @PromptItems.Count(i => i.MediaType == BrollMediaType.BrollVideo) broll</span>
+                        <span class="px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-400 text-[11px] font-semibold">🎨 @PromptItems.Count(i => i.MediaType == BrollMediaType.ImageGeneration) image gen</span>
+                    }
+                </div>
+            </div>
+        </div>
+
+        @* === Redesigned Action Toolbar === *@
+        <div class="space-y-4">
+            @* Row 1: Navigation & Global Settings *@
+            <div class="flex flex-wrap items-center gap-2">
+                <button class="btn-secondary text-sm flex items-center gap-2" @onclick="OnBackToResults">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+                    <span>Kembali ke Script</span>
+                </button>
+                
+                <div class="h-6 w-px bg-border mx-1"></div>
+                
+                @* Vignette Toggle *@
+                <button class="@(StyleSettings.VignetteEnabled ? "btn-primary" : "btn-secondary") text-sm flex items-center gap-2 transition-all"
+                        @onclick="ToggleVignette"
+                        title="Toggle vignette effect on images">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="10" stroke-width="2"/>
+                        <circle cx="12" cy="12" r="6" stroke-width="2" class="opacity-50"/>
+                    </svg>
+                    <span>Vignette @(StyleSettings.VignetteEnabled ? "ON" : "OFF")</span>
+                </button>
+
+                <div class="h-6 w-px bg-border mx-1"></div>
+
+                @* Reclassify All - Destructive Action *@
+                <button class="btn-ghost text-sm flex items-center gap-2 text-orange-500 hover:text-orange-400 hover:bg-orange-500/10 border border-transparent hover:border-orange-500/20"
+                        disabled="@IsClassifying"
+                        @onclick="OnReclassify"
+                        title="Analyze ulang semua prompt dengan AI">
+                    @if (IsClassifying)
+                    {
+                        <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    }
+                    else
+                    {
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                    }
+                    <span>Re-Analisis Prompt</span>
+                </button>
+            </div>
+
+            @* Row 2: Video B-Roll Section *@
+            @if (PromptItems.Any(i => i.MediaType == BrollMediaType.BrollVideo))
+            {
+                <div class="flex items-center gap-3 p-3 rounded-lg bg-blue-500/5 border border-blue-500/20">
+                    <div class="flex items-center gap-2 text-blue-400">
+                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                        <span class="font-medium text-sm">Video B-Roll</span>
+                        <span class="text-xs bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full">@PromptItems.Count(i => i.MediaType == BrollMediaType.BrollVideo)</span>
+                    </div>
+                    
+                    <div class="h-4 w-px bg-blue-500/30"></div>
+
+                    <button class="btn-secondary text-xs h-8 px-3 flex items-center gap-1.5"
+                            disabled="@(IsRegeneratingAllKeywords || IsClassifying)"
+                            @onclick="OnRegenAllVideoKeywords"
+                            title="Generate ulang keyword pencarian video">
+                        @if (IsRegeneratingAllKeywords)
+                        {
+                            <svg class="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        }
+                        else
+                        {
+                            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                        }
+                        <span>Generate Keywords</span>
+                    </button>
+
+                    <button class="btn-primary text-xs h-8 px-3 flex items-center gap-1.5"
+                            disabled="@IsSearchingBroll"
+                            @onclick="OnSearchAllVideos"
+                            title="Cari video di Pexels/Pixabay">
+                        @if (IsSearchingBroll)
+                        {
+                            <svg class="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        }
+                        else
+                        {
+                            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                        }
+                        <span>Cari Video</span>
+                    </button>
+                </div>
+            }
+
+            @* Row 3: Image Generation Section *@
+            @if (PromptItems.Any(i => i.MediaType == BrollMediaType.ImageGeneration))
+            {
+                var missingImageCount = PromptItems.Count(i => 
+                    i.MediaType == BrollMediaType.ImageGeneration && 
+                    (i.WhiskStatus != WhiskGenerationStatus.Done || string.IsNullOrEmpty(i.WhiskImagePath) || !System.IO.File.Exists(i.WhiskImagePath)));
+                
+                var pendingVideoCount = PromptItems.Count(i => 
+                    i.MediaType == BrollMediaType.ImageGeneration && 
+                    i.WhiskStatus == WhiskGenerationStatus.Done && 
+                    i.WhiskVideoStatus != WhiskGenerationStatus.Done);
+                
+                <div class="flex items-center gap-3 p-3 rounded-lg bg-purple-500/5 border border-purple-500/20">
+                    <div class="flex items-center gap-2 text-purple-400">
+                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                        <span class="font-medium text-sm">AI Image Generation</span>
+                        <span class="text-xs bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full">@PromptItems.Count(i => i.MediaType == BrollMediaType.ImageGeneration)</span>
+                    </div>
+                    
+                    <div class="h-4 w-px bg-purple-500/30"></div>
+
+                    @if (missingImageCount > 0)
+                    {
+                        <button class="btn-primary text-xs h-8 px-3 flex items-center gap-1.5 bg-purple-600 hover:bg-purple-500 border-purple-500"
+                                disabled="@IsGeneratingWhisk"
+                                @onclick="OnGenerateAllWhiskImages"
+                                title="Generate gambar AI untuk segment yang belum ada">
+                            @if (IsGeneratingWhisk)
+                            {
+                                <svg class="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <span>Generating...</span>
+                            }
+                            else
+                            {
+                                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                                <span>Generate @missingImageCount Images</span>
+                            }
+                        </button>
+                    }
+
+                    @if (pendingVideoCount > 0 || PromptItems.Any(i => i.IsConvertingVideo))
+                    {
+                        <button class="btn-secondary text-xs h-8 px-3 flex items-center gap-1.5"
+                                disabled="@PromptItems.Any(i => i.IsConvertingVideo)"
+                                @onclick="OnGenerateAllKenBurnsVideos"
+                                title="Convert image ke video dengan efek Ken Burns">
+                            @if (PromptItems.Any(i => i.IsConvertingVideo))
+                            {
+                                <svg class="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <span>Converting...</span>
+                            }
+                            else
+                            {
+                                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                <span>Buat Video (@pendingVideoCount)</span>
+                            }
+                        </button>
+                    }
+
+                    <div class="flex-1"></div>
+
+                    @* Danger Zone *@
+                    @if (PromptItems.Any(i => i.MediaType == BrollMediaType.ImageGeneration && i.WhiskVideoStatus == WhiskGenerationStatus.Done))
+                    {
+                        <button class="btn-ghost text-xs h-8 px-3 flex items-center gap-1.5 text-amber-500 hover:text-amber-400 hover:bg-amber-500/10"
+                                disabled="@PromptItems.Any(i => i.IsConvertingVideo)"
+                                @onclick="OnResetAllVideoStates"
+                                title="Hapus semua video Ken Burns yang sudah jadi. Image asli tetap aman.">
+                            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                            <span>Hapus Video</span>
+                        </button>
+                    }
+
+                    @if (PromptItems.Any(i => i.MediaType == BrollMediaType.ImageGeneration && i.WhiskStatus == WhiskGenerationStatus.Done))
+                    {
+                        <button class="btn-ghost text-xs h-8 px-3 flex items-center gap-1.5 text-red-500 hover:text-red-400 hover:bg-red-500/10"
+                                disabled="@IsGeneratingWhisk"
+                                @onclick="OnResetAllImageStates"
+                                title="Hapus SEMUA image dan video (destructive)">
+                            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                            <span>Reset Semua</span>
+                        </button>
+                    }
+                </div>
+            }
+        </div>
+
+        @* === Progress Bar (for Whisk batch) === *@
+        @if (IsGeneratingWhisk && WhiskTotalCount > 0)
+        {
+            <div class="mt-3 max-w-sm">
+                <div class="w-full bg-muted/30 rounded-full h-1.5">
+                    <div class="bg-purple-500 h-1.5 rounded-full transition-all duration-300" 
+                         style="width: @(WhiskTotalCount > 0 ? (int)((double)WhiskGeneratedCount / WhiskTotalCount * 100) : 0)%"></div>
+                </div>
+            </div>
+        }
+    </div>
+
+    @if (IsClassifying)
+    {
+        <div class="card p-8 text-center">
+            <div class="flex items-center justify-center gap-3 mb-4">
+                <svg class="animate-spin h-6 w-6 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <p class="text-lg font-medium text-foreground">Mengklasifikasi segments...</p>
+            </div>
+            <p class="text-sm text-muted-foreground mb-5">LLM sedang menentukan B-Roll vs Image Generation untuk setiap segment</p>
+
+            @if (ClassifyTotalSegments > 0)
+            {
+                var pct = ClassifyTotalSegments > 0 ? (int)((double)ClassifyCompletedSegments / ClassifyTotalSegments * 100) : 0;
+                <div class="max-w-md mx-auto">
+                    <div class="flex justify-between text-xs text-muted-foreground mb-1.5">
+                        <span>@ClassifyCompletedSegments / @ClassifyTotalSegments segments</span>
+                        <span>@pct%</span>
+                    </div>
+                    <div class="w-full h-2.5 rounded-full bg-muted overflow-hidden">
+                        <div class="h-full rounded-full bg-primary transition-all duration-300 ease-out"
+                             style="width: @(pct)%"></div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(ClassifyError))
+    {
+        <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-destructive text-sm">@ClassifyError</div>
+    }
+    else if (PromptItems.Count == 0)
+    {
+        @* Empty State — prompt user to generate *@
+        <div class="card p-12 text-center">
+            <div class="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <polygon points="23 7 16 12 23 17 23 7"></polygon>
+                    <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+                </svg>
+            </div>
+            <h3 class="text-lg font-semibold mb-2">Siap Generate Prompts</h3>
+            <p class="text-sm text-muted-foreground mb-6 max-w-md mx-auto">LLM akan menganalisis setiap segment script dan menentukan apakah perlu <span class="text-blue-400 font-medium">B-Roll video</span> atau <span class="text-purple-400 font-medium">Image Generation</span> prompt.</p>
+            <button class="btn-primary text-sm px-6 py-2.5" @onclick="OnGeneratePrompts">
+                🚀 Generate Prompts
+            </button>
+        </div>
+    }
+    else
+    {
+        @* Segment List — Redesigned Cards *@
+        <div class="space-y-4">
+            @foreach (var item in PromptItems)
+            {
+                <BrollPromptItemCard 
+                    Item="item" 
+                    Session="Session"
+                    OnToggleMediaType="OnToggleMediaType"
+                    OnSearch="OnSearchSegment"
+                    OnRegenKeywords="OnRegenSegmentKeywords"
+                    OnRegenPromptAndImage="OnRegenPromptAndImage"
+                    OnSelectVideo="OnSelectVideo"
+                    OnApplyFilter="OnApplyFilter"
+                    OnGenerateKenBurns="OnGenerateKenBurns"
+                    OnSave="OnSave"
+                    GetAssetUrl="GetAssetUrl"
+                    ResolveLocalPath="ResolveLocalPath" />
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public ScriptGenerationSession? Session { get; set; }
+    [Parameter] public string? SessionId { get; set; }
+    [Parameter] public int TotalWords { get; set; }
+    [Parameter] public int TotalMinutes { get; set; }
+    [Parameter] public int TotalPhases { get; set; }
+    [Parameter] public List<BrollPromptItem> PromptItems { get; set; } = new();
+    
+    [Parameter] public bool IsClassifying { get; set; }
+    [Parameter] public int ClassifyTotalSegments { get; set; }
+    [Parameter] public int ClassifyCompletedSegments { get; set; }
+    [Parameter] public string? ClassifyError { get; set; }
+    
+    [Parameter] public bool IsSearchingBroll { get; set; }
+    [Parameter] public bool IsRegeneratingAllKeywords { get; set; }
+    [Parameter] public bool IsGeneratingWhisk { get; set; }
+    [Parameter] public int WhiskGeneratedCount { get; set; }
+    [Parameter] public int WhiskTotalCount { get; set; }
+
+    [Parameter] public EventCallback OnBackToResults { get; set; }
+    [Parameter] public EventCallback OnReclassify { get; set; }
+    [Parameter] public EventCallback OnRegenAllVideoKeywords { get; set; }
+    [Parameter] public EventCallback OnSearchAllVideos { get; set; }
+    [Parameter] public EventCallback OnGenerateAllWhiskImages { get; set; }
+    [Parameter] public EventCallback OnGenerateAllKenBurnsVideos { get; set; }
+    [Parameter] public EventCallback OnResetAllImageStates { get; set; }
+    [Parameter] public EventCallback OnResetAllVideoStates { get; set; }
+    [Parameter] public EventCallback OnGeneratePrompts { get; set; }
+    
+    [Parameter] public EventCallback<BrollPromptItem> OnToggleMediaType { get; set; }
+    [Parameter] public EventCallback<BrollPromptItem> OnSearchSegment { get; set; }
+    [Parameter] public EventCallback<BrollPromptItem> OnRegenSegmentKeywords { get; set; }
+    [Parameter] public EventCallback<BrollPromptItem> OnRegenPromptAndImage { get; set; }
+    [Parameter] public EventCallback<(BrollPromptItem Item, VideoAsset Video)> OnSelectVideo { get; set; }
+    [Parameter] public EventCallback<BrollPromptItem> OnApplyFilter { get; set; }
+    [Parameter] public EventCallback<BrollPromptItem> OnGenerateKenBurns { get; set; }
+    [Parameter] public EventCallback OnSave { get; set; }
+    
+    [Parameter] public Func<string, string> GetAssetUrl { get; set; } = _ => "";
+    [Parameter] public Func<string?, string> ResolveLocalPath { get; set; } = _ => "";
+
+    private void ToggleVignette()
+    {
+        StyleSettings.VignetteEnabled = !StyleSettings.VignetteEnabled;
+    }
+}

@@ -1,0 +1,297 @@
+@namespace BunbunBroll.Components.Views.ScriptGenerator
+@using BunbunBroll.Models
+@using BunbunBroll.Services
+
+@{
+    var isBroll = Item.MediaType == BrollMediaType.BrollVideo;
+    var borderAccent = isBroll ? "border-l-blue-500/50" : "border-l-purple-500/50";
+    var bgTint = isBroll ? "bg-blue-500/[0.02]" : "bg-purple-500/[0.02]";
+}
+
+<div class="card overflow-hidden border-l-4 @borderAccent @bgTint">
+    @* === HEADER: Timestamp, Index, Media Toggle === *@
+    <div class="flex items-center justify-between px-5 py-3 border-b border-border/30 bg-background/50">
+        <div class="flex items-center gap-3">
+            <span class="font-mono text-sm font-bold text-foreground bg-muted px-2.5 py-1 rounded">@Item.Timestamp</span>
+            <span class="text-sm text-muted-foreground font-medium">#@(Item.Index + 1)</span>
+        </div>
+        
+        @* Media Type Toggle *@
+        <div class="flex items-center bg-muted/50 rounded-lg p-1">
+            <button class="px-3 py-1.5 text-xs font-medium rounded-md transition-all @(isBroll ? "bg-background text-blue-400 shadow-sm" : "text-muted-foreground hover:text-foreground")"
+                    @onclick="async () => { if(!isBroll) await ToggleMediaType(); }">
+                <span class="flex items-center gap-1.5">
+                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    Video
+                </span>
+            </button>
+            <button class="px-3 py-1.5 text-xs font-medium rounded-md transition-all @(!isBroll ? "bg-background text-purple-400 shadow-sm" : "text-muted-foreground hover:text-foreground")"
+                    @onclick="async () => { if(isBroll) await ToggleMediaType(); }">
+                <span class="flex items-center gap-1.5">
+                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                    Image
+                </span>
+            </button>
+        </div>
+    </div>
+    
+    <div class="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-border/30">
+        @* === LEFT COLUMN: Script + Controls === *@
+        <div class="p-5 space-y-4">
+            @* === Script Text === *@
+            <p class="text-base leading-relaxed text-foreground">@Item.ScriptText</p>
+
+            @* === Prompt Section === *@
+            <div class="space-y-2">
+                <div class="flex items-center justify-between">
+                    <label class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Prompt</label>
+                    @if (isBroll)
+                    {
+                        <button class="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1.5 transition-colors"
+                                disabled="@(Item.IsSearching || Item.IsGenerating || Item.IsFilteringVideo)"
+                                @onclick="RegenKeywords">
+                            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                            Regen
+                        </button>
+                    }
+                </div>
+                <textarea class="input w-full min-h-[70px] text-sm bg-background/50 resize-y"
+                          @bind="Item.Prompt"
+                          @bind:after="Save"
+                          placeholder="Masukkan keyword pencarian..."></textarea>
+            </div>
+
+            @if (!string.IsNullOrEmpty(Item.Reasoning))
+            {
+                <div class="mb-3">
+                    <span class="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Alasan</span>
+                    <p class="text-xs text-muted-foreground mt-0.5 italic">@Item.Reasoning</p>
+                </div>
+            }
+
+            @* === Visual Effects Section === *@
+            @if (isBroll)
+            {
+                <div class="space-y-3 p-3 rounded-lg bg-muted/30 border border-border/30">
+                    <div class="flex items-center justify-between">
+                        <label class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Visual Effects</label>
+                        @if (Item.HasVisualEffect)
+                        {
+                            <button class="text-xs text-blue-400 hover:text-blue-300 font-medium flex items-center gap-1.5 transition-colors"
+                                    disabled="@(Item.IsSearching || Item.IsFilteringVideo)"
+                                    @onclick="ApplyFilter">
+                                @if (Item.IsFilteringVideo)
+                                {
+                                    <svg class="animate-spin h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    <span>Applying...</span>
+                                }
+                                else
+                                {
+                                    <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                    <span>Preview</span>
+                                }
+                            </button>
+                        }
+                    </div>
+                    
+                    @* Effect Selection Grid *@
+                    <div class="grid grid-cols-2 gap-3">
+                        @* Filter *@
+                        <div class="space-y-1">
+                            <label class="text-[10px] text-muted-foreground uppercase">Filter</label>
+                            <select class="input w-full text-xs h-9"
+                                    @bind="Item.Filter"
+                                    @bind:after="async () => { Item.FilteredVideoPath = null; await Save(); }">
+                                @foreach (var filter in Enum.GetValues<VideoFilter>())
+                                {
+                                    <option value="@filter">@GetFilterDisplayName(filter)</option>
+                                }
+                            </select>
+                        </div>
+                        
+                        @* Texture *@
+                        <div class="space-y-1">
+                            <label class="text-[10px] text-muted-foreground uppercase">Texture</label>
+                            <select class="input w-full text-xs h-9"
+                                    @bind="Item.Texture"
+                                    @bind:after="async () => { Item.FilteredVideoPath = null; await Save(); }">
+                                @foreach (var texture in Enum.GetValues<VideoTexture>())
+                                {
+                                    <option value="@texture">@GetTextureDisplayName(texture)</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+                    
+                    @* Selected Effect Badge *@
+                    @if (Item.HasVisualEffect)
+                    {
+                        <div class="flex items-center gap-2 pt-2 border-t border-border/20">
+                            <span class="text-[10px] text-muted-foreground">Active:</span>
+                            <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                @GetEffectDisplayName()
+                            </span>
+                        </div>
+                    }
+                    
+                    @if (!string.IsNullOrEmpty(Item.FilterError))
+                    {
+                        <p class="text-xs text-destructive">@Item.FilterError</p>
+                    }
+                </div>
+            }
+
+            @* === Action Buttons === *@
+            <div class="flex flex-wrap gap-2 pt-3 border-t border-border/20">
+                @if (isBroll)
+                {
+                    <button class="btn-primary text-xs h-9 px-4 flex items-center gap-2"
+                            disabled="@(Item.IsSearching || Item.IsFilteringVideo)"
+                            @onclick="Search">
+                        @if (Item.IsSearching)
+                        {
+                            <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span>Mencari...</span>
+                        }
+                        else if (Item.AllSearchResults.Count > 0)
+                        {
+                            var totalPages = (int)Math.Ceiling((double)Item.AllSearchResults.Count / 4);
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                            <span>Cari Lagi (@(Item.SearchPage + 1)/@totalPages)</span>
+                        }
+                        else
+                        {
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                            <span>Cari Video</span>
+                        }
+                    </button>
+                }
+                else
+                {
+                    <button class="btn-primary text-xs h-9 px-4 flex items-center gap-2 bg-purple-600 hover:bg-purple-500 border-purple-500"
+                            disabled="@(Item.IsGenerating || Item.IsConvertingVideo)"
+                            @onclick="RegenPromptAndImage">
+                        @if (Item.IsGenerating)
+                        {
+                            <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span>Generating...</span>
+                        }
+                        else if (Item.WhiskStatus == WhiskGenerationStatus.Done)
+                        {
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                            <span>Regenerate</span>
+                        }
+                        else
+                        {
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                            <span>Generate Image</span>
+                        }
+                    </button>
+                }
+
+                @if (!isBroll && Item.IsGenerating)
+                {
+                    <div class="space-y-1 mt-1">
+                        <div class="progress-container h-1.5 shimmer-effect">
+                            <div class="progress-bar bg-primary" style="width: @(Item.CombinedRegenProgress)%"></div>
+                        </div>
+                        <div class="flex justify-between items-center text-[9px] text-muted-foreground font-medium px-1">
+                            <span>@(Item.CombinedRegenProgress < 50 ? "AI Prompting..." : "Generating Image...")</span>
+                            <span>@Item.CombinedRegenProgress%</span>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        @* === RIGHT COLUMN: Preview Panel === *@
+        <div class="lg:col-span-1 p-5 bg-muted/20">
+            @if (isBroll)
+            {
+                <BrollVideoPreview 
+                    Item="Item" 
+                    OnSelectVideo="SelectVideo"
+                    GetAssetUrl="GetAssetUrl" />
+            }
+            else
+            {
+                <WhiskImagePreview 
+                    Item="Item" 
+                    OnGenerateKenBurns="GenerateKenBurns"
+                    GetAssetUrl="GetAssetUrl"
+                    ResolveLocalPath="ResolveLocalPath"
+                    OnSave="Save" />
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public BrollPromptItem Item { get; set; } = null!;
+    [Parameter] public ScriptGenerationSession? Session { get; set; }
+    
+    [Parameter] public EventCallback<BrollPromptItem> OnToggleMediaType { get; set; }
+    [Parameter] public EventCallback<BrollPromptItem> OnSearch { get; set; }
+    [Parameter] public EventCallback<BrollPromptItem> OnRegenKeywords { get; set; }
+    [Parameter] public EventCallback<BrollPromptItem> OnRegenPromptAndImage { get; set; }
+    [Parameter] public EventCallback<(BrollPromptItem Item, VideoAsset Video)> OnSelectVideo { get; set; }
+    [Parameter] public EventCallback<BrollPromptItem> OnApplyFilter { get; set; }
+    [Parameter] public EventCallback<BrollPromptItem> OnGenerateKenBurns { get; set; }
+    [Parameter] public EventCallback OnSave { get; set; }
+    
+    [Parameter] public Func<string, string> GetAssetUrl { get; set; } = _ => "";
+    [Parameter] public Func<string?, string> ResolveLocalPath { get; set; } = _ => "";
+
+    private async Task ToggleMediaType() => await OnToggleMediaType.InvokeAsync(Item);
+    private async Task Search() => await OnSearch.InvokeAsync(Item);
+    private async Task RegenKeywords() => await OnRegenKeywords.InvokeAsync(Item);
+    private async Task RegenPromptAndImage() => await OnRegenPromptAndImage.InvokeAsync(Item);
+    private async Task SelectVideo(VideoAsset video) => await OnSelectVideo.InvokeAsync((Item, video));
+    private async Task ApplyFilter() => await OnApplyFilter.InvokeAsync(Item);
+    private async Task GenerateKenBurns() => await OnGenerateKenBurns.InvokeAsync(Item);
+    private async Task Save() => await OnSave.InvokeAsync();
+
+    private static string GetFilterDisplayName(VideoFilter filter) => filter switch
+    {
+        VideoFilter.None => "None (No Filter)",
+        VideoFilter.Painting => "🎨 Painting",
+        VideoFilter.Sepia => "📜 Sepia",
+        VideoFilter.Vintage => "📷 Vintage",
+        VideoFilter.Cinematic => "🎬 Cinematic",
+        VideoFilter.Warm => "☀️ Warm",
+        VideoFilter.Cool => "❄️ Cool",
+        VideoFilter.Noir => "🕵️ Noir",
+        _ => filter.ToString()
+    };
+
+    private static string GetTextureDisplayName(VideoTexture texture) => texture switch
+    {
+        VideoTexture.None => "None (No Texture)",
+        VideoTexture.Canvas => "🖼️ Canvas (surreal.mp4)",
+        VideoTexture.Paper => "📄 Paper (harsh/grain)",
+        VideoTexture.Grunge => "🧱 Grunge (grunge.mp4)",
+        VideoTexture.FilmGrain => "🎞️ Film Grain (filmgrain*.mp4)",
+        VideoTexture.Dust => "💨 Dust (fire.mp4)",
+        VideoTexture.Scratches => "✨ Scratches (scratches.mp4)",
+        _ => texture.ToString()
+    };
+
+    private string GetEffectDisplayName()
+    {
+        var parts = new List<string>();
+        if (Item.EffectiveFilter != VideoFilter.None)
+            parts.Add(Item.EffectiveFilter.ToString().ToUpper());
+        if (Item.EffectiveTexture != VideoTexture.None)
+            parts.Add(Item.EffectiveTexture.ToString().ToUpper());
+        return parts.Count > 0 ? string.Join(" + ", parts) : "FILTERED";
+    }
+}

@@ -1,0 +1,137 @@
+@namespace BunbunBroll.Components.Views.ScriptGenerator
+@using BunbunBroll.Models
+
+@if (Item.IsSearching)
+{
+    <div class="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground py-12">
+        <svg class="animate-spin h-8 w-8" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <span class="text-sm">Mencari video...</span>
+    </div>
+}
+else if (!string.IsNullOrEmpty(Item.SearchError))
+{
+    <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-destructive text-sm">
+        @Item.SearchError
+    </div>
+}
+else if (Item.SearchResults.Count > 0)
+{
+    var selectedVideo = Item.SearchResults.FirstOrDefault(v => v.DownloadUrl == Item.SelectedVideoUrl)
+                        ?? Item.SearchResults.First();
+    var otherVideos = Item.SearchResults.Where(v => v != selectedVideo).Take(3).ToList();
+    
+    @* Selected Video *@
+    <div class="space-y-3">
+        <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Preview</span>
+            @if (!string.IsNullOrEmpty(Item.FilteredVideoPath))
+            {
+                <span class="text-xs px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                    @GetEffectDisplayName()
+                </span>
+            }
+        </div>
+        
+        <div class="rounded-xl overflow-hidden border border-border/50 bg-black shadow-lg">
+            <div class="aspect-video relative">
+                @{
+                    var previewSrc = !string.IsNullOrEmpty(Item.FilteredVideoPath) 
+                        ? $"{GetAssetUrl(Item.FilteredVideoPath)}?v={DateTime.Now.Ticks}" 
+                        : selectedVideo.DownloadUrl;
+                }
+                <video src="@previewSrc"
+                       poster="@selectedVideo.ThumbnailUrl"
+                       class="w-full h-full object-cover"
+                       controls muted loop preload="metadata"
+                       playsinline>
+                </video>
+                
+                @* Filter Progress Overlay *@
+                @if (Item.IsFilteringVideo)
+                {
+                    <div class="absolute inset-0 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center z-10 p-4">
+                        <div class="text-xs font-semibold mb-2">@Item.FilterStatus</div>
+                        <div class="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                            <div class="h-full bg-primary transition-all duration-300" style="width: @(Item.FilterProgress)%"></div>
+                        </div>
+                    </div>
+                }
+                
+                @if (!string.IsNullOrEmpty(Item.FilteredVideoPath))
+                {
+                    <div class="absolute top-1 left-1 bg-blue-500/80 text-white text-[9px] px-1.5 py-0.5 rounded font-bold pointer-events-none">
+                        @GetEffectDisplayName()
+                    </div>
+                    <button class="absolute top-1 right-1 bg-black/60 hover:bg-black/80 text-white rounded-full p-1"
+                            title="Clear Filter"
+                            @onclick="() => { Item.FilteredVideoPath = null; }">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                }
+                else
+                {
+                    <div class="absolute top-1 left-1 bg-black/60 text-white text-[9px] px-1.5 py-0.5 rounded pointer-events-none">@selectedVideo.Provider</div>
+                    <div class="absolute top-1 right-1 bg-primary/80 text-white text-[9px] px-1.5 py-0.5 rounded font-semibold pointer-events-none">✓ Selected</div>
+                }
+            </div>
+            @if (!string.IsNullOrEmpty(selectedVideo.Quality))
+            {
+                <div class="px-2 py-1 text-[10px] text-muted-foreground">@selectedVideo.Quality · @(selectedVideo.Width)×@(selectedVideo.Height) · @(selectedVideo.DurationSeconds)s</div>
+            }
+        </div>
+    </div>
+
+    @* Suggestion Thumbnails *@
+    @if (otherVideos.Count > 0)
+    {
+        <div>
+            <span class="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Alternatif</span>
+            <div class="grid grid-cols-3 gap-1.5 mt-1">
+                @foreach (var video in otherVideos)
+                {
+                    <div class="rounded-md overflow-hidden border border-border/30 bg-background/40 hover:border-primary/50 transition-colors cursor-pointer opacity-70 hover:opacity-100"
+                         @onclick="() => SelectVideo(video)"
+                         title="Klik untuk memilih video ini">
+                        <div class="aspect-video relative">
+                            <video src="@video.DownloadUrl"
+                                   poster="@video.ThumbnailUrl"
+                                   class="w-full h-full object-cover"
+                                   muted loop preload="metadata" playsinline
+                                   onmouseover="this.play()"
+                                   onmouseout="this.pause();this.currentTime=0;">
+                            </video>
+                            <div class="absolute bottom-0.5 right-0.5 bg-black/70 text-white text-[8px] px-1 py-0.5 rounded font-mono pointer-events-none">@(video.DurationSeconds)s</div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+}
+else
+{
+    <div class="flex items-center justify-center h-full text-muted-foreground text-xs py-8">
+        Belum ada hasil pencarian
+    </div>
+}
+
+@code {
+    [Parameter] public BrollPromptItem Item { get; set; } = null!;
+    [Parameter] public EventCallback<VideoAsset> OnSelectVideo { get; set; }
+    [Parameter] public Func<string, string> GetAssetUrl { get; set; } = _ => "";
+
+    private async Task SelectVideo(VideoAsset video) => await OnSelectVideo.InvokeAsync(video);
+
+    private string GetEffectDisplayName()
+    {
+        var parts = new List<string>();
+        if (Item.EffectiveFilter != VideoFilter.None)
+            parts.Add(Item.EffectiveFilter.ToString().ToUpper());
+        if (Item.EffectiveTexture != VideoTexture.None)
+            parts.Add(Item.EffectiveTexture.ToString().ToUpper());
+        return parts.Count > 0 ? string.Join(" + ", parts) : "FILTERED";
+    }
+}

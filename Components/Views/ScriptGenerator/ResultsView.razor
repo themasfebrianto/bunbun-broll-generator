@@ -1,0 +1,375 @@
+@namespace BunbunBroll.Components.Views.ScriptGenerator
+@using BunbunBroll.Models
+
+<div class="space-y-6">
+    @* Header Card *@
+    <div class="card p-6">
+        <div class="flex items-start justify-between gap-4 mb-4">
+            <div class="space-y-1 min-w-0">
+                <h2 class="text-xl font-bold truncate">@Session?.Topic</h2>
+                <div class="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                    @if (!string.IsNullOrEmpty(Session?.ChannelName))
+                    {
+                        <span class="px-2 py-0.5 rounded-full bg-primary/15 text-primary text-[11px] font-semibold">@Session.ChannelName</span>
+                    }
+                    <span class="badge badge-mono text-[10px]">@SessionId</span>
+                    <span>·</span>
+                    <span>@Session?.PatternId</span>
+                    @if (Session?.CompletedAt != null)
+                    {
+                        <span>·</span>
+                        <span>@FormatDate(Session.CompletedAt.Value)</span>
+                    }
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                @GetStatusBadge(Session?.Status ?? SessionStatus.Pending)
+            </div>
+        </div>
+
+        @* Outline (Collapsible) *@
+        @if (!string.IsNullOrWhiteSpace(Session?.Outline))
+        {
+            <div class="mb-6">
+                <details class="group bg-muted/40 rounded-lg overflow-hidden border border-border/50">
+                    <summary class="flex items-center gap-2 px-4 py-2.5 cursor-pointer hover:bg-muted/60 transition-colors select-none">
+                        <span class="p-1 rounded-md bg-primary/10 text-primary">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" /></svg>
+                        </span>
+                        <span class="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex-1">Script Outline</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-muted-foreground group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                    </summary>
+                    <div class="px-4 pb-4 pt-1">
+                            <div class="text-sm text-foreground/80 whitespace-pre-wrap leading-relaxed pl-8 border-l-2 border-primary/20">@Session.Outline</div>
+                    </div>
+                </details>
+            </div>
+        }
+
+        @* Stats Row *@
+        <div class="grid grid-cols-4 gap-3 mb-4">
+            <div class="text-center p-3 rounded-lg bg-muted/60">
+                <p class="text-2xl font-bold">@TotalWords</p>
+                <p class="text-[10px] text-muted-foreground uppercase tracking-wide">kata</p>
+            </div>
+            <div class="text-center p-3 rounded-lg bg-muted/60">
+                <p class="text-2xl font-bold">~@TotalMinutes</p>
+                <p class="text-[10px] text-muted-foreground uppercase tracking-wide">menit</p>
+            </div>
+            <div class="text-center p-3 rounded-lg bg-muted/60">
+                <p class="text-2xl font-bold">@TotalPhases</p>
+                <p class="text-[10px] text-muted-foreground uppercase tracking-wide">fase</p>
+            </div>
+            <div class="text-center p-3 rounded-lg bg-muted/60">
+                <p class="text-2xl font-bold">@ValidatedCount</p>
+                <p class="text-[10px] text-muted-foreground uppercase tracking-wide">valid</p>
+            </div>
+        </div>
+
+        @* Action buttons *@
+        <div class="flex gap-3">
+            <button class="btn-secondary text-sm" @onclick="OnBackToList">← Daftar Script</button>
+            <button class="btn-ghost text-sm flex items-center gap-1.5"
+                    disabled="@IsRegeneratingAll"
+                    @onclick="OnRegenerateAll">
+                @if (IsRegeneratingAll)
+                {
+                    <svg class="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>Regenerating All...</span>
+                }
+                else
+                {
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                    <span>Regenerate All</span>
+                }
+            </button>
+            <button class="btn-ghost text-sm flex items-center gap-1.5" @onclick="OnEditConfig">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+                <span>Edit Config</span>
+            </button>
+            <div class="flex-1"></div>
+            <button class="btn-secondary text-sm flex items-center gap-1.5"
+                    disabled="@IsExportingLrc"
+                    @onclick="OnExportLrc">
+                @if (IsExportingLrc)
+                {
+                    <svg class="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>Exporting...</span>
+                }
+                else
+                {
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                    <span>Export LRC</span>
+                }
+            </button>
+            <button class="btn-primary text-sm" @onclick="OnSendToBroll">Kirim ke B-Roll →</button>
+        </div>
+    </div>
+
+    @* Horizontal Scrollable Phase Cards *@
+    <div class="overflow-x-auto pb-4 -mx-4 px-4">
+        <div class="flex gap-5" style="min-width: max-content;">
+            @foreach (var sec in Sections)
+            {
+                <div class="card overflow-hidden flex-shrink-0" style="width: 720px;">
+                    @* Phase Header — Sticky *@
+                    <div class="flex items-center justify-between px-6 py-4 border-b border-border/50 bg-card/95 backdrop-blur-sm cursor-pointer sticky top-0 z-10"
+                            @onclick="() => ToggleSection(sec)">
+                        <div class="flex items-center gap-3">
+                            <span class="flex items-center justify-center w-8 h-8 rounded-full bg-primary/15 text-primary text-sm font-bold">@sec.Order</span>
+                            <div>
+                                <h3 class="font-semibold text-base">@sec.PhaseName</h3>
+                                <span class="text-xs text-muted-foreground">@sec.WordCount kata · ~@((int)(sec.DurationSeconds / 60)) menit</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            @if (sec.IsFileMissing)
+                            {
+                                <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-warning/15 text-warning border border-warning/30">⚠ File Hilang</span>
+                            }
+                            @if (sec.IsValidated)
+                            {
+                                <span class="text-success text-sm flex items-center gap-1">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                                </span>
+                            }
+                            @if (sec.OutlinePoints?.Count > 0)
+                            {
+                                <div class="badge badge-ghost badge-sm gap-1 text-muted-foreground/60 font-normal select-none">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                                    <span class="text-[10px]">Outline</span>
+                                </div>
+                            }
+                            <button class="btn-ghost text-xs px-2 py-1.5 flex items-center gap-1" title="Edit script"
+                                    @onclick="() => StartEditing(sec)" @onclick:stopPropagation="true">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                            </button>
+                            <button class="btn-ghost text-xs px-2 py-1.5 flex items-center gap-1" title="Copy script"
+                                    @onclick="() => CopyPhaseContent(sec)" @onclick:stopPropagation="true">
+                                @if (sec.CopyState == "copied")
+                                {
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                                }
+                                else
+                                {
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                                }
+                            </button>
+                            <button class="btn-ghost text-xs px-2 py-1.5 flex items-center gap-1" disabled="@(sec.IsRegenerating)"
+                                    @onclick="() => RegeneratePhase(sec)" @onclick:stopPropagation="true">
+                                @if (sec.IsRegenerating)
+                                {
+                                    <svg class="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                }
+                                else
+                                {
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                                }
+                            </button>
+                            <span class="text-sm text-muted-foreground select-none">@(sec.IsExpanded ? "▲" : "▼")</span>
+                        </div>
+                    </div>
+
+                    @if (sec.IsExpanded)
+                    {
+                        <div class="px-8 py-6 overflow-y-auto" style="max-height: 75vh;">
+                            @if (sec.IsFileMissing)
+                            {
+                                <div class="mb-4 p-3 rounded-lg border border-warning/30 bg-warning/10 text-warning text-sm flex items-center gap-2">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" /></svg>
+                                    <span>File konten hilang. Regenerasi fase ini untuk membuat ulang.</span>
+                                </div>
+                            }
+                            @if (sec.OutlinePoints?.Count > 0)
+                            {
+                                <div class="mb-6 p-4 rounded-lg bg-muted/40 border border-border/50">
+                                    <div class="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-2 select-none">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                                        Setup Outline
+                                    </div>
+                                    <ul class="list-disc list-outside ml-4 space-y-1.5 text-sm text-foreground/80 marker:text-muted-foreground">
+                                        @foreach (var point in sec.OutlinePoints)
+                                        {
+                                            <li>@point</li>
+                                        }
+                                    </ul>
+                                </div>
+                            }
+                            @if (sec.IsEditing)
+                            {
+                                <div class="space-y-4">
+                                    <div class="flex items-center gap-2 mb-2 p-2 bg-muted/60 rounded-md border border-border/50">
+                                        <button class="btn-ghost btn-sm" @onclick="() => Undo(sec)" disabled="@(sec.UndoStack.Count == 0)" title="Undo (Ctrl+Z)">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
+                                        </button>
+                                        <button class="btn-ghost btn-sm" @onclick="() => Redo(sec)" disabled="@(sec.RedoStack.Count == 0)" title="Redo (Ctrl+Y)">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6" /></svg>
+                                        </button>
+                                        <div class="flex-1"></div>
+                                        <button class="btn-ghost btn-sm text-muted-foreground" @onclick="() => CancelEditing(sec)">Cancel</button>
+                                        <button class="btn-primary btn-sm" @onclick="() => SaveEditing(sec)">Save Changes</button>
+                                    </div>
+                                    <textarea 
+                                        class="w-full h-[500px] p-4 bg-background border border-input rounded-md font-mono text-sm leading-relaxed resize-y focus:ring-1 focus:ring-primary"
+                                        value="@sec.EditedContent"
+                                        @oninput="(e) => HandleInput(e, sec)"
+                                        @onkeydown="(e) => HandleKeyDown(e, sec)"></textarea>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="prose prose-invert prose-lg max-w-none whitespace-pre-wrap leading-[1.9]">@sec.Content</div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-destructive text-sm">@ErrorMessage</div>
+    }
+    @if (!string.IsNullOrEmpty(LrcExportPath))
+    {
+        <div class="rounded-lg border border-success/30 bg-success/10 p-3 text-success text-sm flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+            <span>LRC exported: <code class="text-xs">@LrcExportPath</code></span>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public ScriptGenerationSession? Session { get; set; }
+    [Parameter] public string? SessionId { get; set; }
+    [Parameter] public int TotalWords { get; set; }
+    [Parameter] public int TotalMinutes { get; set; }
+    [Parameter] public int TotalPhases { get; set; }
+    [Parameter] public int ValidatedCount { get; set; }
+    [Parameter] public List<ResultSection> Sections { get; set; } = new();
+    [Parameter] public bool IsRegeneratingAll { get; set; }
+    [Parameter] public bool IsExportingLrc { get; set; }
+    [Parameter] public string? ErrorMessage { get; set; }
+    [Parameter] public string? LrcExportPath { get; set; }
+
+    [Parameter] public EventCallback OnBackToList { get; set; }
+    [Parameter] public EventCallback OnRegenerateAll { get; set; }
+    [Parameter] public EventCallback OnEditConfig { get; set; }
+    [Parameter] public EventCallback OnExportLrc { get; set; }
+    [Parameter] public EventCallback OnSendToBroll { get; set; }
+    [Parameter] public EventCallback<ResultSection> OnRegeneratePhase { get; set; }
+    [Parameter] public EventCallback<ResultSection> OnCopyPhaseContent { get; set; }
+    [Parameter] public EventCallback<(ResultSection Section, string NewContent)> OnUpdatePhaseContent { get; set; }
+
+    private async Task RegeneratePhase(ResultSection sec) => await OnRegeneratePhase.InvokeAsync(sec);
+    private async Task CopyPhaseContent(ResultSection sec) => await OnCopyPhaseContent.InvokeAsync(sec);
+
+    private void StartEditing(ResultSection sec)
+    {
+        sec.IsEditing = true;
+        sec.EditedContent = sec.Content;
+        sec.UndoStack.Clear();
+        sec.RedoStack.Clear();
+        // Push initial state
+        sec.UndoStack.Push(sec.Content);
+    }
+
+    private void CancelEditing(ResultSection sec)
+    {
+        sec.IsEditing = false;
+        sec.EditedContent = "";
+        sec.UndoStack.Clear();
+        sec.RedoStack.Clear();
+    }
+
+    private async Task SaveEditing(ResultSection sec)
+    {
+        if (sec.EditedContent != sec.Content)
+        {
+            await OnUpdatePhaseContent.InvokeAsync((sec, sec.EditedContent));
+        }
+        sec.IsEditing = false;
+    }
+
+    private void HandleInput(ChangeEventArgs e, ResultSection sec)
+    {
+        var newContent = e.Value?.ToString() ?? "";
+        if (newContent != sec.EditedContent)
+        {
+            // Push current state to undo stack before updating
+            sec.UndoStack.Push(sec.EditedContent);
+            sec.EditedContent = newContent;
+            // Clear redo stack on new input
+            sec.RedoStack.Clear();
+        }
+    }
+
+    private void Undo(ResultSection sec)
+    {
+        if (sec.UndoStack.Count > 0)
+        {
+            var previous = sec.UndoStack.Pop();
+            sec.RedoStack.Push(sec.EditedContent);
+            sec.EditedContent = previous;
+        }
+    }
+
+    private void Redo(ResultSection sec)
+    {
+        if (sec.RedoStack.Count > 0)
+        {
+            var next = sec.RedoStack.Pop();
+            sec.UndoStack.Push(sec.EditedContent);
+            sec.EditedContent = next;
+        }
+    }
+
+    private void HandleKeyDown(KeyboardEventArgs e, ResultSection sec)
+    {
+        if (e.CtrlKey && e.Key == "z")
+        {
+            Undo(sec);
+        }
+        else if (e.CtrlKey && e.Key == "y")
+        {
+            Redo(sec);
+        }
+    }
+
+    private static string FormatDate(DateTime date)
+    {
+        var elapsed = DateTime.UtcNow - date;
+        if (elapsed.TotalMinutes < 1) return "baru saja";
+        if (elapsed.TotalHours < 1) return $"{(int)elapsed.TotalMinutes}m lalu";
+        if (elapsed.TotalDays < 1) return $"{(int)elapsed.TotalHours}j lalu";
+        if (elapsed.TotalDays < 7) return $"{(int)elapsed.TotalDays}h lalu";
+        return date.ToString("dd MMM yyyy");
+    }
+
+    private static RenderFragment GetStatusBadge(SessionStatus status)
+    {
+        return status switch
+        {
+            SessionStatus.Completed => @<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-success/15 text-success"><span>●</span> Selesai</span>,
+            SessionStatus.Running => @<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-primary/15 text-primary"><span class="animate-pulse">●</span> Berjalan</span>,
+            SessionStatus.Failed => @<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-destructive/15 text-destructive"><span>●</span> Gagal</span>,
+            _ => @<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-muted-foreground/15 text-muted-foreground"><span>●</span> Pending</span>
+        };
+    }
+
+    private void ToggleSection(ResultSection sec) { sec.IsExpanded = !sec.IsExpanded; }
+}

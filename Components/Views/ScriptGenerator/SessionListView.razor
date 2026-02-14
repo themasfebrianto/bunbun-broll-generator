@@ -189,10 +189,27 @@
         };
     }
 
-    private static string GetAssetUrl(string path)
+    private static string GetAssetUrl(string absolutePath)
     {
-        // Convert absolute path to URL
-        return path.Replace("\\", "/");
+        if (string.IsNullOrEmpty(absolutePath)) return "";
+        // If it's already a URL (e.g. from Pexels), return as is
+        if (absolutePath.StartsWith("http", StringComparison.OrdinalIgnoreCase)) return absolutePath;
+
+        // Normalize slashes
+        var normalized = absolutePath.Replace("\\", "/");
+        
+        // Find the part after "output/"
+        var markerIndex = normalized.IndexOf("output/", StringComparison.OrdinalIgnoreCase);
+        if (markerIndex >= 0)
+        {
+            var relative = normalized.Substring(markerIndex + "output/".Length);
+            return $"/project-assets/{relative}";
+        }
+
+        // Fallback: try to make relative to current directory/output if possible, 
+        // though static method doesn't have easy access to Directory.GetCurrentDirectory() without System.IO
+        // We'll assume the path might already be relative or just return it with slash normalization
+        return normalized;
     }
 
     private async Task HandleViewSession(ScriptGenerationSession session)

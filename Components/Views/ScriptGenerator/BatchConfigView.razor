@@ -1,0 +1,169 @@
+@namespace BunbunBroll.Components.Views.ScriptGenerator
+@using BunbunBroll.Models
+
+<div class="max-w-[52rem] mx-auto space-y-6">
+    <div class="card p-6 space-y-5">
+        <div class="flex items-center justify-between">
+            <h2 class="text-lg font-bold">Batch Generate Configs</h2>
+            <button class="btn-ghost text-sm" @onclick="OnBack">← Kembali</button>
+        </div>
+        <p class="text-sm text-muted-foreground">Generate beberapa config sekaligus berdasarkan tema menggunakan AI.</p>
+
+        @* Theme *@
+        <div>
+            <label class="block text-xs font-medium text-muted-foreground mb-1.5">Tema *</label>
+            <input type="text" class="input w-full" placeholder="e.g. eschatology, sahabat, ekonomi, nabi" @bind="Theme" />
+        </div>
+
+        @* Channel *@
+        <div>
+            <label class="block text-xs font-medium text-muted-foreground mb-1.5">Channel *</label>
+            @if (ChannelNames.Count > 0)
+            {
+                <select class="input w-full" @bind="ChannelName">
+                    <option value="">Pilih channel...</option>
+                    @foreach (var ch in ChannelNames)
+                    {
+                        <option value="@ch">@ch</option>
+                    }
+                </select>
+            }
+            else
+            {
+                <input type="text" class="input w-full" placeholder="Nama channel" @bind="ChannelName" />
+            }
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+            @* Count *@
+            <div>
+                <label class="block text-xs font-medium text-muted-foreground mb-1.5">Jumlah Config</label>
+                <input type="number" class="input w-full" min="1" max="20" @bind="Count" />
+            </div>
+            @* Pattern *@
+            <div>
+                <label class="block text-xs font-medium text-muted-foreground mb-1.5">Pattern</label>
+                <select class="input w-full" @bind="PatternId">
+                    @foreach (var p in AvailablePatterns)
+                    {
+                        <option value="@p.Id">@p.Name</option>
+                    }
+                </select>
+            </div>
+        </div>
+
+        @* Seed (optional) *@
+        <div>
+            <label class="block text-xs font-medium text-muted-foreground mb-1.5">Seed / Instruksi Tambahan <span class="text-muted-foreground/60">(opsional)</span></label>
+            <textarea class="input w-full" rows="2" placeholder="e.g. gunakan angle dari sisi budaya indonesia" @bind="Seed"></textarea>
+        </div>
+
+        @if (!string.IsNullOrEmpty(ErrorMessage))
+        {
+            <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-destructive text-sm">@ErrorMessage</div>
+        }
+
+        <button class="btn-primary w-full" 
+                disabled="@(!CanGenerate)"
+                @onclick="OnGenerate">
+            @if (IsGenerating)
+            {
+                <svg class="animate-spin h-4 w-4 mr-2 inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>Generating @Count configs...</span>
+            }
+            else
+            {
+                <span>🚀 Generate @Count Configs</span>
+            }
+        </button>
+    </div>
+
+    @* === Batch Results === *@
+    @if (Results.Count > 0)
+    {
+        <div class="space-y-3">
+            <div class="flex items-center justify-between">
+                <h3 class="text-base font-semibold">Hasil: @Results.Count configs</h3>
+                <button class="btn-ghost text-xs" @onclick="OnUseAll">Gunakan Semua →</button>
+            </div>
+            @foreach (var (config, idx) in Results.Select((c, i) => (c, i)))
+            {
+                <div class="card p-4 hover:border-primary/40 transition-colors">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="space-y-1.5 min-w-0 flex-1">
+                            <div class="flex items-center gap-2">
+                                <span class="flex items-center justify-center w-6 h-6 rounded-full bg-primary/15 text-primary text-xs font-bold">@(idx + 1)</span>
+                                <h4 class="font-semibold text-sm truncate">@config.Topic</h4>
+                            </div>
+                            @if (!string.IsNullOrEmpty(config.Outline))
+                            {
+                                <p class="text-xs text-muted-foreground line-clamp-2 ml-8">@config.Outline</p>
+                            }
+                            <div class="flex items-center gap-3 text-[11px] text-muted-foreground ml-8">
+                                <span>~@config.TargetDurationMinutes menit</span>
+                                @if (config.MustHaveBeats?.Count > 0)
+                                {
+                                    <span>·</span>
+                                    <span>@config.MustHaveBeats.Count beats</span>
+                                }
+                                @if (!string.IsNullOrEmpty(config.SourceReferences))
+                                {
+                                    <span>·</span>
+                                    <span class="truncate max-w-[200px]">@config.SourceReferences</span>
+                                }
+                            </div>
+                        </div>
+                        <button class="btn-primary text-xs px-3 py-1.5 flex-shrink-0" @onclick="() => OnUseConfig.InvokeAsync(config)">
+                            Gunakan →
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public List<string> ChannelNames { get; set; } = new();
+    [Parameter] public List<ScriptPattern> AvailablePatterns { get; set; } = new();
+    [Parameter] public bool IsGenerating { get; set; }
+    [Parameter] public string? ErrorMessage { get; set; }
+    [Parameter] public List<GeneratedConfig> Results { get; set; } = new();
+
+    [Parameter] public string Theme { get; set; } = "";
+    [Parameter] public EventCallback<string> ThemeChanged { get; set; }
+    
+    [Parameter] public string ChannelName { get; set; } = "";
+    [Parameter] public EventCallback<string> ChannelNameChanged { get; set; }
+    
+    [Parameter] public int Count { get; set; } = 10;
+    [Parameter] public EventCallback<int> CountChanged { get; set; }
+    
+    [Parameter] public string PatternId { get; set; } = "";
+    [Parameter] public EventCallback<string> PatternIdChanged { get; set; }
+    
+    [Parameter] public string? Seed { get; set; }
+    [Parameter] public EventCallback<string?> SeedChanged { get; set; }
+
+    [Parameter] public EventCallback OnBack { get; set; }
+    [Parameter] public EventCallback OnGenerate { get; set; }
+    [Parameter] public EventCallback OnUseAll { get; set; }
+    [Parameter] public EventCallback<GeneratedConfig> OnUseConfig { get; set; }
+
+    private bool CanGenerate => !string.IsNullOrWhiteSpace(Theme)
+        && !string.IsNullOrWhiteSpace(ChannelName)
+        && !IsGenerating;
+
+    public class GeneratedConfig
+    {
+        public string Topic { get; set; } = "";
+        public string? Outline { get; set; }
+        public int TargetDurationMinutes { get; set; }
+        public string? SourceReferences { get; set; }
+        public List<string>? MustHaveBeats { get; set; }
+        public string ChannelName { get; set; } = "";
+    }
+}

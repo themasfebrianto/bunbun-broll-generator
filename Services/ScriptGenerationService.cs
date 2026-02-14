@@ -188,4 +188,32 @@ public class ScriptGenerationService : IScriptGenerationService
 
         await _orchestrator.SaveSessionAsync(session);
     }
+
+    public async Task UpdatePhaseContentAsync(string sessionId, string phaseId, string content)
+    {
+        var session = await _orchestrator.LoadSessionAsync(sessionId)
+            ?? throw new ArgumentException($"Session '{sessionId}' not found");
+
+        var phase = session.Phases.FirstOrDefault(p => p.PhaseId == phaseId)
+            ?? throw new ArgumentException($"Phase '{phaseId}' not found in session");
+
+        if (!string.IsNullOrEmpty(phase.ContentFilePath))
+        {
+            // Ensure directory exists (just in case)
+            var dir = Path.GetDirectoryName(phase.ContentFilePath);
+            if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+
+            await File.WriteAllTextAsync(phase.ContentFilePath, content, Encoding.UTF8);
+        }
+
+        // Update phase metadata
+        phase.WordCount = content.Split(new[] { ' ', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Length;
+        // Simple estimation: 150 words per minute ~ 2.5 words per second
+        phase.DurationSeconds = phase.WordCount.Value / 2.5;
+        
+        // Update session timestamp
+        session.UpdatedAt = DateTime.UtcNow;
+
+        await _orchestrator.SaveSessionAsync(session);
+    }
 }

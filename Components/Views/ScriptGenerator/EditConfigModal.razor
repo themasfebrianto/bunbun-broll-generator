@@ -1,0 +1,99 @@
+@namespace BunbunBroll.Components.Views.ScriptGenerator
+
+@if (IsVisible)
+{
+    <div class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" @onclick="OnClose">
+        <div class="card p-6 max-w-2xl w-full space-y-6 max-h-[90vh] overflow-y-auto" @onclick:stopPropagation="true">
+            <h3 class="font-semibold text-lg border-b border-border/50 pb-3">Edit Script Config</h3>
+            
+            <div class="space-y-4">
+                @* Topic *@
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium">Topik</label>
+                    <input class="input" @bind="Topic" />
+                </div>
+
+                @* Channel & Duration Row *@
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="space-y-2">
+                        <label class="block text-sm font-medium">Channel</label>
+                        @if (ChannelNames.Count > 0)
+                        {
+                            <select class="input w-full" @bind="ChannelName">
+                                @foreach (var ch in ChannelNames)
+                                {
+                                    <option value="@ch">@ch</option>
+                                }
+                            </select>
+                        }
+                        else
+                        {
+                            <input class="input" @bind="ChannelName" />
+                        }
+                    </div>
+                    <div class="space-y-2">
+                        <label class="block text-sm font-medium">Target Durasi (menit)</label>
+                        <input type="number" class="input" min="5" max="60" @bind="TargetDuration" />
+                    </div>
+                </div>
+
+                @* Outline *@
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium">Outline</label>
+                    <textarea class="input min-h-[120px] resize-y font-mono text-sm" @bind="Outline"></textarea>
+                    <p class="text-xs text-muted-foreground">Modify outline or add "### MUST HAVE BEATS" sections here.</p>
+                </div>
+
+                @* References *@
+                <div class="space-y-2">
+                    <label class="block text-sm font-medium">Referensi</label>
+                    <textarea class="input min-h-[80px] resize-y text-sm" @bind="SourceReferences"></textarea>
+                </div>
+            </div>
+
+            <div class="flex gap-3 pt-2">
+                <button class="btn-secondary flex-1" @onclick="OnClose">Batal</button>
+                <button class="btn-primary flex-1" 
+                        disabled="@IsSaving"
+                        @onclick="OnSave">
+                    @if (IsSaving)
+                    {
+                        <svg class="animate-spin h-4 w-4 mr-2 inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>Simpan & Regenerate</span>
+                    }
+                    else
+                    {
+                        <span>Simpan & Regenerate All</span>
+                    }
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsVisible { get; set; }
+    [Parameter] public bool IsSaving { get; set; }
+    [Parameter] public List<string> ChannelNames { get; set; } = new();
+
+    [Parameter] public string Topic { get; set; } = "";
+    [Parameter] public EventCallback<string> TopicChanged { get; set; }
+    
+    [Parameter] public string? Outline { get; set; }
+    [Parameter] public EventCallback<string?> OutlineChanged { get; set; }
+    
+    [Parameter] public string? SourceReferences { get; set; }
+    [Parameter] public EventCallback<string?> SourceReferencesChanged { get; set; }
+    
+    [Parameter] public int TargetDuration { get; set; }
+    [Parameter] public EventCallback<int> TargetDurationChanged { get; set; }
+    
+    [Parameter] public string ChannelName { get; set; } = "";
+    [Parameter] public EventCallback<string> ChannelNameChanged { get; set; }
+
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnSave { get; set; }
+}

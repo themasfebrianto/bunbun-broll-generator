@@ -1,0 +1,118 @@
+@namespace BunbunBroll.Components.Views.ScriptGenerator
+@using BunbunBroll.Models
+
+<div class="max-w-[52rem] mx-auto card p-8 space-y-6">
+    <div class="flex items-center gap-3 mb-2">
+        <button class="btn-ghost text-sm px-2 py-1" @onclick="OnBack">← Kembali</button>
+        <h2 class="text-lg font-semibold">Buat Script Baru</h2>
+    </div>
+
+    @* Channel Name *@
+    <div class="space-y-2">
+        <label class="block text-sm font-medium">Channel <span class="text-destructive">*</span></label>
+        <select class="input" @bind="ChannelName">
+            <option value="">Pilih channel...</option>
+            @foreach (var ch in ChannelNames)
+            {
+                <option value="@ch">@ch</option>
+            }
+        </select>
+    </div>
+
+    @* Pattern Selection *@
+    <div class="space-y-2">
+        <label class="block text-sm font-medium">Pattern</label>
+        <select class="input" @bind="SelectedPatternId">
+            <option value="">Pilih pattern...</option>
+            @foreach (var p in AvailablePatterns)
+            {
+                <option value="@p.Id">@p.Name (@p.PhaseCount fase)</option>
+            }
+        </select>
+        @if (SelectedPattern != null)
+        {
+            <p class="text-xs text-muted-foreground mt-1">@SelectedPattern.Description</p>
+        }
+    </div>
+
+    @* Topic *@
+    <div class="space-y-2">
+        <label class="block text-sm font-medium">Topik <span class="text-destructive">*</span></label>
+        <input class="input" placeholder="Judul atau topik utama video essay" @bind="Topic" />
+    </div>
+
+    @* Outline *@
+    <div class="space-y-2">
+        <label class="block text-sm font-medium">Outline (opsional)</label>
+        <textarea class="input min-h-[100px] resize-y" placeholder="Garis besar atau poin-poin yang ingin dibahas" @bind="Outline"></textarea>
+    </div>
+
+    @* Source References *@
+    <div class="space-y-2">
+        <label class="block text-sm font-medium">Referensi (opsional)</label>
+        <textarea class="input min-h-[80px] resize-y" placeholder="Sumber referensi, data, atau kutipan" @bind="SourceReferences"></textarea>
+    </div>
+
+    @* Target Duration *@
+    <div class="space-y-2">
+        <label class="block text-sm font-medium">Target Durasi (menit)</label>
+        <input type="number" class="input w-32" min="5" max="60" @bind="TargetDuration" />
+    </div>
+
+    <div class="flex gap-3 pt-2">
+        <button class="btn-primary flex-1" disabled="@(!CanGenerate)" @onclick="OnGenerate">
+            @if (IsGenerating)
+            {
+                <svg class="animate-spin -ml-1 mr-2 h-4 w-4 inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>Menulis Script...</span>
+            }
+            else
+            {
+                <span>Mulai Generate</span>
+            }
+        </button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-destructive text-sm">@ErrorMessage</div>
+    }
+</div>
+
+@code {
+    [Parameter] public List<string> ChannelNames { get; set; } = new();
+    [Parameter] public List<ScriptPattern> AvailablePatterns { get; set; } = new();
+    [Parameter] public bool IsGenerating { get; set; }
+    [Parameter] public string? ErrorMessage { get; set; }
+
+    [Parameter] public string ChannelName { get; set; } = "";
+    [Parameter] public EventCallback<string> ChannelNameChanged { get; set; }
+    
+    [Parameter] public string SelectedPatternId { get; set; } = "";
+    [Parameter] public EventCallback<string> SelectedPatternIdChanged { get; set; }
+    
+    [Parameter] public string Topic { get; set; } = "";
+    [Parameter] public EventCallback<string> TopicChanged { get; set; }
+    
+    [Parameter] public string? Outline { get; set; }
+    [Parameter] public EventCallback<string?> OutlineChanged { get; set; }
+    
+    [Parameter] public string? SourceReferences { get; set; }
+    [Parameter] public EventCallback<string?> SourceReferencesChanged { get; set; }
+    
+    [Parameter] public int TargetDuration { get; set; } = 30;
+    [Parameter] public EventCallback<int> TargetDurationChanged { get; set; }
+
+    [Parameter] public EventCallback OnBack { get; set; }
+    [Parameter] public EventCallback OnGenerate { get; set; }
+
+    private ScriptPattern? SelectedPattern => AvailablePatterns.FirstOrDefault(p => p.Id == SelectedPatternId);
+    
+    private bool CanGenerate => !string.IsNullOrWhiteSpace(Topic)
+        && !string.IsNullOrWhiteSpace(SelectedPatternId)
+        && !string.IsNullOrWhiteSpace(ChannelName)
+        && !IsGenerating;
+}
