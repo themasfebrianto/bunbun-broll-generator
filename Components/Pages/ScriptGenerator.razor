@@ -25,8 +25,19 @@
 @inject VideoStyleSettings StyleSettings
 
 <div class="max-w-[90rem] mx-auto pt-6 pb-8 px-4">
-    <nav class="breadcrumb mb-6 flex justify-between items-center">
-        <span class="breadcrumb-current">Script Dashboard</span>
+    <nav class="breadcrumb mb-6 flex justify-between items-center text-sm">
+        <div class="flex items-center gap-2">
+            @if (_currentView == "list")
+            {
+                <span class="breadcrumb-current font-semibold text-lg">Script Dashboard</span>
+            }
+            else
+            {
+                <a href="javascript:void(0)" @onclick="HandleBackToList" class="text-muted-foreground hover:text-primary transition-colors">Script Dashboard</a>
+                <span class="text-muted-foreground/30">/</span>
+                <span class="breadcrumb-current font-medium">@GetBreadcrumbTitle()</span>
+            }
+        </div>
     </nav>
 
     @* ============ VIEW 0: Session List ============ *@
@@ -432,15 +443,29 @@
                     VideosSelected = items.Count(i => !string.IsNullOrEmpty(i.SelectedVideoUrl)),
                     ImagesReady = items.Count(i => i.WhiskStatus == WhiskGenerationStatus.Done),
                     ThumbnailPaths = items
-                        .Where(i => !string.IsNullOrEmpty(i.WhiskImagePath) && File.Exists(i.WhiskImagePath))
+                        .Where(i => !string.IsNullOrEmpty(i.WhiskImagePath))
+                        .Select(i => ResolveLocalPath(i.WhiskImagePath)) // Use resilient resolution
+                        .Where(resolved => !string.IsNullOrEmpty(resolved) && File.Exists(resolved))
                         .Take(4)
-                        .Select(i => i.WhiskImagePath!)
                         .ToList()
                 };
                 _brollSummaries[session.Id] = summary;
             }
             catch { /* skip sessions with unreadable broll data */ }
         }
+    }
+
+    private string GetBreadcrumbTitle()
+    {
+        return _currentView switch
+        {
+            "config" => "Buat Script Baru",
+            "batch" => "Batch Generate",
+            "progress" => _topic ?? "Generating...",
+            "results" => _resultSession?.Topic ?? "Script Editor",
+            "broll-prompts" => _resultSession?.Topic ?? "B-Roll Prompts",
+            _ => "Script Dashboard"
+        };
     }
 
     private void ShowConfigForm()
@@ -1657,6 +1682,19 @@
                     WhiskVideoStatus = s.WhiskVideoStatus, WhiskVideoPath = s.WhiskVideoPath, WhiskVideoError = s.WhiskVideoError,
                     Style = s.Style, Filter = s.Filter, Texture = s.Texture, FilteredVideoPath = s.FilteredVideoPath
                 }).ToList();
+
+                // Sanitize paths on load
+                bool changed = false;
+                foreach (var item in _brollPromptItems)
+                {
+                    if (!string.IsNullOrEmpty(item.WhiskImagePath) && item.WhiskImagePath.Contains("output\\scripts\\"))
+                    {
+                        // Fix absolute paths that incorrectly include 'scripts'
+                        item.WhiskImagePath = item.WhiskImagePath.Replace("output\\scripts\\", "output\\");
+                        changed = true;
+                    }
+                }
+                if (changed) await SaveBrollPromptsToDisk();
             }
         }
         catch (Exception ex)
@@ -2123,22 +2161,25 @@
         if (string.IsNullOrEmpty(absolutePath)) return "";
         if (absolutePath.StartsWith("http", StringComparison.OrdinalIgnoreCase)) return absolutePath;
 
-        var normalized = absolutePath.Replace("\\", "/");
-        var markerIndex = normalized.IndexOf("output/", StringComparison.OrdinalIgnoreCase);
-        if (markerIndex >= 0)
-        {
-            var relative = normalized.Substring(markerIndex + "output/".Length);
-            return $"/project-assets/{relative}";
-        }
+        // Resilient resolution
+        var resolved = ResolveLocalPath(absolutePath);
+        if (string.IsNullOrEmpty(resolved)) return "";
 
+        var baseDir = Path.Combine(Directory.GetCurrentDirectory(), "output");
         try
         {
-            var baseDir = Path.Combine(Directory.GetCurrentDirectory(), "output");
-            var relative = Path.GetRelativePath(baseDir, absolutePath).Replace("\\", "/");
+            var relative = Path.GetRelativePath(baseDir, resolved).Replace("\\", "/");
             return $"/project-assets/{relative}";
         }
         catch
         {
+            // Fallback to basic string parsing if GetRelativePath fails
+            var normalized = resolved.Replace("\\", "/");
+            var markerIndex = normalized.IndexOf("output/", StringComparison.OrdinalIgnoreCase);
+            if (markerIndex >= 0)
+            {
+                return $"/project-assets/{normalized.Substring(markerIndex + "output/".Length)}";
+            }
             return absolutePath;
         }
     }
@@ -2146,14 +2187,49 @@
     private string ResolveLocalPath(string? absolutePath)
     {
         if (string.IsNullOrEmpty(absolutePath)) return "";
+        
+        // 1. Normalize and identify relative part after 'output/'
         var normalized = absolutePath.Replace("\\", "/");
+        var baseDir = Path.Combine(Directory.GetCurrentDirectory(), "output");
+        
+        string relative = "";
         var markerIndex = normalized.IndexOf("output/", StringComparison.OrdinalIgnoreCase);
         if (markerIndex >= 0)
         {
-            var relative = normalized.Substring(markerIndex + "output/".Length);
-            return Path.Combine(Directory.GetCurrentDirectory(), "output", relative.Replace("/", Path.DirectorySeparatorChar.ToString()));
+            relative = normalized.Substring(markerIndex + "output/".Length);
         }
-        return absolutePath;
+        else
+        {
+            // If it's already a relative path or something else, try to make it relative to output
+            try { relative = Path.GetRelativePath(baseDir, absolutePath); } catch { relative = absolutePath; }
+        }
+
+        // 2. SMART RECOVERY: Strip incorrect 'scripts/' prefix if it's there (often accidental double nesting)
+        if (relative.StartsWith("scripts/", StringComparison.OrdinalIgnoreCase))
+        {
+            var parts = relative.Split('/');
+            if (parts.Length > 2 && parts[1].Length == 8) // Looks like scripts/<sessionId>/...
+            {
+                relative = string.Join("/", parts.Skip(1)); // Remove 'scripts/'
+            }
+        }
+
+        // 3. TRIAL PATHS: Try plural and singular whisk folder names
+        var candidates = new List<string> {
+            relative,
+            relative.Replace("/whisk_images/", "/whisks_images/"),
+            relative.Replace("/whisks_images/", "/whisk_images/")
+        };
+
+        foreach (var candidate in candidates.Distinct())
+        {
+            var fullPath = Path.Combine(baseDir, candidate.Replace("/", Path.DirectorySeparatorChar.ToString()));
+            if (File.Exists(fullPath)) return fullPath;
+        }
+
+        // 4. FINAL FALLBACK: Return the intended plural path even if file isn't found yet
+        var finalRelative = relative.Replace("/whisk_images/", "/whisks_images/");
+        return Path.Combine(baseDir, finalRelative.Replace("/", Path.DirectorySeparatorChar.ToString()));
     }
 
     private static int EstimateDuration(string text)

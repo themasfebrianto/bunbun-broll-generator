@@ -19,7 +19,7 @@
                 <!-- Right section: Nav + Actions -->
                 <div class="flex items-center gap-2 md:gap-3">
                     <nav class="hidden md:flex items-center gap-6 text-sm">
-                        <a href="/" class="nav-link @(IsActive("/") ? "active" : "")">Script</a>
+                        <a href="/" @onclick='() => NavigationManager.NavigateTo("/", true)' class="nav-link @(IsActive("/") || IsActive("/script-generator") ? "active" : "")">Script</a>
                     </nav>
                     <div class="hidden md:block border-l border-border h-5 mx-1"></div>
                     <div class="flex items-center gap-1">
@@ -62,11 +62,10 @@
     private bool IsActive(string href)
     {
         var relativePath = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
-
+        
         if (href == "/")
         {
-            // Script dashboard is active when path is empty or starts with script-generator
-            return string.IsNullOrEmpty(relativePath) || relativePath.StartsWith("script-generator");
+            return string.IsNullOrEmpty(relativePath) || relativePath.StartsWith("script-generator", StringComparison.OrdinalIgnoreCase);
         }
 
         return relativePath.StartsWith(href.TrimStart('/'), StringComparison.OrdinalIgnoreCase);

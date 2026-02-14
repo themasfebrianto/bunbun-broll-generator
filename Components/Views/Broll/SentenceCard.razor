@@ -195,15 +195,47 @@
     {
         if (string.IsNullOrEmpty(absolutePath)) return "";
         
+        var normalized = absolutePath.Replace("\\", "/");
         var baseDir = Path.Combine(Directory.GetCurrentDirectory(), "output");
-        if (absolutePath.StartsWith(baseDir))
+        
+        // 1. Identify relative part and strip 'scripts/' if added incorrectly
+        string relative = "";
+        var markerIndex = normalized.IndexOf("output/", StringComparison.OrdinalIgnoreCase);
+        if (markerIndex >= 0)
         {
-            var relative = absolutePath.Substring(baseDir.Length).Replace("\\", "/");
-            if (!relative.StartsWith("/")) relative = "/" + relative;
-            return "/project-assets" + relative;
+            relative = normalized.Substring(markerIndex + "output/".Length);
+        }
+        else
+        {
+            try { relative = Path.GetRelativePath(baseDir, absolutePath); } catch { relative = absolutePath; }
+        }
+
+        if (relative.StartsWith("scripts/", StringComparison.OrdinalIgnoreCase))
+        {
+            var parts = relative.Split('/');
+            if (parts.Length > 2 && parts[1].Length == 8) relative = string.Join("/", parts.Skip(1));
+        }
+
+        // 2. Try variations (plural vs singular)
+        var candidates = new List<string> {
+            relative,
+            relative.Replace("/whisk_images/", "/whisks_images/"),
+            relative.Replace("/whisks_images/", "/whisk_images/")
+        };
+
+        foreach (var candidate in candidates.Distinct())
+        {
+            var cleanRelative = candidate.Replace("\\", "/");
+            if (!cleanRelative.StartsWith("/")) cleanRelative = "/" + cleanRelative;
+            
+            var fullLocal = Path.Combine(baseDir, cleanRelative.TrimStart('/').Replace("/", Path.DirectorySeparatorChar.ToString()));
+            if (File.Exists(fullLocal)) return "/project-assets" + cleanRelative;
         }
         
-        return absolutePath;
+        // Fallback: use intended plural naming
+        var finalRel = relative.Replace("/whisk_images/", "/whisks_images/");
+        if (!finalRel.StartsWith("/")) finalRel = "/" + finalRel;
+        return "/project-assets" + finalRel;
     }
 
     private async Task HandleSelectVideo(VideoAsset video)

@@ -66,7 +66,7 @@ builder.Services.AddSingleton<BunbunBroll.Models.WhiskConfig>(sp =>
         EnableImageGeneration = bool.TryParse(whiskSection["EnableImageGeneration"], out var e) && e,
         AspectRatio = whiskSection["AspectRatio"] ?? "LANDSCAPE",
         Model = whiskSection["Model"] ?? "IMAGEN_3_5",
-        OutputDirectory = whiskSection["OutputDirectory"] ?? "output/whisk-images"
+        OutputDirectory = whiskSection["OutputDirectory"] ?? "whisks_images"
     };
 
     // Override cookie from environment variable if appsettings is empty
