@@ -13,6 +13,8 @@
 @inject ConfigBatchGenerator BatchGenerator
 @inject IJSRuntime JS
 @inject BackgroundGenerationService BgService
+@inject ISrtService SrtService
+@inject BunbunBroll.Services.ToastService ToastService
 @inject GenerationEventBus EventBus
 @inject IIntelligenceService IntelligenceService
 @inject IAssetBroker AssetBroker
@@ -126,7 +128,8 @@
             OnSendToBroll="HandleSendToBroll"
             OnRegeneratePhase="HandleRegeneratePhase"
             OnCopyPhaseContent="HandleCopyPhaseContent"
-            OnUpdatePhaseContent="HandleUpdatePhaseContent" />
+            OnUpdatePhaseContent="HandleUpdatePhaseContent"
+            OnImportSrt="HandleImportSrt" />
     }
 
     @* ============ VIEW 4: B-Roll Prompts ============ *@
@@ -166,7 +169,9 @@
             OnGenerateKenBurns="HandleGenerateKenBurnsVideo"
             OnSave="SaveBrollPromptsToDisk"
             GetAssetUrl="GetAssetUrl"
-            ResolveLocalPath="ResolveLocalPath" />
+            ResolveLocalPath="ResolveLocalPath"
+            IsImportingSrt="_isImportingSrt"
+            OnImportSrt="HandleImportSrt" />
     }
 </div>
 
@@ -248,6 +253,7 @@
     private int _validatedCount;
     private bool _isRegeneratingAll;
     private bool _isExportingLrc;
+    private bool _isImportingSrt;
     private string? _lrcExportPath;
 
     // Broll Prompts
@@ -655,7 +661,7 @@
             }
             else
             {
-                var expectedPath = Path.Combine(Directory.GetCurrentDirectory(), "output", "scripts", session.Id, $"{phase.Order:D2}-{phase.PhaseId}.md");
+                var expectedPath = Path.Combine(Directory.GetCurrentDirectory(), "output", session.Id, "scripts", $"{phase.Order:D2}-{phase.PhaseId}.md");
                 if (File.Exists(expectedPath))
                 {
                     content = await File.ReadAllTextAsync(expectedPath);
@@ -1494,7 +1500,10 @@
 
         try
         {
-            var outputDir = Path.Combine(Directory.GetCurrentDirectory(), "output", _sessionId, "whisk_images");
+            // Use session's output directory for Whisk images
+            var outputDir = !string.IsNullOrEmpty(_resultSession?.OutputDirectory)
+                ? Path.Combine(_resultSession.OutputDirectory, "whisk_images")
+                : Path.Combine(Directory.GetCurrentDirectory(), "output", _sessionId ?? "temp", "whisk_images");
             Directory.CreateDirectory(outputDir);
 
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(120));
@@ -1538,7 +1547,7 @@
             if (File.Exists(relativePath)) return relativePath;
         }
         
-        var constructedPath = Path.Combine(Directory.GetCurrentDirectory(), "output", "scripts", _resultSession.Id, "broll-prompts.json");
+        var constructedPath = Path.Combine(Directory.GetCurrentDirectory(), "output", _resultSession.Id, "broll-prompts.json");
         if (File.Exists(constructedPath)) return constructedPath;
 
         return constructedPath;
@@ -1546,6 +1555,37 @@
 
     private void InvalidateBrollClassification()
     {
+        // Delete all associated media files before clearing the list
+        foreach (var item in _brollPromptItems)
+        {
+            // Delete Whisk image
+            if (!string.IsNullOrEmpty(item.WhiskImagePath) && File.Exists(item.WhiskImagePath))
+            {
+                try { File.Delete(item.WhiskImagePath); } catch { }
+            }
+            
+            // Delete Whisk video (Ken Burns)
+            if (!string.IsNullOrEmpty(item.WhiskVideoPath) && File.Exists(item.WhiskVideoPath))
+            {
+                try { File.Delete(item.WhiskVideoPath); } catch { }
+            }
+            
+            // Delete filtered video
+            if (!string.IsNullOrEmpty(item.FilteredVideoPath) && File.Exists(item.FilteredVideoPath))
+            {
+                try { File.Delete(item.FilteredVideoPath); } catch { }
+            }
+            
+            // Delete downloaded b-roll videos
+            foreach (var video in item.SearchResults)
+            {
+                if (!string.IsNullOrEmpty(video.LocalPath) && File.Exists(video.LocalPath))
+                {
+                    try { File.Delete(video.LocalPath); } catch { }
+                }
+            }
+        }
+
         _brollPromptItems.Clear();
         _classifyTotalSegments = 0;
         _classifyCompletedSegments = 0;
@@ -1660,12 +1700,13 @@
                 item.FilterStatus = "Downloading source...";
                 StateHasChanged();
 
-                var projectSlug = _resultSession?.Topic != null 
-                    ? System.Text.RegularExpressions.Regex.Replace(_resultSession.Topic, @"[^\w\s\-]", "").Trim().Replace(" ", "-")
-                    : "temp-preview";
+                // Download video to session's output directory
+                var videosDir = !string.IsNullOrEmpty(_resultSession?.OutputDirectory)
+                    ? Path.Combine(_resultSession.OutputDirectory, "videos")
+                    : Path.Combine(Directory.GetCurrentDirectory(), "output", _sessionId ?? "temp", "videos");
                     
-                localPath = await DownloaderService.DownloadVideoAsync(
-                    selectedVideo, projectSlug, item.Index, "preview-source", CancellationToken.None);
+                localPath = await DownloaderService.DownloadVideoToDirectoryAsync(
+                    selectedVideo, videosDir, item.Index, "preview-source", CancellationToken.None);
                 
                 selectedVideo.LocalPath = localPath;
             }
@@ -1686,9 +1727,12 @@
 
             if (!string.IsNullOrEmpty(filteredPath))
             {
-                var outputDir = Path.Combine(Directory.GetCurrentDirectory(), "output");
+                // Save filtered video to session's output directory
+                var outputDir = !string.IsNullOrEmpty(_resultSession?.OutputDirectory)
+                    ? Path.Combine(_resultSession.OutputDirectory, "filtered")
+                    : Path.Combine(Directory.GetCurrentDirectory(), "output", _sessionId ?? "temp", "filtered");
                 Directory.CreateDirectory(outputDir);
-                var finalFileName = $"filtered_{Guid.NewGuid():N}.mp4";
+                var finalFileName = $"filtered_{item.Index:D2}_{Guid.NewGuid():N[..8]}.mp4";
                 var finalPath = Path.Combine(outputDir, finalFileName);
                 
                 File.Move(filteredPath, finalPath, overwrite: true);
@@ -1729,29 +1773,206 @@
         try
         {
             var lrcContent = GenerateLrcContent();
-            var outputDir = _resultSession.OutputDirectory;
-            if (string.IsNullOrEmpty(outputDir))
-                throw new InvalidOperationException("Output directory not set on session");
-            Directory.CreateDirectory(outputDir);
-            var safeFilename = System.Text.RegularExpressions.Regex.Replace(
-                _resultSession.Topic ?? "script", @"[^\w\s\-]", "").Trim().Replace(" ", "-");
-            var lrcPath = Path.Combine(outputDir, $"{safeFilename}.lrc");
+            var safeTopic = System.Text.RegularExpressions.Regex.Replace(_resultSession.Topic ?? "script", @"[^a-zA-Z0-9\-]", "_");
+            var safeFilename = $"{safeTopic}_{DateTime.Now:yyyyMMddHHmm}";
+            var lrcPath = System.IO.Path.Combine(Environment.CurrentDirectory, "wwwroot", "exports", $"{safeFilename}.lrc");
+            
+            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(lrcPath)!);
             await File.WriteAllTextAsync(lrcPath, lrcContent, System.Text.Encoding.UTF8);
+
+            // Trigger download
             var bytes = System.Text.Encoding.UTF8.GetBytes(lrcContent);
             var base64 = Convert.ToBase64String(bytes);
             await JS.InvokeVoidAsync("downloadFile", $"{safeFilename}.lrc", base64, "text/plain");
 
             _lrcExportPath = lrcPath;
         }
-        catch (Exception ex) { _errorMessage = $"Export LRC gagal: {ex.Message}"; }
-        finally { _isExportingLrc = false; StateHasChanged(); }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Export LRC gagal: {ex.Message}";
+        }
+        finally
+        {
+            _isExportingLrc = false;
+            StateHasChanged();
+        }
     }
 
+    private void HandleImportSrt(Microsoft.AspNetCore.Components.Forms.InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        RequestConfirmation(
+            "Import SRT", 
+            "⚠️ DESTRUCTIVE: Ini akan menimpa SEMUA script phase yang ada dengan isi file SRT. \n\n" +
+            "Semua B-Roll prompt dan image generation steps yang sudah ada akan DIHAPUS/DIRESET. \n\n" +
+            "Apakah Anda yakin ingin melanjutkan?", 
+            async () => await ProcessImportSrt(file));
+    }
+
+    private async Task ProcessImportSrt(Microsoft.AspNetCore.Components.Forms.IBrowserFile file)
+    {
+        if (_resultSession == null) return;
+        _isImportingSrt = true;
+        StateHasChanged();
+        await Task.Delay(50); // Yield UI
+
+        try 
+        {
+            using var stream = file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024); // 10MB limit
+            using var reader = new System.IO.StreamReader(stream, System.Text.Encoding.UTF8);
+            var srtContent = await reader.ReadToEndAsync();
+
+            // NEW LOGIC: Parse SRT to segments and merge with existing B-roll prompts
+            var segments = ParseSrtToSegments(srtContent);
+            
+            if (segments.Count == 0)
+            {
+                _errorMessage = "Gagal memproses file SRT: Tidak ada segment yang valid.";
+                return;
+            }
+
+            _brollPromptItems ??= new List<BrollPromptItem>();
+            if (_brollPromptItems.Count == 0)
+            {
+                await LoadBrollPromptsFromDisk();
+            }
+
+            // MERGE LOGIC:
+            // 1. Update existing items (Index match) with new Timestamp/Text.
+            // 2. Add new items for new segments.
+            // 3. Remove items if SRT is shorter than existing list (Sync length).
+
+            var mergedList = new List<BrollPromptItem>();
+            var newSegmentsToProcess = new List<(int Index, string Timestamp, string Text)>();
+
+            for (int i = 0; i < segments.Count; i++)
+            {
+                var seg = segments[i];
+                if (i < _brollPromptItems.Count)
+                {
+                    // Update existing
+                    var existing = _brollPromptItems[i];
+                    existing.Timestamp = seg.Timestamp;
+                    existing.ScriptText = seg.Text; 
+                    // Preserve existing visual prompts and media
+                    mergedList.Add(existing);
+                }
+                else
+                {
+                    // New item
+                    var newItem = new BrollPromptItem
+                    {
+                        Index = i + 1,
+                        Timestamp = seg.Timestamp,
+                        ScriptText = seg.Text,
+                        MediaType = BrollMediaType.BrollVideo 
+                    };
+                    mergedList.Add(newItem);
+                    newSegmentsToProcess.Add((i, seg.Timestamp, seg.Text));
+                }
+            }
+
+            _brollPromptItems = mergedList;
+            await SaveBrollPromptsToDisk();
+
+            _currentView = "broll-prompts";
+            StateHasChanged();
+
+            // Generate prompts ONLY for new items
+            if (newSegmentsToProcess.Count > 0)
+            {
+                _isClassifyingBroll = true;
+                _classifyError = null;
+                _classifyTotalSegments = newSegmentsToProcess.Count;
+                _classifyCompletedSegments = 0;
+                StateHasChanged();
+
+                _ = InvokeAsync(async () =>
+                {
+                    try
+                    {
+                        // Prepare partial list for AI
+                        var segmentsForAi = newSegmentsToProcess.Select(x => (x.Timestamp, x.Text)).ToList();
+                        
+                        // Generate
+                        var generatedBatches = await IntelligenceService.ClassifyAndGeneratePromptsAsync(
+                            segmentsForAi, _resultSession.Topic,
+                            onBatchComplete: async batchResults =>
+                            {
+                                // Handle batch completion progress if needed
+                                _classifyCompletedSegments += batchResults.Count;
+                                await InvokeAsync(StateHasChanged);
+                            });
+
+                        // Map generated results back to the main list
+                        // generatedBatches will have Index 1..N based on the sub-list we sent.
+                        // We map them back to the original indices stored in newSegmentsToProcess.
+                        
+                        if (generatedBatches.Count == newSegmentsToProcess.Count)
+                        {
+                            for (int k = 0; k < generatedBatches.Count; k++)
+                            {
+                                var genItem = generatedBatches[k];
+                                var targetIndex = newSegmentsToProcess[k].Index; // Original index in _brollPromptItems
+                                
+                                if (targetIndex < _brollPromptItems.Count)
+                                {
+                                    var target = _brollPromptItems[targetIndex];
+                                    target.Prompt = genItem.Prompt;
+                                    target.MediaType = genItem.MediaType;
+                                    // target.WhiskImagePath = genItem.WhiskImagePath; // Usually null/temp
+                                    target.Reasoning = genItem.Reasoning;
+                                    target.Style = genItem.Style;
+                                }
+                            }
+                            
+                            await SaveBrollPromptsToDisk();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _classifyError = $"Gagal generate prompt baru: {ex.Message}";
+                        _errorMessage = _classifyError;
+                    }
+                    finally
+                    {
+                        _isClassifyingBroll = false;
+                        _isImportingSrt = false;
+                        StateHasChanged();
+                    }
+                });
+            }
+            else
+            {
+                _isImportingSrt = false;
+                StateHasChanged();
+            }
+
+            return;
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Gagal import SRT: {ex.Message}";
+            _isImportingSrt = false;
+        }
+    }
+
+    private List<(string Timestamp, string Text)> ParseSrtToSegments(string srtContent)
+    {
+        var entries = SrtService.ParseSrt(srtContent);
+        return SrtService.MergeToSegments(entries, 35.0);
+    }
+
+  
     private string GenerateLrcContent()
     {
         var sb = new System.Text.StringBuilder();
         var globalOffset = TimeSpan.Zero;
-        var timestampPattern = new System.Text.RegularExpressions.Regex(@"\[(\d{1,3}):(\d{2})\]", System.Text.RegularExpressions.RegexOptions.Compiled);
+        // Regex to parse [mm:ss] or [mm:ss.f] or [mm:ss.ff] or [mm:ss.fff]
+        // \d{1,3} : minutes (can be > 99)
+        // \d{2}   : seconds
+        // (?:.(\d{1,3}))? : optional milliseconds part
+        var timestampPattern = new System.Text.RegularExpressions.Regex(@"\[(\d{1,3}):(\d{2})(?:\.(\d{1,3}))?\]", System.Text.RegularExpressions.RegexOptions.Compiled);
 
         foreach (var section in _resultSections.OrderBy(s => s.Order))
         {
@@ -1763,85 +1984,182 @@
                 var cleaned = CleanSubtitleText(section.Content);
                 if (!string.IsNullOrWhiteSpace(cleaned))
                 {
-                    var singleLine = System.Text.RegularExpressions.Regex.Replace(
-                        cleaned.Replace("\r\n", " ").Replace("\n", " ").Replace("\r", " "), @"\s+", " ").Trim();
-                    var minutes = (int)globalOffset.TotalMinutes;
-                    var seconds = globalOffset.Seconds;
-                    sb.AppendLine($"[{minutes:D2}:{seconds:D2}.00]{singleLine}");
-                    globalOffset = globalOffset.Add(TimeSpan.FromSeconds(EstimateDuration(cleaned)));
+                    var durationSec = EstimateDuration(cleaned);
+                    var duration = TimeSpan.FromSeconds(durationSec);
+                    
+                    var lines = SplitAndTimestampText(cleaned, globalOffset, duration);
+                    foreach(var line in lines) sb.AppendLine(line);
+
+                    globalOffset = globalOffset.Add(duration);
                 }
                 continue;
             }
 
             var phaseBase = entries[0].Timestamp;
-            foreach (var entry in entries)
+            
+            for (int i = 0; i < entries.Count; i++)
             {
+                var entry = entries[i];
                 var normalizedTime = entry.Timestamp - phaseBase;
                 if (normalizedTime < TimeSpan.Zero) normalizedTime = TimeSpan.Zero;
                 var absoluteTime = globalOffset.Add(normalizedTime);
+                
                 var cleaned = CleanSubtitleText(entry.Text);
                 if (string.IsNullOrWhiteSpace(cleaned)) continue;
 
-                var singleLine = System.Text.RegularExpressions.Regex.Replace(
-                    cleaned.Replace("\r\n", " ").Replace("\n", " ").Replace("\r", " "), @"\s+", " ").Trim();
+                TimeSpan entryDuration;
+                if (i < entries.Count - 1)
+                {
+                     var nextNormalized = entries[i + 1].Timestamp - phaseBase;
+                     if (nextNormalized < TimeSpan.Zero) nextNormalized = TimeSpan.Zero;
+                     entryDuration = nextNormalized - normalizedTime;
+                }
+                else
+                {
+                     entryDuration = TimeSpan.FromSeconds(EstimateDuration(entry.Text));
+                }
 
-                var minutes = (int)absoluteTime.TotalMinutes;
-                var seconds = absoluteTime.Seconds;
-                var centiseconds = absoluteTime.Milliseconds / 10;
-                sb.AppendLine($"[{minutes:D2}:{seconds:D2}.{centiseconds:D2}]{singleLine}");
+                // If duration is too short (e.g. same timestamp), fallback to estimate
+                if (entryDuration.TotalSeconds < 1)
+                     entryDuration = TimeSpan.FromSeconds(EstimateDuration(entry.Text));
+
+                var lines = SplitAndTimestampText(cleaned, absoluteTime, entryDuration);
+                foreach(var line in lines) sb.AppendLine(line);
             }
 
+            // Update globalOffset for next phase
             if (entries.Count > 0)
             {
                 var lastEntry = entries.Last();
-                var normalizedLastTime = lastEntry.Timestamp - phaseBase;
-                if (normalizedLastTime < TimeSpan.Zero) normalizedLastTime = TimeSpan.Zero;
-                var lastDuration = EstimateDuration(lastEntry.Text);
-                globalOffset = globalOffset.Add(normalizedLastTime).Add(TimeSpan.FromSeconds(lastDuration));
-            }
-            else if (section.DurationSeconds > 0)
-            {
-                globalOffset = globalOffset.Add(TimeSpan.FromSeconds(section.DurationSeconds));
+                var lastNormTime = lastEntry.Timestamp - phaseBase;
+                if (lastNormTime < TimeSpan.Zero) lastNormTime = TimeSpan.Zero;
+                var lastEntryDuration = TimeSpan.FromSeconds(EstimateDuration(lastEntry.Text));
+                globalOffset = globalOffset.Add(lastNormTime).Add(lastEntryDuration);
             }
         }
 
         return sb.ToString();
     }
 
-    private static List<(TimeSpan Timestamp, string Text)> ParseTimestampedEntries(string content, System.Text.RegularExpressions.Regex timestampPattern)
+    private List<string> SplitAndTimestampText(string text, TimeSpan startTime, TimeSpan duration)
     {
-        var entries = new List<(TimeSpan Timestamp, string Text)>();
-        var matches = timestampPattern.Matches(content);
-        if (matches.Count == 0) return entries;
+        const int MaxChars = 450; // Safer limit well below 490
+        var result = new List<string>();
+        
+        var singleLine = System.Text.RegularExpressions.Regex.Replace(
+                    text.Replace("\r\n", " ").Replace("\n", " ").Replace("\r", " "), @"\s+", " ").Trim();
 
-        var firstMatch = matches[0];
-        if (firstMatch.Index > 0)
+        if (string.IsNullOrWhiteSpace(singleLine)) return result;
+
+        if (singleLine.Length <= MaxChars)
         {
-            var beforeText = content[..firstMatch.Index].Trim();
-            if (!string.IsNullOrWhiteSpace(beforeText) && !IsOnlyHeader(beforeText))
+             result.Add(FormatLrcLine(startTime, singleLine));
+             return result;
+        }
+
+        var words = singleLine.Split(' ');
+        var chunks = new List<string>();
+        var currentChunk = new System.Text.StringBuilder();
+
+        foreach (var word in words)
+        {
+            // If a single word is excessively long, split it forcefully
+            if (word.Length > MaxChars)
             {
-                entries.Add((TimeSpan.Zero, beforeText));
+                if (currentChunk.Length > 0)
+                {
+                    chunks.Add(currentChunk.ToString().Trim());
+                    currentChunk.Clear();
+                }
+
+                var remainingWord = word;
+                while (remainingWord.Length > MaxChars)
+                {
+                    chunks.Add(remainingWord.Substring(0, MaxChars));
+                    remainingWord = remainingWord.Substring(MaxChars);
+                }
+                currentChunk.Append(remainingWord).Append(" ");
+                continue;
+            }
+
+            if (currentChunk.Length + word.Length + 1 > MaxChars)
+            {
+                chunks.Add(currentChunk.ToString().Trim());
+                currentChunk.Clear();
+            }
+            currentChunk.Append(word).Append(" ");
+        }
+        if (currentChunk.Length > 0) chunks.Add(currentChunk.ToString().Trim());
+
+        // Distribute duration based on char count fraction
+        double totalChars = singleLine.Length;
+        var currentTime = startTime;
+        
+        foreach (var chunk in chunks)
+        {
+            result.Add(FormatLrcLine(currentTime, chunk));
+            
+            // Interpolate next start time
+            // Duration of this chunk = TotalDuration * (ChunkLen / TotalLen)
+            if (totalChars > 0)
+            {
+                var chunkDurationMs = duration.TotalMilliseconds * ((double)chunk.Length / totalChars);
+                currentTime = currentTime.Add(TimeSpan.FromMilliseconds(chunkDurationMs));
             }
         }
 
+        return result;
+    }
+
+    private string FormatLrcLine(TimeSpan ts, string text)
+    {
+        var minutes = (int)ts.TotalMinutes;
+        var seconds = ts.Seconds;
+        var centiseconds = ts.Milliseconds / 10;
+        // Standard LRC format is [mm:ss.xx] (centiseconds)
+        return $"[{minutes:D2}:{seconds:D2}.{centiseconds:D2}]{text}";
+    }
+
+    // Helper to parse content with timestamps
+    private List<TimestampedEntry> ParseTimestampedEntries(string content, System.Text.RegularExpressions.Regex pattern)
+    {
+        var result = new List<TimestampedEntry>();
+        var matches = pattern.Matches(content);
+        
         for (int i = 0; i < matches.Count; i++)
         {
             var match = matches[i];
-            var mins = int.Parse(match.Groups[1].Value);
-            var secs = int.Parse(match.Groups[2].Value);
-            var timestamp = new TimeSpan(0, mins, secs);
-            var textStart = match.Index + match.Length;
-            var textEnd = i + 1 < matches.Count ? matches[i + 1].Index : content.Length;
-            var text = content[textStart..textEnd].Trim();
-
-            if (!string.IsNullOrWhiteSpace(text))
+            if (!int.TryParse(match.Groups[1].Value, out var m)) continue;
+            if (!int.TryParse(match.Groups[2].Value, out var s)) continue;
+            
+            var ms = 0;
+            if (match.Groups[3].Success)
             {
-                entries.Add((timestamp, text));
+                var val = match.Groups[3].Value;
+                // Normalize "1" -> 100ms, "10" -> 100ms (if it was .10), need to be careful.
+                // Actually usually .1 = 100ms, .01 = 10ms.
+                // But .123 = 123ms. 
+                // Let's assume standard decimal fraction parsing
+                if (val.Length == 1) val += "00";
+                else if (val.Length == 2) val += "0";
+                
+                if (int.TryParse(val, out var parsedMs)) ms = parsedMs;
             }
+
+            var ts = new TimeSpan(0, 0, m, s, ms);
+            var startIndex = match.Index + match.Length;
+            var length = (i < matches.Count - 1) ? matches[i + 1].Index - startIndex : content.Length - startIndex;
+            
+            if (length <= 0) continue;
+            
+            var text = content.Substring(startIndex, length).Trim();
+            result.Add(new TimestampedEntry(ts, text));
         }
 
-        return entries;
+        return result;
     }
+
+    public record TimestampedEntry(TimeSpan Timestamp, string Text);
 
     private static bool IsOnlyHeader(string text)
     {
@@ -1916,7 +2234,7 @@
         result = System.Text.RegularExpressions.Regex.Replace(result, @"#\S+", "");
         result = result.Replace("[", "").Replace("]", "");
         result = result.Replace(".. .", "").Replace("...", "");
-        result = result.Replace("—", " - ").Replace("–", " - ");
+        result = result.Replace("—", " ").Replace("–", " ").Replace("-", " ");
         result = System.Text.RegularExpressions.Regex.Replace(result, @"\s+", " ");
         result = result.Replace("Wallahuam bissawab", "Wallahu a'lam bish-shawab");
         result = result.Replace("Wallahualam bissawab", "Wallahu a'lam bish-shawab");

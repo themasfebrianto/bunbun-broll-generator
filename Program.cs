@@ -50,6 +50,7 @@ builder.Services.AddScoped<ConfigBatchGenerator>();
 builder.Services.AddSingleton<GenerationEventBus>();
 builder.Services.AddSingleton<BackgroundGenerationService>();
 builder.Services.AddSingleton<SessionSyncService>();
+builder.Services.AddScoped<ISrtService, SrtService>();
 
 // Toast notification service
 builder.Services.AddScoped<BunbunBroll.Services.ToastService>();
