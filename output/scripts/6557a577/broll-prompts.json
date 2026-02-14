@@ -109,15 +109,15 @@
     "WhiskStatus": "Pending",
     "WhiskImagePath": null,
     "WhiskError": null,
-    "SelectedVideoUrl": "https://videos.pexels.com/video-files/8239245/8239245-hd_1920_1080_25fps.mp4",
+    "SelectedVideoUrl": "https://videos.pexels.com/video-files/36072343/15297967_1920_1080_30fps.mp4",
     "KenBurnsMotion": "SlowZoomOut",
     "WhiskVideoStatus": "Pending",
     "WhiskVideoPath": null,
     "WhiskVideoError": null,
     "Style": "Painting",
-    "Filter": "None",
-    "Texture": "None",
-    "FilteredVideoPath": "/media/turnasoul/3bcbc8a4-22e6-439a-8e14-8663af3c52c3/ScriptFlow_Workspace/bunbun-broll-generator/output/filtered_afd3a1b386b7445998a24f3ed85e236b.mp4"
+    "Filter": "Vintage",
+    "Texture": "Grunge",
+    "FilteredVideoPath": "E:\\VibeCode\\ScriptFlow_workspace\\bunbun-broll-generator\\output\\filtered_75f1f593058743dd98ad243f5b0af4d9.mp4"
   },
   {
     "Index": 6,
@@ -136,8 +136,8 @@
     "WhiskVideoError": null,
     "Style": "None",
     "Filter": "Sepia",
-    "Texture": "None",
-    "FilteredVideoPath": "E:\\VibeCode\\ScriptFlow_workspace\\bunbun-broll-generator\\output\\filtered_48e99d6717534abe85ac67e5644d85eb.mp4"
+    "Texture": "Scratches",
+    "FilteredVideoPath": "E:\\VibeCode\\ScriptFlow_workspace\\bunbun-broll-generator\\output\\filtered_b184133644ec4bf18916517102cbd60b.mp4"
   },
   {
     "Index": 7,
