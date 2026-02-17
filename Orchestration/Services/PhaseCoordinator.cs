@@ -10,6 +10,7 @@ namespace BunbunBroll.Orchestration.Services;
 /// <summary>
 /// Coordinates execution of a single phase with retry logic.
 /// Ported from ScriptFlow's PhaseCoordinator with validation-driven regeneration.
+/// Enhanced with pattern-specific system prompt generation.
 /// </summary>
 public class PhaseCoordinator
 {
@@ -100,8 +101,8 @@ public class PhaseCoordinator
                         phase, context, phaseContext, validationFeedback ?? string.Empty);
                 }
 
-                // Build system prompt from pattern
-                var systemPrompt = BuildSystemPrompt(context);
+                // Build pattern-specific system prompt
+                var systemPrompt = BuildEnhancedSystemPrompt(context, phase);
 
                 // Estimate max tokens
                 var maxTokens = Math.Min(phase.WordCountTarget.Max * 2 + 500, 8000);
@@ -231,20 +232,67 @@ public class PhaseCoordinator
         };
     }
 
-    private string BuildSystemPrompt(GenerationContext context)
+    private string BuildEnhancedSystemPrompt(GenerationContext context, PhaseDefinition phase)
     {
-        var parts = new List<string>
+        var parts = new List<string>();
+        
+        // Identity and base role
+        parts.Add("Anda adalah penulis script video essay profesional dengan keahlian dalam storytelling intelektual-edukatif.");
+        parts.Add($"Gaya tulisan: {context.Pattern.GlobalRules.Tone}");
+        parts.Add($"Bahasa: {context.Pattern.GlobalRules.Language}");
+        
+        // Channel-specific enhancement for Jazirah Ilmu style
+        if (context.Pattern.Name == "jazirah-ilmu" || 
+            context.Config.ChannelName?.Contains("Jazirah", StringComparison.OrdinalIgnoreCase) == true)
         {
-            "Anda adalah penulis script video essay profesional.",
-            $"Bahasa: {context.Pattern.GlobalRules.Language}",
-            $"Nada: {context.Pattern.GlobalRules.Tone}"
-        };
-
+            parts.Add("");
+            parts.Add("=== KARAKTERISTIK GAYA JAZIRAH ILMU ===");
+            parts.Add("");
+            parts.Add("GAYA BAHASA:");
+            parts.Add("- Gunakan bahasa Indonesia formal-naratif yang lugas dan menghindari ornamentasi berlebihan");
+            parts.Add("- Prioritaskan SUBSTANSI pemikiran dan kedalaman argumentasi");
+            parts.Add("- Gunakan kontras dan paradoks untuk memancing pemikiran kritis");
+            parts.Add("- Variasikan panjang kalimat: pendek (5-10 kata) untuk impak, panjang (20-30 kata) untuk elaborasi");
+            parts.Add("- Gunakan kata transisi kontras: namun, tetapi, justru, sebaliknya, ironisnya, di balik, tersembunyi");
+            parts.Add("");
+            parts.Add("STRUKTUR NARASI:");
+            parts.Add("- Hook: Mulai dengan kontras antara realitas surface vs retakan tersembunyi");
+            parts.Add("- Kontekstualisasi: Bangun pemahaman bertahap dengan data sebagai penopang cerita");
+            parts.Add("- Multi-dimensi: Eksplorasi historis, religius, psikologis, dan geopolitik secara berlapis");
+            parts.Add("- Climax: Momen kesadaran dengan metafora kuat yang menghantam");
+            parts.Add("- Penutup: Refleksi eskatologis dengan pertanyaan terbuka");
+            parts.Add("");
+            parts.Add("TEKNIK PENULISAN:");
+            parts.Add("- Pertanyaan retoris yang mengarahkan pemikiran, bukan sekadar drama");
+            parts.Add("- Metafora visual SANGAT selektif (maksimal 1-2 per fase) hanya untuk momen puncak");
+            parts.Add("- Jeda nafas emosional setelah 2-3 paragraf intensitas tinggi");
+            parts.Add("- Gunakan triada (pola tiga) untuk ritme: 'bukan..., bukan..., melainkan...'");
+            parts.Add("");
+            parts.Add("PERSPEKTIF:");
+            parts.Add("- Kritis terhadap kekuasaan, empati pada yang tertindas");
+            parts.Add("- Narator sebagai pembimbing pemikiran, bukan pengajar");
+            parts.Add("- Fokus pada analisis dan eksplanasi atas estetika kata-kata");
+            parts.Add("");
+            parts.Add("PENUTUP WAJIB (Fase Terakhir):");
+            parts.Add("- Wallahu a'lam bish-shawab");
+            parts.Add("- Semoga kisah ini bermanfaat. Lebih dan kurangnya mohon dimaafkan.");
+            parts.Add("- Yang benar datangnya dari Allah Subhanahu wa ta'ala. Khilaf datangnya dari saya pribadi.");
+            parts.Add("- Sampai ketemu di kisah-kisah seru yang penuh makna selanjutnya.");
+            parts.Add("- Wassalamualaikum warahmatullahi wabarakatuh.");
+        }
+        
+        // General rules
         if (!string.IsNullOrEmpty(context.Config.ChannelName))
+            parts.Add($"");
             parts.Add($"Channel: {context.Config.ChannelName}");
 
         if (!string.IsNullOrEmpty(context.Pattern.GlobalRules.Perspective))
             parts.Add($"Perspektif: {context.Pattern.GlobalRules.Perspective}");
+            
+        // Technical constraints
+        parts.Add("");
+        parts.Add("=== BATASAN TEKNIS ===");
+        
         if (!string.IsNullOrEmpty(context.Pattern.GlobalRules.MaxWordsPerSentence))
             parts.Add($"Maksimal kata per kalimat: {context.Pattern.GlobalRules.MaxWordsPerSentence}");
         if (!string.IsNullOrEmpty(context.Pattern.GlobalRules.PreferredWordsPerSentence))
@@ -252,14 +300,17 @@ public class PhaseCoordinator
         if (!string.IsNullOrEmpty(context.Pattern.GlobalRules.MustUseKeywords))
             parts.Add($"Kata kunci yang digunakan: {context.Pattern.GlobalRules.MustUseKeywords}");
         if (context.Pattern.GlobalRules.HonorificsRequired == "true")
-            parts.Add("Gunakan honorifik yang sesuai (SAW, RA, dll).");
+            parts.Add("Gunakan honorifik lengkap (SAW, AS, RA, SWT, dll).");
 
+        // Output instructions
         parts.Add("");
-        parts.Add("INSTRUKSI:");
+        parts.Add("=== INSTRUKSI OUTPUT ===");
         parts.Add("- Tulis konten script langsung, TANPA markup, header, atau metadata");
         parts.Add("- Tulis dalam paragraf narasi yang mengalir natural");
         parts.Add("- JANGAN gunakan bullet point, numbering, atau formatting khusus");
         parts.Add("- Fokus pada kualitas tulisan dan kedalaman konten");
+        parts.Add("- Hindari frasa AI yang klise: 'menelusuri jejak', 'berdenyut', 'tergelar', 'memeluk makna'");
+        parts.Add("- Ganti dengan bahasa lugas: 'mari kita pelajari', 'perhatikan bahwa', 'analisis ini menunjukkan'");
 
         return string.Join("\n", parts);
     }
