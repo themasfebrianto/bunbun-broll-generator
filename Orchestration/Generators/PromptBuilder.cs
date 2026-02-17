@@ -294,13 +294,16 @@ Gunakan (dengan suara bergetar), (tertawa) untuk TTS emotion.
 - Gunakan marker: 'mari kita', 'sahabat', 'simak'
 - Hormati honorifics lengkap (SAW, AS, SWT)
 
-### KESEIMBANGAN PUITIS
-- MAYORITAS kalimat (80-90%) harus NATURAL dan TO THE POINT seperti orang bicara biasa
-- Kalimat puitis/metaforis BOLEH digunakan SESEKALI (1-2 kali per fase) di momen puncak emosi atau penutup paragraf
-- JANGAN membuka kalimat dengan metafora puitis bertumpuk — langsung ke poin
-- HINDARI frasa-frasa 'halus AI' yang berlebihan seperti: 'menelusuri jejak', 'berdenyut', 'tergelar di hadapan', 'memeluk makna', 'merangkum hikmah', 'membentang cakrawala'
+### KESEIMBANGAN GAYA: INTELEKTUAL dengan SENTUHAN PUITIS MINIMAL
+- MAYORITAS kalimat (90-95%) harus NATURAL, ANALITIS, dan TO THE POINT — fokus pada penyampaian ide dan argumen dengan jelas
+- Gunakan pendekatan EDUKATIF: jelaskan konsep, berikan konteks, analisis sebab-akibat, bandingkan perspektif
+- Kalimat puitis/metaforis BOLEH digunakan SANGAT SESEKALI (1 kali per fase, maksimal 2 di fase panjang) HANYA di momen puncak emosi yang sangat penting
+- JANGAN membuka kalimat dengan metafora — mulailah dengan fakta, pertanyaan pemikir, atau pernyataan analitis
+- HINDARI frasa-frasa 'halus AI' yang berlebihan seperti: 'menelusuri jejak', 'berdenyut', 'tergelar di hadapan', 'memeluk makna', 'merangkum hikmah', 'membentang cakrawala', 'menyelinap', 'menyatu dalam harmoni', 'meretas batas'
+- GANTI dengan bahasa yang lugas: 'mari kita pelajari', 'perhatikan bahwa', 'analisis ini menunjukkan', 'fakta yang menarik adalah'
 - Contoh BURUK: 'Selamat datang di ruang bagi kita untuk menelusuri jejak-jejak masa lalu yang masih berdenyut hingga hari ini.'
-- Prinsip: tulis seolah kamu BICARA ke teman yang cerdas, bukan menulis esai sastra"
+- Contoh BAIK: 'Mari kita telusuri fakta sejarah ini — karena di dalamnya tersimpan pelajaran yang masih relevan hingga kini.'
+- Prinsip: tulis seolah kamu MEMBIMBING diskusi intelektual dengan teman yang cerdas — prioritaskan SUBSTANSI pemikiran atas keindahan kata-kata"
         };
 
         // Add production checklist as writing guidelines
