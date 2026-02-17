@@ -216,26 +216,10 @@
             if (parts.Length > 2 && parts[1].Length == 8) relative = string.Join("/", parts.Skip(1));
         }
 
-        // 2. Try variations (plural vs singular)
-        var candidates = new List<string> {
-            relative,
-            relative.Replace("/whisk_images/", "/whisks_images/"),
-            relative.Replace("/whisks_images/", "/whisk_images/")
-        };
-
-        foreach (var candidate in candidates.Distinct())
-        {
-            var cleanRelative = candidate.Replace("\\", "/");
-            if (!cleanRelative.StartsWith("/")) cleanRelative = "/" + cleanRelative;
-            
-            var fullLocal = Path.Combine(baseDir, cleanRelative.TrimStart('/').Replace("/", Path.DirectorySeparatorChar.ToString()));
-            if (File.Exists(fullLocal)) return "/project-assets" + cleanRelative;
-        }
-        
-        // Fallback: use intended plural naming
-        var finalRel = relative.Replace("/whisk_images/", "/whisks_images/");
-        if (!finalRel.StartsWith("/")) finalRel = "/" + finalRel;
-        return "/project-assets" + finalRel;
+        // 2. Build and return the URL path
+        var cleanRelative = relative.Replace("\\", "/");
+        if (!cleanRelative.StartsWith("/")) cleanRelative = "/" + cleanRelative;
+        return "/project-assets" + cleanRelative;
     }
 
     private async Task HandleSelectVideo(VideoAsset video)

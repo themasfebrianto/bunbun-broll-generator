@@ -2228,22 +2228,8 @@
             }
         }
 
-        // 3. TRIAL PATHS: Try plural and singular whisk folder names
-        var candidates = new List<string> {
-            relative,
-            relative.Replace("/whisk_images/", "/whisks_images/"),
-            relative.Replace("/whisks_images/", "/whisk_images/")
-        };
-
-        foreach (var candidate in candidates.Distinct())
-        {
-            var fullPath = Path.Combine(baseDir, candidate.Replace("/", Path.DirectorySeparatorChar.ToString()));
-            if (File.Exists(fullPath)) return fullPath;
-        }
-
-        // 4. FINAL FALLBACK: Return the intended plural path even if file isn't found yet
-        var finalRelative = relative.Replace("/whisk_images/", "/whisks_images/");
-        return Path.Combine(baseDir, finalRelative.Replace("/", Path.DirectorySeparatorChar.ToString()));
+        // 3. Return the resolved path directly
+        return Path.Combine(baseDir, relative.Replace("/", Path.DirectorySeparatorChar.ToString()));
     }
 
     private static int EstimateDuration(string text)
