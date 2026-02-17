@@ -12,7 +12,9 @@
         @* Theme *@
         <div>
             <label class="block text-xs font-medium text-muted-foreground mb-1.5">Tema *</label>
-            <input type="text" class="input w-full" placeholder="e.g. eschatology, sahabat, ekonomi, nabi" @bind="Theme" />
+            <input type="text" class="input w-full" placeholder="e.g. eschatology, sahabat, ekonomi, nabi" 
+                   value="@Theme"
+                   @onchange="@(e => { Theme = e.Value?.ToString() ?? ""; ThemeChanged.InvokeAsync(Theme); })" />
         </div>
 
         @* Channel *@
@@ -20,7 +22,9 @@
             <label class="block text-xs font-medium text-muted-foreground mb-1.5">Channel *</label>
             @if (ChannelNames.Count > 0)
             {
-                <select class="input w-full" @bind="ChannelName">
+                <select class="input w-full" 
+                        value="@ChannelName"
+                        @onchange="@(e => { ChannelName = e.Value?.ToString() ?? ""; ChannelNameChanged.InvokeAsync(ChannelName); })">
                     <option value="">Pilih channel...</option>
                     @foreach (var ch in ChannelNames)
                     {
@@ -30,7 +34,9 @@
             }
             else
             {
-                <input type="text" class="input w-full" placeholder="Nama channel" @bind="ChannelName" />
+                <input type="text" class="input w-full" placeholder="Nama channel" 
+                       value="@ChannelName"
+                       @onchange="@(e => { ChannelName = e.Value?.ToString() ?? ""; ChannelNameChanged.InvokeAsync(ChannelName); })" />
             }
         </div>
 
@@ -38,12 +44,16 @@
             @* Count *@
             <div>
                 <label class="block text-xs font-medium text-muted-foreground mb-1.5">Jumlah Config</label>
-                <input type="number" class="input w-full" min="1" max="20" @bind="Count" />
+                <input type="number" class="input w-full" min="1" max="20" 
+                       value="@Count"
+                       @onchange="@(e => { if (int.TryParse(e.Value?.ToString(), out int val)) { Count = val; CountChanged.InvokeAsync(Count); } })" />
             </div>
             @* Pattern *@
             <div>
                 <label class="block text-xs font-medium text-muted-foreground mb-1.5">Pattern</label>
-                <select class="input w-full" @bind="PatternId">
+                <select class="input w-full" 
+                        value="@PatternId"
+                        @onchange="@(e => { PatternId = e.Value?.ToString() ?? ""; PatternIdChanged.InvokeAsync(PatternId); })">
                     @foreach (var p in AvailablePatterns)
                     {
                         <option value="@p.Id">@p.Name</option>
@@ -55,7 +65,9 @@
         @* Seed (optional) *@
         <div>
             <label class="block text-xs font-medium text-muted-foreground mb-1.5">Seed / Instruksi Tambahan <span class="text-muted-foreground/60">(opsional)</span></label>
-            <textarea class="input w-full" rows="2" placeholder="e.g. gunakan angle dari sisi budaya indonesia" @bind="Seed"></textarea>
+            <textarea class="input w-full" rows="2" placeholder="e.g. gunakan angle dari sisi budaya indonesia" 
+                      value="@Seed"
+                      @onchange="@(e => { Seed = e.Value?.ToString(); SeedChanged.InvokeAsync(Seed); })"></textarea>
         </div>
 
         @if (!string.IsNullOrEmpty(ErrorMessage))

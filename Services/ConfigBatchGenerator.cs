@@ -1,12 +1,13 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using BunbunBroll.Models;
+using Microsoft.Extensions.Logging;
 
 namespace BunbunBroll.Services;
 
 /// <summary>
 /// Generates multiple project configs using LLM based on a theme.
-/// Ported from ScriptFlow's ConfigBatchGenerator.
+/// Optimized for 'ScriptFlow' automated video production.
 /// </summary>
 public class ConfigBatchGenerator
 {
@@ -19,164 +20,146 @@ public class ConfigBatchGenerator
         _logger = logger;
     }
 
-    private const int MaxRetries = 3;
-
-    public async Task<List<GeneratedConfig>> GenerateConfigsAsync(
-        string theme, 
-        string channelName,
-        int count = 10, 
-        string? seed = null,
-        CancellationToken cancellationToken = default)
+    public async Task<List<GeneratedConfig>> GenerateConfigsAsync(string theme, string channelName, int count, string? seed = null, Action<int, int>? onProgress = null, CancellationToken cancellationToken = default)
     {
-        var systemPrompt = "You are a creative YouTube content strategist specializing in Islamic content. Return ONLY valid JSON arrays.";
-        var userPrompt = BuildPrompt(theme, channelName, count, seed);
+        var generatedConfigs = new List<GeneratedConfig>();
+        var generatedTopics = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        _logger.LogInformation("Generating {Count} configs for theme '{Theme}'", count, theme);
+        _logger.LogInformation("Starting sequential generation of {Count} configs for theme '{Theme}'", count, theme);
 
-        Exception? lastException = null;
-
-        for (int attempt = 1; attempt <= MaxRetries; attempt++)
+        for (int i = 0; i < count; i++)
         {
-            try
+            int currentNumber = i + 1;
+            bool success = false;
+            int retryCount = 0;
+
+            while (!success && retryCount < 3)
             {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                if (attempt > 1)
+                try
                 {
-                    var delay = TimeSpan.FromSeconds(Math.Pow(2, attempt - 1)); // 2s, 4s
-                    _logger.LogWarning("Retry attempt {Attempt}/{Max} after {Delay}s", attempt, MaxRetries, delay.TotalSeconds);
-                    await Task.Delay(delay, cancellationToken);
+                    onProgress?.Invoke(currentNumber, count);
+
+                    // 1. Build context-aware prompt focusing on CREDIBLE SOURCES
+                    var prompt = BuildSingleConfigPrompt(theme, channelName, seed, generatedTopics);
+
+                    _logger.LogInformation("Generating config {Current}/{Total} (Attempt {Retry})", currentNumber, count, retryCount + 1);
+                    
+                    // 2. Call LLM
+                    var response = await _intelligenceService.GenerateContentAsync(
+                        systemPrompt: "You are a creative Director for a high-end Islamic Documentary YouTube channel. You prioritize ACCURACY (Dalil/Sources) and Storytelling. You output strictly valid JSON.",
+                        userPrompt: prompt,
+                        maxTokens: 2500, 
+                        temperature: 0.85, 
+                        cancellationToken: cancellationToken);
+
+                    if (string.IsNullOrEmpty(response)) throw new InvalidOperationException("Empty response from LLM");
+
+                    // 3. Parse Response
+                    var config = ParseSingleConfig(response);
+
+                    if (config != null)
+                    {
+                        // Post-processing & Validation
+                        config.ChannelName = channelName; 
+                        if (config.Topic.Length > 100) config.Topic = config.Topic.Substring(0, 97) + "...";
+
+                        generatedConfigs.Add(config);
+                        generatedTopics.Add(config.Topic);
+                        success = true;
+
+                        Console.WriteLine($"[SUCCESS] Generated: {config.Topic}");
+
+                        // Delay to prevent Rate Limits
+                        if (i < count - 1) await Task.Delay(1500, cancellationToken);
+                    }
                 }
-
-                var response = await _intelligenceService.GenerateContentAsync(
-                    systemPrompt,
-                    userPrompt,
-                    maxTokens: 8000,
-                    temperature: 0.8,
-                    cancellationToken: cancellationToken);
-
-                if (string.IsNullOrEmpty(response))
-                    throw new InvalidOperationException("LLM returned empty response");
-
-                // Strip markdown code blocks
-                response = StripMarkdownCodeBlocks(response);
-
-                // Extract JSON array
-                var jsonStart = response.IndexOf('[');
-                var jsonEnd = response.LastIndexOf(']');
-
-                if (jsonStart == -1 || jsonEnd == -1)
-                    throw new InvalidOperationException("Failed to extract JSON array from LLM response");
-
-                var jsonContent = response.Substring(jsonStart, jsonEnd - jsonStart + 1);
-
-                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                var configs = JsonSerializer.Deserialize<List<GeneratedConfig>>(jsonContent, options)
-                    ?? throw new InvalidOperationException("Failed to deserialize config array");
-
-                // Ensure channel name is set and fields are within DB limits
-                foreach (var config in configs)
+                catch (Exception ex)
                 {
-                    if (string.IsNullOrEmpty(config.ChannelName))
-                        config.ChannelName = channelName;
-
-                    // Truncate to prevent MaxLength violations when saved to DB
-                    if (config.Topic.Length > 500)
-                        config.Topic = config.Topic[..497] + "...";
-                    if (config.ChannelName.Length > 100)
-                        config.ChannelName = config.ChannelName[..97] + "...";
+                    retryCount++;
+                    _logger.LogWarning("Failed to generate config {Current}: {Message}. Retrying...", currentNumber, ex.Message);
+                    
+                    // Exponential backoff
+                    await Task.Delay(2000 * retryCount, cancellationToken);
                 }
-
-                _logger.LogInformation("Generated {Count} configs successfully (attempt {Attempt})", configs.Count, attempt);
-                return configs;
-            }
-            catch (OperationCanceledException) { throw; }
-            catch (Exception ex)
-            {
-                lastException = ex;
-                _logger.LogWarning(ex, "Config generation attempt {Attempt}/{Max} failed", attempt, MaxRetries);
             }
         }
 
-        throw new InvalidOperationException(
-            $"Failed to generate configs after {MaxRetries} attempts: {lastException?.Message}", lastException);
+        return generatedConfigs;
     }
 
-    private string BuildPrompt(string theme, string channelName, int count, string? seed = null)
+    private string BuildSingleConfigPrompt(string theme, string channelName, string? seed, HashSet<string> existingTopics)
     {
-        var seedInstruction = string.IsNullOrEmpty(seed) ? "" : $"\n\n=== CULTURAL SEED INSTRUCTION ===\n\n{seed}\n";
+        var context = existingTopics.Any()
+            ? $"\nCONTEXT - DO NOT REPEAT THESE TOPICS:\n- {string.Join("\n- ", existingTopics)}"
+            : "";
 
-        return $@"Generate {count} UNIQUE project configs for theme: ""{theme}"" on channel ""{channelName}"".{seedInstruction}
+        return $@"
+Generate 1 (ONE) unique video configuration JSON for channel '{channelName}'.
+Theme: '{theme}'.
+Language: INDONESIAN (Bahasa Indonesia) for Topic, Outline, and Beats.
+{context}
+Seed/Instruction: {seed ?? "None"}
 
-=== REQUIREMENTS ===
-
-1. TOPICS must be:
-   - UNIQUE and NOT generic — offer a fresh, specific angle
-   - Written in calm, mature tone — like a thoughtful documentary title
-   - Intriguing enough to spark genuine curiosity without being desperate or sensational
-   - Relatable to modern daily life
-   - NO CAPSLOCK, no shouting, no excessive punctuation (!!!, ???)
-
-2. TITLE STYLE GUIDELINES:
-   - Use lowercase/title case naturally — never all-caps words
-   - Create a subtle curiosity gap: make people wonder, not scream
-   - Feel intellectual and premium, like a well-crafted book chapter title
-   - Avoid try-hard clickbait patterns (""SHOCKING"", ""You WON'T Believe"", etc.)
-   - Can use a dash or colon to add a secondary hook
-
-   GOOD EXAMPLES:
-   - ""Di akhirat nanti, kita dibagi jadi 3 rombongan — kamu masuk yang mana?""
-   - ""Satu amalan kecil yang ternyata lebih berat dari Gunung Uhud""
-   - ""Kenapa orang zaman dulu bisa hidup 900 tahun?""
-   - ""Harta yang kamu simpan hari ini, besok jadi ular di lehermu""
-   - ""Malaikat pencabut nyawa punya prosedur yang sangat detail""
-   - ""Ada satu doa yang tidak pernah ditolak — tapi jarang yang tahu""
-
-   BAD EXAMPLES (DO NOT USE):
-   - ""ILMU TANPA AMAL = BENCANA!!!""
-   - ""The SHOCKING Truth About...""
-   - ""WHY You NEED to Know This NOW""
-   - ""WAJIB TONTON! Ini Akan MENGUBAH Hidupmu""
-
-3. OUTLINE: Brief 2-3 sentence outline of the narrative arc
-
-4. MUST HAVE BEATS: Generate story beats PROPORTIONAL to duration.
-   - Use this formula: number of beats = targetDurationMinutes / 2.5 (rounded to nearest integer)
-   - For example: 20 min = 8 beats, 30 min = 12 beats, 48 min = 19 beats, 60 min = 24 beats
-   - Each beat MUST be SPECIFIC and SUBSTANTIVE (reference a hadith, event, statistic, or concrete example)
-   - NEVER use vague filler beats like ""Explore the topic further"" or ""Discuss the implications""
-   - Beats should give the writer ENOUGH MATERIAL so they don't need to fill with empty words
-
-5. DURATION: 45-75 minutes (vary the durations)
-
-6. SOURCE REFERENCES: Include 3-6 relevant sources per topic (as comma-separated string)
-
-=== OUTPUT FORMAT ===
-
-Return ONLY a valid JSON array. No markdown, no explanations.
-
-[
-  {{
-    ""topic"": ""Judul yang tenang tapi bikin penasaran — dengan hook halus"",
-    ""targetDurationMinutes"": 60,
-    ""channelName"": ""{channelName}"",
-    ""outline"": ""Brief narrative arc description"",
-    ""sourceReferences"": ""Source 1, Source 2, Source 3"",
-    ""mustHaveBeats"": [
-      ""Specific story point 1"",
-      ""Specific story point 2"",
-      ""...up to 10-12 points""
-    ]
-  }}
-]
-
-=== THEME-SPECIFIC GUIDANCE ===
-
+=== THEME GUIDANCE ===
 {GetThemeGuidance(theme)}
 
-=== START GENERATING ===
+=== REQUIREMENTS ===
+1. TITLE (Topic): High CTR but Elegant. Use 'Storytelling' hooks. (e.g., 'Misteri...', 'Alasan Kenapa...', 'Detik-detik...'). No Clickbait shouting.
+2. DURATION: Between 15 - 35 minutes.
+3. SOURCES (SourceReferences): THIS IS CRITICAL. You must cite specific valid sources (Quran Surah:Ayat, Hadith Narrator/Number, Name of Classical Kitab/Book). Do NOT make this up.
+4. BEATS: Create narrative beats based on duration (Duration / 2.5 = number of beats).
+   - Beats must be narrative steps (Hook -> Conflict -> Dalil/Evidence -> Resolution).
 
-Generate {count} configs now. Remember: UNIQUE + MATURE TONE + GENUINELY INTRIGUING (no capslock, no pick-me energy).";
+=== OUTPUT FORMAT (STRICT JSON) ===
+Return ONLY this JSON structure (no markdown text):
+{{
+  ""topic"": ""Judul video bahasa Indonesia"",
+  ""targetDurationMinutes"": 20,
+  ""outline"": ""Ringkasan alur cerita dalam 2-3 kalimat..."",
+  ""sourceReferences"": ""QS. Al-Mulk: 1-5, HR. Muslim No. 203, Kitab Al-Bidaya wan Nihaya Vol 3, Jurnal Sains Ibnu Sina"",
+  ""mustHaveBeats"": [
+    ""Intro: Visualisasi masalah/konflik"",
+    ""Pembahasan Dalil (Quran/Hadits)"",
+    ""Analisa Sejarah/Sains"",
+    ""... (lanjutkan sesuai durasi)""
+  ]
+}}";
+    }
+
+    private GeneratedConfig? ParseSingleConfig(string response)
+    {
+        try
+        {
+            response = StripMarkdownCodeBlocks(response);
+            
+            int idxStart = response.IndexOf('{');
+            int idxEnd = response.LastIndexOf('}');
+            
+            if (idxStart == -1 || idxEnd == -1) return null;
+
+            string jsonClean = response.Substring(idxStart, idxEnd - idxStart + 1);
+            
+            var options = new JsonSerializerOptions 
+            { 
+                PropertyNameCaseInsensitive = true,
+                ReadCommentHandling = JsonCommentHandling.Skip,
+                AllowTrailingCommas = true
+            };
+
+            if (jsonClean.TrimStart().StartsWith("["))
+            {
+                var list = JsonSerializer.Deserialize<List<GeneratedConfig>>(jsonClean, options);
+                return list?.FirstOrDefault();
+            }
+            else
+            {
+                return JsonSerializer.Deserialize<GeneratedConfig>(jsonClean, options);
+            }
+        }
+        catch (Exception)
+        {
+            return null;
+        }
     }
 
     private string GetThemeGuidance(string theme)
@@ -251,14 +234,10 @@ EXAMPLE UNIQUE ANGLES:
 
     private static string StripMarkdownCodeBlocks(string response)
     {
-        if (string.IsNullOrWhiteSpace(response))
-            return response;
-
-        var jsonMatch = Regex.Match(response, @"```(?:json)?\s*([\s\S]*?)\s*```");
-        if (jsonMatch.Success)
-            return jsonMatch.Groups[1].Value.Trim();
-
-        return response;
+        if (string.IsNullOrWhiteSpace(response)) return response;
+        var clean = Regex.Replace(response, @"```json\s*", "", RegexOptions.IgnoreCase);
+        clean = Regex.Replace(clean, @"```\s*", "");
+        return clean.Trim();
     }
 }
 
@@ -268,9 +247,12 @@ EXAMPLE UNIQUE ANGLES:
 public class GeneratedConfig
 {
     public string Topic { get; set; } = "";
-    public int TargetDurationMinutes { get; set; } = 60;
+    public int TargetDurationMinutes { get; set; } = 20;
     public string ChannelName { get; set; } = "";
     public string? Outline { get; set; }
-    public string? SourceReferences { get; set; }
+    
+    // Dikembalikan ke SourceReferences untuk menyimpan Dalil/Sumber Kitab
+    public string? SourceReferences { get; set; } 
+    
     public List<string>? MustHaveBeats { get; set; }
 }

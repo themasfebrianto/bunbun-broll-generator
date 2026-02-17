@@ -489,7 +489,14 @@
 
     private async Task HandleBatchGenerate()
     {
-        if (string.IsNullOrWhiteSpace(_batchTheme) || string.IsNullOrWhiteSpace(_batchChannelName)) return;
+        Console.WriteLine($"[DEBUG] HandleBatchGenerate called. Theme: '{_batchTheme}', Channel: '{_batchChannelName}'");
+        
+        if (string.IsNullOrWhiteSpace(_batchTheme) || string.IsNullOrWhiteSpace(_batchChannelName)) 
+        {
+            Console.WriteLine("[DEBUG] Validation failed: Theme or ChannelName is empty.");
+            return;
+        }
+
         _isBatchGenerating = true;
         _batchError = null;
         _batchResults.Clear();
@@ -497,7 +504,28 @@
 
         try
         {
-            var configs = await BatchGenerator.GenerateConfigsAsync(_batchTheme, _batchChannelName, _batchCount, _batchSeed);
+            Console.WriteLine("[DEBUG] Calling BatchGenerator.GenerateConfigsAsync with sequential progress...");
+            
+            // Define progress callback
+            Action<int, int> onProgress = (current, total) =>
+            {
+                _batchError = $"Generating config {current} of {total}...";
+                InvokeAsync(StateHasChanged);
+            };
+
+            var configs = await BatchGenerator.GenerateConfigsAsync(_batchTheme, _batchChannelName, _batchCount, _batchSeed, onProgress);
+            Console.WriteLine($"[DEBUG] BatchGenerator returned {configs.Count} configs.");
+            
+            if (configs.Count == 0)
+            {
+                _batchError = "AI tidak menghasilkan config. Silakan coba lagi dengan tema yang berbeda atau spesifik.";
+                Console.WriteLine("[DEBUG] Config count is 0. Set error message.");
+            }
+            else
+            {
+                _batchError = null; // Clear progress message
+            }
+
             _batchResults = configs.Select(c => new BatchConfigView.GeneratedConfig
             {
                 Topic = c.Topic,
@@ -508,8 +536,18 @@
                 ChannelName = c.ChannelName
             }).ToList();
         }
-        catch (Exception ex) { _batchError = $"Gagal: {ex.Message}"; }
-        finally { _isBatchGenerating = false; StateHasChanged(); }
+        catch (Exception ex) 
+        { 
+            _batchError = $"Gagal: {ex.Message}"; 
+            Console.WriteLine($"[DEBUG] Exception caught: {ex.Message}");
+            Console.WriteLine(ex.StackTrace);
+        }
+        finally 
+        { 
+            _isBatchGenerating = false; 
+            StateHasChanged(); 
+            Console.WriteLine("[DEBUG] HandleBatchGenerate finished. isGenerating=false");
+        }
     }
 
     private void HandleUseConfig(BatchConfigView.GeneratedConfig config)
