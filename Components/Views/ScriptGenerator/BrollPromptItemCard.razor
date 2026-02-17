@@ -227,6 +227,7 @@
                 <WhiskImagePreview 
                     Item="Item" 
                     OnGenerateKenBurns="GenerateKenBurns"
+                    OnResetSegmentVideo="ResetSegmentVideo"
                     GetAssetUrl="GetAssetUrl"
                     ResolveLocalPath="ResolveLocalPath"
                     OnSave="Save" />
@@ -246,6 +247,7 @@
     [Parameter] public EventCallback<(BrollPromptItem Item, VideoAsset Video)> OnSelectVideo { get; set; }
     [Parameter] public EventCallback<BrollPromptItem> OnApplyFilter { get; set; }
     [Parameter] public EventCallback<BrollPromptItem> OnGenerateKenBurns { get; set; }
+    [Parameter] public EventCallback<BrollPromptItem> OnResetSegmentVideo { get; set; }
     [Parameter] public EventCallback OnSave { get; set; }
     
     [Parameter] public Func<string, string> GetAssetUrl { get; set; } = _ => "";
@@ -258,6 +260,7 @@
     private async Task SelectVideo(VideoAsset video) => await OnSelectVideo.InvokeAsync((Item, video));
     private async Task ApplyFilter() => await OnApplyFilter.InvokeAsync(Item);
     private async Task GenerateKenBurns() => await OnGenerateKenBurns.InvokeAsync(Item);
+    private async Task ResetSegmentVideo() => await OnResetSegmentVideo.InvokeAsync(Item);
     private async Task Save() => await OnSave.InvokeAsync();
 
     private static string GetFilterDisplayName(VideoFilter filter) => filter switch

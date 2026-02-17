@@ -178,6 +178,7 @@
             OnSelectVideo="HandleSelectVideo"
             OnApplyFilter="HandleApplyFilterToVideo"
             OnGenerateKenBurns="HandleGenerateKenBurnsVideo"
+            OnResetSegmentVideo="HandleResetVideoStateForSegment"
             OnSave="SaveBrollPromptsToDisk"
             GetAssetUrl="GetAssetUrl"
             ResolveLocalPath="ResolveLocalPath"
@@ -1467,6 +1468,23 @@
             item.WhiskVideoError = null;
             item.IsConvertingVideo = false;
         }
+
+        await SaveBrollPromptsToDisk();
+        StateHasChanged();
+    }
+
+    private async Task HandleResetVideoStateForSegment(BrollPromptItem item)
+    {
+        if (!string.IsNullOrEmpty(item.WhiskVideoPath) && System.IO.File.Exists(item.WhiskVideoPath))
+        {
+            try { System.IO.File.Delete(item.WhiskVideoPath); } catch { }
+        }
+
+        item.WhiskVideoStatus = WhiskGenerationStatus.Pending;
+        item.WhiskVideoPath = null;
+        item.WhiskVideoError = null;
+        item.IsConvertingVideo = false;
+        item.FilteredVideoPath = null;
 
         await SaveBrollPromptsToDisk();
         StateHasChanged();

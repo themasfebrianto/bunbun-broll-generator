@@ -317,6 +317,7 @@
                     OnSelectVideo="OnSelectVideo"
                     OnApplyFilter="OnApplyFilter"
                     OnGenerateKenBurns="OnGenerateKenBurns"
+                    OnResetSegmentVideo="OnResetSegmentVideo"
                     OnSave="OnSave"
                     GetAssetUrl="GetAssetUrl"
                     ResolveLocalPath="ResolveLocalPath" />
@@ -362,6 +363,7 @@
     [Parameter] public EventCallback<(BrollPromptItem Item, VideoAsset Video)> OnSelectVideo { get; set; }
     [Parameter] public EventCallback<BrollPromptItem> OnApplyFilter { get; set; }
     [Parameter] public EventCallback<BrollPromptItem> OnGenerateKenBurns { get; set; }
+    [Parameter] public EventCallback<BrollPromptItem> OnResetSegmentVideo { get; set; }
     [Parameter] public EventCallback OnSave { get; set; }
     
     [Parameter] public Func<string, string> GetAssetUrl { get; set; } = _ => "";

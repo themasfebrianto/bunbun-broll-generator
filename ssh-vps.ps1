@@ -148,12 +148,12 @@ curl -s -X POST http://localhost:8317/v1/chat/completions \
     Write-Host ""
     
     Write-Host "3. Checking output directories..." -ForegroundColor Cyan
-    ssh ${VPS_USER}@${VPS_HOST} "docker exec bunbun-broll ls -la /app/output/shorts 2>&1 || echo 'Directory not found'"
+    ssh ${VPS_USER}@${VPS_HOST} "docker exec bunbun-broll ls -la /app/output 2>&1 || echo 'Directory not found'"
     ssh ${VPS_USER}@${VPS_HOST} "docker exec bunbun-broll ls -la /app/temp/ffmpeg 2>&1 || echo 'Directory not found'"
     Write-Host ""
     
     Write-Host "4. Checking host volume mounts..." -ForegroundColor Cyan
-    ssh ${VPS_USER}@${VPS_HOST} "ls -la ${VPS_PATH}/output/shorts 2>&1 || echo 'Creating directory...'; mkdir -p ${VPS_PATH}/output/shorts"
+    ssh ${VPS_USER}@${VPS_HOST} "ls -la ${VPS_PATH}/output 2>&1 || echo 'Creating directory...'; mkdir -p ${VPS_PATH}/output"
     ssh ${VPS_USER}@${VPS_HOST} "ls -la ${VPS_PATH}/temp/ffmpeg 2>&1 || echo 'Creating directory...'; mkdir -p ${VPS_PATH}/temp/ffmpeg"
     Write-Host ""
     

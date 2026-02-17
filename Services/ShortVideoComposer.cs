@@ -22,9 +22,15 @@ public interface IShortVideoComposer
     /// <summary>
     /// Compose multiple video clips into a single short video.
     /// </summary>
+    /// <param name="clips">Video clips to compose</param>
+    /// <param name="config">Video configuration</param>
+    /// <param name="sessionId">Optional session ID for scoped output directory. If not provided, a new GUID will be generated.</param>
+    /// <param name="progress">Progress reporter</param>
+    /// <param name="cancellationToken">Cancellation token</param>
     Task<ShortVideoResult> ComposeAsync(
         List<VideoClip> clips,
         ShortVideoConfig config,
+        string? sessionId = null,
         IProgress<CompositionProgress>? progress = null,
         CancellationToken cancellationToken = default
     );
@@ -37,7 +43,8 @@ public interface IShortVideoComposer
         double durationSeconds,
         ShortVideoConfig config,
         KenBurnsMotionType motionType = KenBurnsMotionType.SlowZoomIn,
-        CancellationToken cancellationToken = default
+        CancellationToken cancellationToken = default,
+        string? sessionId = null
     );
 
     /// <summary>
@@ -53,7 +60,8 @@ public interface IShortVideoComposer
         VideoStyle style,
         ShortVideoConfig config,
         CancellationToken cancellationToken = default,
-        bool isPreview = false
+        bool isPreview = false,
+        string? sessionId = null
     );
 
     /// <summary>
@@ -65,7 +73,8 @@ public interface IShortVideoComposer
         VideoTexture texture,
         ShortVideoConfig config,
         CancellationToken cancellationToken = default,
-        bool isPreview = false
+        bool isPreview = false,
+        string? sessionId = null
     );
 }
 
@@ -431,14 +440,19 @@ public class ShortVideoComposer : IShortVideoComposer
         double durationSeconds,
         ShortVideoConfig config,
         KenBurnsMotionType motionType = KenBurnsMotionType.SlowZoomIn,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? sessionId = null)
     {
         try
         {
             if (!await EnsureFFmpegAsync()) return null;
 
-            // Generate output path in temp directory
-            var outputPath = Path.Combine(_tempDirectory, $"kb_{Guid.NewGuid():N}.mp4");
+            // Use session-scoped temp directory if sessionId is provided
+            var tempDir = !string.IsNullOrEmpty(sessionId)
+                ? Path.Combine(_tempDirectory, sessionId)
+                : _tempDirectory;
+            Directory.CreateDirectory(tempDir);
+            var outputPath = Path.Combine(tempDir, $"kb_{Guid.NewGuid():N}.mp4");
 
             var success = await _kenBurnsService.ConvertImageToVideoAsync(
                 imagePath,
@@ -468,13 +482,19 @@ public class ShortVideoComposer : IShortVideoComposer
         VideoTexture texture,
         ShortVideoConfig config,
         CancellationToken cancellationToken = default,
-        bool isPreview = false)
+        bool isPreview = false,
+        string? sessionId = null)
     {
         try
         {
             if (!await EnsureFFmpegAsync()) return null;
 
-            var outputPath = Path.Combine(_tempDirectory, $"styled_{Guid.NewGuid():N}.mp4");
+            // Use session-scoped temp directory if sessionId is provided
+            var tempDir = !string.IsNullOrEmpty(sessionId)
+                ? Path.Combine(_tempDirectory, sessionId)
+                : _tempDirectory;
+            Directory.CreateDirectory(tempDir);
+            var outputPath = Path.Combine(tempDir, $"styled_{Guid.NewGuid():N}.mp4");
 
             var mediaInfo = await FFmpeg.GetMediaInfo(inputPath, cancellationToken);
             var videoStream = mediaInfo.VideoStreams.FirstOrDefault();
@@ -771,13 +791,19 @@ public class ShortVideoComposer : IShortVideoComposer
         VideoStyle style,
         ShortVideoConfig config,
         CancellationToken cancellationToken = default,
-        bool isPreview = false)
+        bool isPreview = false,
+        string? sessionId = null)
     {
         try
         {
             if (!await EnsureFFmpegAsync()) return null;
 
-            var outputPath = Path.Combine(_tempDirectory, $"styled_{Guid.NewGuid():N}.mp4");
+            // Use session-scoped temp directory if sessionId is provided
+            var tempDir = !string.IsNullOrEmpty(sessionId)
+                ? Path.Combine(_tempDirectory, sessionId)
+                : _tempDirectory;
+            Directory.CreateDirectory(tempDir);
+            var outputPath = Path.Combine(tempDir, $"styled_{Guid.NewGuid():N}.mp4");
 
             var mediaInfo = await FFmpeg.GetMediaInfo(inputPath, cancellationToken);
             var videoStream = mediaInfo.VideoStreams.FirstOrDefault();
@@ -943,6 +969,7 @@ public class ShortVideoComposer : IShortVideoComposer
     public async Task<ShortVideoResult> ComposeAsync(
         List<VideoClip> clips,
         ShortVideoConfig config,
+        string? sessionId = null,
         IProgress<CompositionProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
@@ -955,9 +982,12 @@ public class ShortVideoComposer : IShortVideoComposer
             };
         }
 
-        var sessionId = Guid.NewGuid().ToString("N")[..8];
-        var outputFileName = $"short_{sessionId}_{DateTime.Now:yyyyMMdd_HHmmss}.mp4";
-        var outputPath = Path.Combine(_outputDirectory, outputFileName);
+        var composeSessionId = sessionId ?? Guid.NewGuid().ToString("N")[..8];
+        var outputFileName = $"short_{composeSessionId}_{DateTime.Now:yyyyMMdd_HHmmss}.mp4";
+        // Use session-scoped output directory: output/<sessionId>/shorts
+        var sessionOutputDir = Path.Combine(_outputDirectory, composeSessionId, "shorts");
+        Directory.CreateDirectory(sessionOutputDir);
+        var outputPath = Path.Combine(sessionOutputDir, outputFileName);
 
         try
         {
@@ -993,13 +1023,15 @@ public class ShortVideoComposer : IShortVideoComposer
             // Step 4: Process clips in PARALLEL for speedup
             progress?.Report(new CompositionProgress { Stage = "Processing", Percent = 40, Message = $"Processing {localClips.Count} clips (parallel x{_parallelClips})..." });
             
-            // Prepare clip processing tasks
+            // Prepare clip processing tasks with session-scoped temp directory
+            var sessionTempDir = Path.Combine(_tempDirectory, composeSessionId);
+            Directory.CreateDirectory(sessionTempDir);
             var clipTasks = localClips.Zip(clipDurations).Select((pair, index) => new
             {
                 Clip = pair.First,
                 Duration = pair.Second.Duration,
                 Index = index,
-                OutputPath = Path.Combine(_tempDirectory, $"clip_{sessionId}_{index}.mp4")
+                OutputPath = Path.Combine(sessionTempDir, $"clip_{composeSessionId}_{index}.mp4")
             }).ToList();
 
             var processedClips = new string?[clipTasks.Count];
