@@ -152,15 +152,15 @@
     }
   ],
   "globalRules": {
-    "tone": "Serius, reflektif, kontemplatif",
-    "perspective": "Kritis terhadap kekuasaan, empati pada yang tertindas",
+    "tone": "Intelektual-edukatif, analitis, reflektif — prioritaskan substansi pemikiran dan kedalaman argumentasi",
+    "perspective": "Kritis terhadap kekuasaan, empati pada yang tertindas, narasumber yang membimbing pemikiran",
     "structure": "Hook-Konteks-Pendalaman-Refleksi",
-    "language": "Bahasa Indonesia formal-naratif",
+    "language": "Bahasa Indonesia formal-naratif yang lugas, menghindari ornamentasi berlebihan",
     "wordsPerMinute": "150-200",
     "targetDuration": "15-40 menit",
     "honorificsRequired": "true",
     "maxWordsPerSentence": "30",
-    "preferredWordsPerSentence": "Variasi alami, tidak berpola kaku",
+    "preferredWordsPerSentence": "Variasi alami, prioritas pada kejelasan logika dan alur berpikir",
     "mustUseKeywords": "opsional dan alami: namun, tetapi, justru, sebaliknya, ironisnya, di balik, tersembunyi, mungkin, barangkali"
   },
   "closingFormula": "Wallahu a'lam bish-shawab",
@@ -173,12 +173,13 @@
       "Durasi target realistis untuk satu fokus utama"
     ],
     "penulisan": [
-      "Hook jelas dan fokus pada satu konflik ide",
-      "Data digunakan secukupnya untuk memperkuat narasi",
-      "Ada pergeseran emosi yang terasa",
-      "Metafora digunakan selektif dan kuat",
-      "Pertanyaan retoris muncul di momen penting",
-      "Penutup religius disampaikan dengan tenang"
+      "Hook jelas yang memancing pemikiran kritis, bukan sekadar emosi",
+      "Data, fakta historis, dan referensi keilmuan digunakan untuk memperkuat argumentasi",
+      "Pergeseran emosi tetap ada tapi dipicu oleh insight intelektual, bukan manipulasi kata-kata",
+      "Metafora digunakan SANGAT selektif (maksimal 1-2 per fase) dan hanya untuk momen puncak",
+      "Pertanyaan retoris mengarahkan pemikiran, bukan sekadar drama",
+      "Penutup religius disampaikan dengan tenang dan mengandung pengajaran yang dapat dipraktikkan",
+      "Prioritaskan ANALISIS dan EKSPLANASI atas estetika kata-kata"
     ]
   }
 }
