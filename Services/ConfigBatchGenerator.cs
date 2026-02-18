@@ -116,7 +116,43 @@ Seed/Instruction: {seed ?? "None"}
 {GetThemeGuidance(theme)}
 
 === REQUIREMENTS ===
-1. TITLE (Topic): High CTR but Elegant. Use 'Storytelling' hooks. (e.g., 'Misteri...', 'Alasan Kenapa...', 'Detik-detik...'). No Clickbait shouting.
+1. TITLE (Topic): CRITICAL - YOU MUST USE one of the following 10 formulas (Variasikan pattern ini):
+
+   Formula 1: Angka + Subjek + yang Bisa/Mungkin + Konsekuensi
+   (Contoh: ""1 Perusahaan yang Bisa Memicu Perang Dunia 3"", ""3 Teknologi yang Bisa Mengubah Wajah Perang"")
+
+   Formula 2: Durasi + Kata Kerja Memahami + Kenapa + Subjek + Kata Kunci Emosional
+   (Contoh: ""38 Menit Memahami Kenapa AS Ngotot Ingin Membeli Greenland"", ""20 Menit Memahami Kenapa Perusahaan X Gagal"")
+
+   Formula 3: Beginilah Nasib/Keadaan + [Tempat/Orang] Setelah + [X Tahun/Kejadian]
+   (Contoh: ""Beginilah Nasib Timor Leste Setelah 24 Tahun Berpisah Dari Indonesia"")
+
+   Formula 4: Ketika + Ide/Agama/Metode + Untuk + Hasil/Peristiwa + [Tokoh]
+   (Contoh: ""Ketika Islam Dipakai Untuk Menjinakkan Amarah Seorang Mike Tyson"", ""Ketika Sains Dipakai Untuk Menenangkan Publik"")
+
+   Formula 5: Mereka Dibilang X, Tapi Y. Apakah Kebetulan? (Retorik)
+   (Contoh: ""Mereka dibilang Gila, Tapi Beberapa Omongannya Terjadi. Apakah Kebetulan?"", ""Dulu Diremehkan, Sekarang Jadi Kunci — Kebetulan?"")
+
+   Formula 6: Mitos Atau Fakta: [Klaim Provokatif]
+   (Contoh: ""Mitos Atau Fakta: Suku Keturunan Asli Nabi Sulaiman Di Afrika"")
+
+   Formula 7: [Nama Orang] dan [Nama Orang] di Catatan [Pelaku/Tokoh Misterius]
+   (Contoh: ""Mulyono dan Mulyani di Catatan Sang Predator"")
+
+   Formula 8: Seberapa [Adjektif Ekstrem] + [Periode/Peristiwa] + ?
+   (Contoh: ""Seberapa Mematikan Abad Kegelapan?"", ""Seberapa Nyata Ancaman Iklim Tahun 2050?"")
+
+   Formula 9: Bagaimana Jika + Hipotesis/Perubahan + [Konsekuensi Besar]
+   (Contoh: ""Bagaimana Jika US Menjual Greenland?"", ""Bagaimana Jika Batas Negara Diubah Sekarang?"")
+
+   Formula 10: Reportase singkat: [Tempat/Peristiwa] — [Frasa Menarik]
+   (Contoh: ""Di Balik Pintu Gedung X — Jejak yang Tak Terlihat"")
+
+   STYLE RULES:
+   - Spesifik (sebut angka, waktu, nama).
+   - Intelektual tapi ""Genkas"" (Gen-Z/Kaskus/Casual).
+   - BUKAN clickbait murahan. Jaga kebenaran.
+
 2. DURATION: Between 15 - 35 minutes.
 3. SOURCES (SourceReferences): THIS IS CRITICAL. You must cite specific valid sources (Quran Surah:Ayat, Hadith Narrator/Number, Name of Classical Kitab/Book). Do NOT make this up.
 

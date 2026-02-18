@@ -10,7 +10,7 @@
     @* Channel Name *@
     <div class="space-y-2">
         <label class="block text-sm font-medium">Channel <span class="text-destructive">*</span></label>
-        <select class="input" @bind="ChannelName">
+        <select class="input" @bind="ChannelName" @bind:after="() => ChannelNameChanged.InvokeAsync(ChannelName)">
             <option value="">Pilih channel...</option>
             @foreach (var ch in ChannelNames)
             {
@@ -22,7 +22,7 @@
     @* Pattern Selection *@
     <div class="space-y-2">
         <label class="block text-sm font-medium">Pattern</label>
-        <select class="input" @bind="SelectedPatternId">
+        <select class="input" @bind="SelectedPatternId" @bind:after="() => SelectedPatternIdChanged.InvokeAsync(SelectedPatternId)">
             <option value="">Pilih pattern...</option>
             @foreach (var p in AvailablePatterns)
             {
@@ -38,25 +38,25 @@
     @* Topic *@
     <div class="space-y-2">
         <label class="block text-sm font-medium">Topik <span class="text-destructive">*</span></label>
-        <input class="input" placeholder="Judul atau topik utama video essay" @bind="Topic" />
+        <input class="input" placeholder="Judul atau topik utama video essay" @bind="Topic" @bind:after="() => TopicChanged.InvokeAsync(Topic)" />
     </div>
 
     @* Outline *@
     <div class="space-y-2">
         <label class="block text-sm font-medium">Outline (opsional)</label>
-        <textarea class="input min-h-[100px] resize-y" placeholder="Garis besar atau poin-poin yang ingin dibahas" @bind="Outline"></textarea>
+        <textarea class="input min-h-[100px] resize-y" placeholder="Garis besar atau poin-poin yang ingin dibahas" @bind="Outline" @bind:after="() => OutlineChanged.InvokeAsync(Outline)"></textarea>
     </div>
 
     @* Source References *@
     <div class="space-y-2">
         <label class="block text-sm font-medium">Referensi (opsional)</label>
-        <textarea class="input min-h-[80px] resize-y" placeholder="Sumber referensi, data, atau kutipan" @bind="SourceReferences"></textarea>
+        <textarea class="input min-h-[80px] resize-y" placeholder="Sumber referensi, data, atau kutipan" @bind="SourceReferences" @bind:after="() => SourceReferencesChanged.InvokeAsync(SourceReferences)"></textarea>
     </div>
 
     @* Target Duration *@
     <div class="space-y-2">
         <label class="block text-sm font-medium">Target Durasi (menit)</label>
-        <input type="number" class="input w-32" min="5" max="60" @bind="TargetDuration" />
+        <input type="number" class="input w-32" min="5" max="60" @bind="TargetDuration" @bind:after="() => TargetDurationChanged.InvokeAsync(TargetDuration)" />
     </div>
 
     <div class="flex gap-3 pt-2">

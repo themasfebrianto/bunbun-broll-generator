@@ -59,7 +59,7 @@ public class PromptBuilder
         promptParts.Add(BuildRequirements(phase, context));
 
         // 8. Narrative quality rules (consistency, anti-redundancy, transitions, pacing, citations)
-        promptParts.Add(BuildNarrativeQualityRules(phase, phaseContext));
+        promptParts.Add(BuildNarrativeQualityRules(phase, phaseContext, context));
 
         // 9. Output format + writing quality guidelines
         promptParts.Add(BuildOutputFormatInstructions(phase, context));
@@ -343,31 +343,62 @@ Format:
         return string.Join("\n", parts);
     }
 
-    private string BuildNarrativeQualityRules(PhaseDefinition phase, PhaseContext phaseContext)
+    private string BuildNarrativeQualityRules(PhaseDefinition phase, PhaseContext phaseContext, GenerationContext context)
     {
+        var globalRules = context.Pattern.GlobalRules;
         var rules = new List<string>
         {
-            "### ATURAN KUALITAS NARASI (JAZIRAH ILMU STYLE)",
-            "",
-            "#### ⛔ STRICT NEGATIVE CONSTRAINTS (JANGAN LAKUKAN)",
-            "1. **NO META-LABELS**: JANGAN PERNAH mengucapkan label struktur seperti 'Ini adalah The Domino Effect' atau 'Kita masuk ke Critical Junction'. Label itu hanya untuk struktur pikiranmu.",
-            "2. **NO ENGLISH TERMS**: Hindari istilah Inggris jika ada padanan Indonesia yang kuat (kecuali nama diri/tempat). Jangan pakai 'Cognitive Dissonance', pakai 'pertentangan batin'.",
-            "3. **NO ADVERB CLUTTER**: Kurangi kata 'sesungguhnya', 'sejatinya', 'niscaya' yang berlebihan.",
-            "",
-            "#### STORYTELLING FLOW",
-            "- **Show, Don't Just Tell**: Jangan cuma bilang 'neraka itu seram'. Deskripsikan suaranya, panasnya, sempitnya.",
-            "- **The 'Kita' Perspective**: Selalu posisikan diri 'kita' (pembicara dan pendengar) di perahu yang sama.",
-            "- **Pacing Dinamis**: Gunakan kalimat pendek (3-5 kata) untuk *punch* emosional. Gunakan kalimat panjang untuk penjelasan mengalir.",
-            "- **Natural Transitions**: Perpindahan antar poin harus terasa seperti alur cerita yang menyambung.",
-            "",
-            "#### JEDA NAFAS (BREATHING SPACES)",
-            "- **Reflective Pause**: Setelah fakta berat/mengerikan, berikan 1 kalimat jeda untuk pemirsa mencerna. Contoh: 'Tarik napas sejenak... bayangkan jika itu kita.'",
-            "- **Variasi**: Jangan gunakan kalimat jeda yang sama berulang kali.",
-            "",
-            "#### REFERENSI & KUTIPAN",
-            "- Kutip ayat/hadits dengan hormat. Terjemahkan intinya ke dalam alur cerita.",
-            "- Jangan biarkan kutipan memutus flow emosi."
+            "### ATURAN KUALITAS NARASI & STYLE",
+            ""
         };
+
+        // 1. Tone & Voice
+        if (!string.IsNullOrWhiteSpace(globalRules.Tone))
+            rules.Add($"- **Tone**: {globalRules.Tone}");
+        
+        if (!string.IsNullOrWhiteSpace(globalRules.Voice))
+            rules.Add($"- **Voice**: {globalRules.Voice}");
+
+        // 2. Perspective & Structure
+        if (!string.IsNullOrWhiteSpace(globalRules.Perspective))
+            rules.Add($"- **Perspective**: {globalRules.Perspective}");
+
+        if (!string.IsNullOrWhiteSpace(globalRules.NarrativeStructure))
+            rules.Add($"- **Structure**: {globalRules.NarrativeStructure}");
+
+        // 3. Language & Vocabulary
+        rules.Add($"- **Language**: {globalRules.Language}");
+        
+        if (!string.IsNullOrWhiteSpace(globalRules.Vocabulary))
+            rules.Add($"- **Vocabulary**: {globalRules.Vocabulary}");
+
+        // 4. Content Requirements (Intellectual Surprise, etc)
+        if (!string.IsNullOrWhiteSpace(globalRules.IntellectualSurprise))
+            rules.Add($"- **Intellectual Surprise**: {globalRules.IntellectualSurprise}");
+
+        // 5. Additional Rules (including Authoritative Content)
+        if (globalRules.AdditionalRules != null && globalRules.AdditionalRules.Count > 0)
+        {
+            rules.Add("");
+            rules.Add("#### GUIDELINES TAMBAHAN (WAJIB DIPATUHI)");
+            foreach (var rule in globalRules.AdditionalRules)
+            {
+                // Convert JsonElement to string if necessary, or just ToString
+                rules.Add($"- **{rule.Key}**: {rule.Value}");
+            }
+        }
+
+        rules.Add("");
+        rules.Add("#### ⛔ STRICT NEGATIVE CONSTRAINTS (JANGAN LAKUKAN)");
+        rules.Add("1. **NO META-LABELS**: JANGAN PERNAH mengucapkan label struktur seperti 'Ini adalah The Domino Effect'.");
+        rules.Add("2. **NO ENGLISH TERMS**: Hindari istilah Inggris jika ada padanan Indonesia yang kuat (kecuali nama diri/tempat).");
+        rules.Add("3. **NO ADVERB CLUTTER**: Kurangi kata 'sesungguhnya', 'sejatinya', 'niscaya' yang berlebihan.");
+
+        rules.Add("");
+        rules.Add("#### STORYTELLING FLOW");
+        rules.Add("- **Show, Don't Just Tell**: Deskripsikan suaranya, panasnya, sempitnya.");
+        rules.Add("- **The 'Kita' Perspective**: Selalu posisikan diri 'kita' (pembicara dan pendengar) di perahu yang sama.");
+        rules.Add("- **Pacing Dinamis**: Gunakan kalimat pendek untuk *punch* emosional. Gunakan kalimat panjang untuk penjelasan mengalir.");
 
         // Add transition bridge rule for non-first phases
         if (!phase.IsFirstPhase && phaseContext.PreviousContent != null)
@@ -375,7 +406,6 @@ Format:
             rules.Add("");
             rules.Add("#### TRANSISI WAJIB (BRIDGE)");
             rules.Add("- WAJIB mulai fase ini dengan kalimat jembatan yang menghubungkan akhir fase sebelumnya dengan awal fase ini.");
-            rules.Add("- Jangan melompat topik tiba-tiba. Kaitkan dengan apa yang baru saja dibahas.");
         }
 
         return string.Join("\n", rules);

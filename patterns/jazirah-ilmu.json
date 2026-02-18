@@ -171,7 +171,10 @@
     "perspective": "Objective Observer. Gunakan 'Kita' untuk refleksi bersama.",
     "vocabulary": "Gunakan Bahasa Indonesia baku yang ENARIC (Enak Dibaca & Didengar). Hindari istilah sains/teknis yang membuat kening berkerut (misal: 'variabel', 'kausalitas', 'anomali data' -> GANTI DENGAN 'faktor', 'sebab-akibat', 'keanehan').",
     "narrativeStructure": "Progressive Escalation (Maju & Membesar) & High Stakes Building (Membangun Taruhan).",
-    "intellectualSurprise": "Setiap fase HARUS menyajikan minimal 1 fakta/insight baru."
+    "intellectualSurprise": "Setiap fase HARUS menyajikan minimal 1 fakta/insight baru.",
+    "authoritativeGuidelines": "Sebutkan perbedaan pendapat ulama (Khilafiyah) secara adil. Hindari narasi absolut/tunggal pada masalah khilafiyah.",
+    "referenceRequirement": "Setiap dalil/klaim agama WAJIB menyertakan referensi (Nama Kitab, Nomor Hadits, atau Derajat Hadits). Jangan kutip 'Kata Ulama' tanpa nama.",
+    "narrativeHumility": "Gunakan frasa kerendahan hati: 'Wallahu a'lam', 'Menurut sebagian pendapat', untuk menghindari kesan otoriter."
   },
   "styleCharacteristics": {
     "visualThinking": "Tulis naskah untuk MATA (Visual). Deskripsikan adegan nyata.",
