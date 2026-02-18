@@ -26,7 +26,8 @@
       "Bash(git push:*)",
       "Bash(docker build:*)",
       "Bash(docker system prune:*)",
-      "Bash(docker builder prune:*)"
+      "Bash(docker builder prune:*)",
+      "Bash(python3:*)"
     ]
   }
 }
