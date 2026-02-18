@@ -16,22 +16,24 @@
         "max": 200
       },
       "requiredElements": [
-        "Salam pembuka standar: 'Assalamualaikum warahmatullahi wabarakatuh'",
+        "Cold Open: Langsung masuk ke narasi/cerita TANPA salam pembuka",
+        "Misteri: Bangun ketegangan/pertanyaan besar sebelum menyebut topik utama",
         "Statement paradoks atau fakta kontraintuitif yang menantang asumsi umum",
-        "Sapaan audiens yang inklusif namun profesional: 'Sahabat Jazirah Ilmu' atau 'Teman-teman'",
         "Framing topik sebagai misteri intelektual, bukan sekadar nasehat moral"
       ],
       "forbiddenPatterns": [
+        "Mengucapkan salam/halo di awal audio (HARAM)",
         "Bayangkan...",
         "Pernahkah Anda berpikir...",
         "Pada kesempatan ini...",
         "Pertanyaan retoris yang klise/lemah (misal: 'Tahukah kamu?')",
         "Kalimat pembuka yang bertele-tele"
       ],
-      "guidanceTemplate": "Mulai dengan 'Cold Open' seperti dokumenter Netflix/Vox. Langsung ke inti masalah/paradoks. Contoh: 'Dunia mengira X adalah solusi, padahal data menunjukkan X adalah awal bencana. Mengapa hal ini luput dari pandangan kita?'",
+      "guidanceTemplate": "Mulai dengan 'Cold Open' seperti dokumenter Netflix/Vox. JANGAN ucapkan salam. Langsung ke inti masalah/paradoks. Contoh: 'Dunia mengira X adalah solusi, padahal data menunjukkan X adalah awal bencana. Mengapa hal ini luput dari pandangan kita?'",
       "customRules": {
         "cognitiveDisturbance": "high",
-        "hookStyle": "Investigative Mystery"
+        "hookStyle": "Investigative Mystery",
+        "coldOpen": "true"
       },
       "emotionalArc": "Intrik (Misteri) -> Skeptis (Paradoks) -> Ingin Tahu (Hook)"
     },
@@ -50,6 +52,7 @@
       "requiredElements": [
         "Minimal 2 DATA KERAS (Angka, Tahun, Nama Tokoh, Lokasi Spesifik)",
         "Studi kasus nyata atau peristiwa sejarah yang JARANG diketahui",
+        "High Stakes: Jelaskan konsekuensi vital jika masalah ini dibiarkan (e.g., Kehancuran sistem, Perang, Hilangnya iman)",
         "Definisi ulang masalah: Mengubah persepsi audiens dari 'ini masalah biasa' menjadi 'ini masalah sistemik/krusial'",
         "Kalimat transisi yang menghubungkan makro (dunia) ke mikro (kita)"
       ],
@@ -58,7 +61,7 @@
         "Kutipan dalil tanpa konteks realitas",
         "Bahasa yang terlalu abstrak/filosofis tanpa pijakan bumi"
       ],
-      "guidanceTemplate": "Jangan ceramah. Tunjukkan BUKTI. Sebutkan tahun kejadian, nama perjanjian, jumlah korban, atau statistik spesifik. Buat audiens merasa 'lebih pintar' setelah mendengar bagian ini.",
+      "guidanceTemplate": "Jangan ceramah. Tunjukkan BUKTI. Sebutkan tahun kejadian, nama perjanjian, jumlah korban, atau statistik spesifik. Jangan hanya mendefinisikan masalah; ceritakan apa yang DIPERTARUHKAN (The Stakes). Buat audiens merasa 'lebih pintar' setelah mendengar bagian ini.",
       "transitionHint": "Namun, data sejarah mencatat anomali yang mengerikan...",
       "customRules": {
         "mustHaveConcreteData": "true",
@@ -79,18 +82,19 @@
         "max": 1300
       },
       "requiredElements": [
-        "Analisis Layer 1: Sebab-akibat material/logis (Ekonomi/Sosial/Politik)",
-        "Analisis Layer 2: Psikologi manusia/behavioral science",
-        "Analisis Layer 3: Perspektif Teologis/Eskatologis (tetap rasional, bukan mistis)",
+        "The Domino Effect: Jelaskan bagaimana satu sebab kecil memicu kehancuran besar (Sebab-Akibat Material)",
+        "The Psychological Trap: Analisis sisi gelap psikologi manusia/behavioral science",
+        "The Ultimate Consequence (Eskatologi): Perspektif akhir zaman yang rasional (bukan mistis)",
         "Penggunaan istilah teknis yang tepat (misal: 'Hedonic Treadmill', 'Cognitive Dissonance', 'Istidraj')",
         "Studi kasus pembanding (Komparasi zaman dulu vs sekarang dengan detail)"
       ],
       "forbiddenPatterns": [
         "Pengulangan poin yang sama dengan kata berbeda",
         "Judgemental language ('Kita semua berdosa', 'Anda salah')",
-        "Bahasa 'langit' yang tidak membumi"
+        "Bahasa 'langit' yang tidak membumi",
+        "Menjelaskan definisi istilah tanpa konteks cerita (Kamus berjalan)"
       ],
-      "guidanceTemplate": "Gunakan struktur 'Progressive Escalation'. Masalah ini bukan cuma soal X, tapi memicu Y, dan akhirnya menghancurkan Z. Setiap paragraf harus menaikkan taruhan (raise the stakes). Gunakan perspektif multidisiplin (Sains + Agama).",
+      "guidanceTemplate": "Gunakan struktur 'Progressive Escalation'. Masalah ini bukan cuma soal X, tapi memicu Y, dan akhirnya menghancurkan Z. Setiap paragraf harus menaikkan taruhan (raise the stakes). Gunakan perspektif multidisiplin (Sains + Agama). JANGAN kaku seperti skripsi.",
       "transitionHint": "Dan di sinilah letak ironi terbesarnya...",
       "customRules": {
         "progressiveStakes": "true",
@@ -111,7 +115,7 @@
         "max": 650
       },
       "requiredElements": [
-        "Satu METAFORA VISUAL yang kuat dan orisinil (bukan klise)",
+        "Satu METAFORA VISUAL yang menyentuh PERASAAN (bukan cuma logika)",
         "Konfrontasi intelektual: Menghadapkan audiens pada pilihan logis, bukan emosional murahan",
         "Call to Mind (bukan just Call to Action): Mengubah cara pikir",
         "Penggunaan 'Silent Pauses' dalam naskah untuk efek dramatis"
@@ -162,11 +166,11 @@
     }
   ],
   "globalRules": {
-    "tone": "Video Essay Dokumenter: Cerdas tapi Membumi (Smart Casual). Hindari bahasa akademis yang kaku atau istilah teknis yang tidak perlu.",
+    "tone": "Video Essay Dokumenter: Cinematic Tension, Cerdas tapi Membumi (Smart Casual). Hindari bahasa akademis yang kaku atau istilah teknis yang tidak perlu.",
     "voice": "Investigative Journalist meets Storyteller. Bicara seperti menjelaskan ke teman pintar, bukan kuliah dosen.",
     "perspective": "Objective Observer. Gunakan 'Kita' untuk refleksi bersama.",
     "vocabulary": "Gunakan Bahasa Indonesia baku yang ENARIC (Enak Dibaca & Didengar). Hindari istilah sains/teknis yang membuat kening berkerut (misal: 'variabel', 'kausalitas', 'anomali data' -> GANTI DENGAN 'faktor', 'sebab-akibat', 'keanehan').",
-    "narrativeStructure": "Progressive (Maju & Membesar).",
+    "narrativeStructure": "Progressive Escalation (Maju & Membesar) & High Stakes Building (Membangun Taruhan).",
     "intellectualSurprise": "Setiap fase HARUS menyajikan minimal 1 fakta/insight baru."
   },
   "styleCharacteristics": {

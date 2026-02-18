@@ -104,7 +104,11 @@ public class PromptBuilder
             instructions.Add($"Channel: {context.Config.ChannelName}");
         }
 
-        // Note: Outline is distributed per-phase via OutlinePlanner, not placed here globally
+        // Always include global outline for context
+        if (!string.IsNullOrEmpty(context.Config.Outline))
+        {
+            instructions.Add($"Outline Global: {context.Config.Outline}");
+        }
 
         if (!string.IsNullOrEmpty(context.Config.SourceReferences))
         {
@@ -122,7 +126,7 @@ public class PromptBuilder
             $"Phase ID: {phase.Id}",
             $"Durasi Target: {phase.DurationTarget.Min}-{phase.DurationTarget.Max} detik",
             $"Target Kata: {phase.WordCountTarget.Min}-{phase.WordCountTarget.Max} kata",
-            $"⚠️ BATAS KATA KERAS: JANGAN melebihi {phase.WordCountTarget.Max} kata. Konten yang melebihi batas akan DITOLAK. Lebih baik padat dan bermakna daripada panjang bertele-tele."
+            $"⚠️ BATAS KATA KERAS: JANGAN melebihi {phase.WordCountTarget.Max} kata."
         };
 
         if (!string.IsNullOrWhiteSpace(phase.GuidanceTemplate))
@@ -132,26 +136,21 @@ public class PromptBuilder
 
         if (!string.IsNullOrWhiteSpace(phase.EmotionalArc))
         {
-            parts.Add($"\n### ALUR EMOSI FASE INI");
-            parts.Add($"Ikuti kurva emosi berikut dalam penulisan: {phase.EmotionalArc}");
-            parts.Add("Setiap transisi emosi (→) harus terasa NATURAL, bukan tiba-tiba. Gunakan kalimat jembatan emosional.");
+            parts.Add($"\n### ALUR EMOSI");
+            parts.Add($"Kurva Emosi: {phase.EmotionalArc}");
+            parts.Add("Transisi emosi harus mengalir alami (smooth liquid transition). Jangan patah-patah.");
         }
 
         if (!string.IsNullOrWhiteSpace(phase.TransitionHint) && !phase.IsFirstPhase)
         {
-            parts.Add($"\n⚠️ TRANSISI WAJIB: Mulai fase ini dengan kalimat jembatan yang alami.");
-            parts.Add($"Contoh transisi: \"{phase.TransitionHint}\"");
-            parts.Add("Kamu BOLEH memodifikasi contoh di atas, tapi WAJIB ada kalimat penghubung di awal yang mengaitkan konteks sebelumnya ke konten baru.");
-        }
-        else if (!phase.IsFirstPhase)
-        {
-            parts.Add($"\n⚠️ TRANSISI WAJIB: Mulai fase ini dengan kalimat jembatan singkat yang menghubungkan konteks sebelumnya ke konten baru. Jangan langsung lompat ke materi baru tanpa pengait.");
+            parts.Add($"\n⚠️ TRANSISI: Mulai dengan 'Kyōkan Bridge' (Jembatan Empati).");
+            parts.Add($"Contoh: \"{phase.TransitionHint}\"");
         }
 
         // Include customRules as explicit instructions
         if (phase.CustomRules.Count > 0)
         {
-            parts.Add("\n### ATURAN KHUSUS FASE INI");
+            parts.Add("\n### ATURAN KHUSUS");
             foreach (var rule in phase.CustomRules)
             {
                 var ruleInstruction = FormatCustomRule(rule.Key, rule.Value, context);
@@ -161,18 +160,19 @@ public class PromptBuilder
         }
 
         // Add channel greeting instruction ONLY for the first phase
-        if (phase.IsFirstPhase && !string.IsNullOrEmpty(context.Config.ChannelName))
+        bool isColdOpen = phase.CustomRules.TryGetValue("coldOpen", out var isCold) && isCold == "true";
+        if (phase.IsFirstPhase && !string.IsNullOrEmpty(context.Config.ChannelName) && !isColdOpen)
         {
-            parts.Add($"\nNOTE: Saat memulai script ini (karena ini Fase 1), WAJIB menyapa pemirsa dengan menyebutkan nama channel \"{context.Config.ChannelName}\".");
+            parts.Add($"\nNOTE: Mulai dengan sapaan khas channel \"{context.Config.ChannelName}\".");
         }
         else if (!phase.IsFirstPhase)
         {
-            parts.Add("\n⛔ DILARANG: JANGAN ulangi salam pembuka (Assalamualaikum/Bismillah) atau menyebutkan nama channel lagi di fase ini. Salam pembuka sudah ada di fase pertama. Langsung mulai dengan kalimat jembatan/transisi ke konten baru.");
+            parts.Add("\n⛔ NO GREETING: JANGAN mengulang salam pembuka. Langsung masuk ke konten.");
         }
 
         if (phase.IsFinalPhase)
         {
-            parts.Add("\n⚠️ IMPORTANT: This is the FINAL phase. Provide a conclusive ending, not a continuation.");
+            parts.Add("\n⚠️ PHASE TERAKHIR: Berikan konklusi yang mendalam (open loop/reflective).");
         }
 
         return string.Join("\n", parts);
@@ -256,10 +256,11 @@ public class PromptBuilder
         }
 
         // Add closing formula for final phase
-        if (phase.IsFinalPhase && !string.IsNullOrEmpty(context.Pattern.ClosingFormula))
+        if (phase.IsFinalPhase)
         {
             requirements.Add($"\n### FORMULA PENUTUP");
-            requirements.Add($"WAJIB akhiri script dengan: \"{context.Pattern.ClosingFormula}\"");
+            requirements.Add($"WAJIB akhiri script dengan kalimat persis berikut (Jazirah Ilmu Style):");
+            requirements.Add("\"Wallahuam bissawab. Semoga kisah ini bermanfaat. Lebih dan kurangnya mohon dimaafkan. Yang benar datangnya dari Allah Subhanahu wa taala. Khilaf atau keliru itu datangnya dari saya pribadi sebagai manusia biasa. Sampai ketemu di kisah-kisah seru yang penuh makna selanjutnya. Saya akhiri wassalamualaikum warahmatullahi wabarakatuh.\"");
         }
 
         return string.Join("\n", requirements);
@@ -271,39 +272,33 @@ public class PromptBuilder
         {
             @"### OUTPUT FORMAT
 
-Output harus dalam format markdown dengan struktur berikut:
+Output harus SANGAT SEDERHANA.
+HANYA tuliskan Timestamp dan Narasi.
+JANGAN gunakan header (## Judul), JANGAN pakai label [Visual]/[Audio].
+JANGAN gunakan label beat/meta-comments.
 
-## [Nama Phase]
+Format:
+[00:00] Narasi dimulai di sini...
 
-[Konten dalam bahasa Indonesia dengan gaya conversational]
+[00:15] Narasi berlanjut...
 
-Gunakan timestamp format [MM:SS] HANYA di AWAL kalimat atau paragraf baru, JANGAN di tengah atau akhir kalimat.
-Contoh yang BENAR: [01:10] Namun, untuk memahami mengapa riba begitu berbahaya...
-Contoh yang SALAH: Namun, untuk memahami mengapa riba begitu berbahaya... [01:10]
-Gunakan marker [Musik], [Efek] untuk transisi audio.
-Gunakan (dengan suara bergetar), (tertawa) untuk TTS emotion.
+... dan seterusnya.
 
-### TTS OPTIMIZATION
-- Preferable: 20-30 kata per kalimat
-- Maximum: 35 kata per kalimat
-- Gunakan ellipsis (...) untuk pause dramatis
-- Berikan jeda (double newline) untuk ganti paragraf
+### ATURAN FORMAT PENTING:
+1.  **No Headers**: JANGAN gunakan judul/header apapun. Langsung mulai dengan timestamp pertama.
+2.  **No Labels**: Hapus semua label seperti `[Visual]`, `[Audio]`, `**The Domino Effect**`.
+3.  **No Beat Labels**: Beat hanya untuk struktur pikiranmu. Jangan ditulis di output.
+4.  **Meta-Comments**: Jangan masukkan instruksi audio/musik. Fokus pada teks yang akan dibaca.
 
-### WRITING STYLE
-- Bahasa Indonesia conversational, bukan formal
-- Gunakan marker: 'mari kita', 'sahabat', 'simak'
-- Hormati honorifics lengkap (SAW, AS, SWT)
-
-### KESEIMBANGAN GAYA: INTELEKTUAL dengan SENTUHAN PUITIS MINIMAL
-- MAYORITAS kalimat (90-95%) harus NATURAL, ANALITIS, dan TO THE POINT — fokus pada penyampaian ide dan argumen dengan jelas
-- Gunakan pendekatan EDUKATIF: jelaskan konsep, berikan konteks, analisis sebab-akibat, bandingkan perspektif
-- Kalimat puitis/metaforis BOLEH digunakan SANGAT SESEKALI (1 kali per fase, maksimal 2 di fase panjang) HANYA di momen puncak emosi yang sangat penting
-- JANGAN membuka kalimat dengan metafora — mulailah dengan fakta, pertanyaan pemikir, atau pernyataan analitis
-- HINDARI frasa-frasa 'halus AI' yang berlebihan seperti: 'menelusuri jejak', 'berdenyut', 'tergelar di hadapan', 'memeluk makna', 'merangkum hikmah', 'membentang cakrawala', 'menyelinap', 'menyatu dalam harmoni', 'meretas batas'
-- GANTI dengan bahasa yang lugas: 'mari kita pelajari', 'perhatikan bahwa', 'analisis ini menunjukkan', 'fakta yang menarik adalah'
-- Contoh BURUK: 'Selamat datang di ruang bagi kita untuk menelusuri jejak-jejak masa lalu yang masih berdenyut hingga hari ini.'
-- Contoh BAIK: 'Mari kita telusuri fakta sejarah ini — karena di dalamnya tersimpan pelajaran yang masih relevan hingga kini.'
-- Prinsip: tulis seolah kamu MEMBIMBING diskusi intelektual dengan teman yang cerdas — prioritaskan SUBSTANSI pemikiran atas keindahan kata-kata"
+### GAYA PENULISAN: PHILOSOPHICAL STORYTELLER (JAZIRAH ILMU STYLE)
+- **Persona**: Kamu adalah seorang pencerita yang bijak, reflektif, dan mengajak pemirsa merenung (contemplative). Kamu bukan dosen yang kaku, tapi sahabat yang mengajak diskusi mendalam.
+- **Tone**: Religius-Intelektual tapi Rendah Hati. Gunakan kata 'Kita' untuk merangkul pemirsa. Hindari nada menggurui.
+- **Diction (Pilihan Kata)**:
+    -   HINDARI: Istilah akademis kering ('signifikansi', 'implikasi', 'paradoks teologis', 'infrastruktur fisik').
+    -   GUNAKAN: Kata-kata yang menyentuh hati ('titik rapuh', 'jejak', 'gema', 'kenyataan pahit', 'cahaya', 'kegelapan').
+    -   HINDARI: Frasa 'AI-banget' ('menelusuri jejak', 'merajut makna', 'simfoni kehidupan'). Ganti dengan kalimat langsung yang kuat.
+-   **Koneksi Emosional**: Setiap fakta harus punya relevansi emosional dengan pemirsa. Jangan cuma sampaikan data, sampaikan *rasanya*.
+-   **Structure**: Mulai dari fenomena umum/filosofis -> Masuk ke topik spesifik -> Akhiri dengan refleksi moral/spiritual."
         };
 
         // Add production checklist as writing guidelines
@@ -352,51 +347,35 @@ Gunakan (dengan suara bergetar), (tertawa) untuk TTS emotion.
     {
         var rules = new List<string>
         {
-            "### ATURAN KUALITAS NARASI",
+            "### ATURAN KUALITAS NARASI (JAZIRAH ILMU STYLE)",
             "",
-            "#### KONSISTENSI",
-            "- Jika menyebutkan alat, istilah, atau atribut (mis. cincin Sulaiman → cahaya beriman, tongkat Musa → tanda hitam kafir), TETAPKAN satu versi di awal dan gunakan KONSISTEN.",
-            "- JANGAN membalik peran/fungsi/atribut di paragraf selanjutnya.",
-            "- Jika ada variasi riwayat, sebutkan SEKALI bahwa ada perbedaan pendapat, lalu pilih SATU versi untuk digunakan.",
+            "#### ⛔ STRICT NEGATIVE CONSTRAINTS (JANGAN LAKUKAN)",
+            "1. **NO META-LABELS**: JANGAN PERNAH mengucapkan label struktur seperti 'Ini adalah The Domino Effect' atau 'Kita masuk ke Critical Junction'. Label itu hanya untuk struktur pikiranmu.",
+            "2. **NO ENGLISH TERMS**: Hindari istilah Inggris jika ada padanan Indonesia yang kuat (kecuali nama diri/tempat). Jangan pakai 'Cognitive Dissonance', pakai 'pertentangan batin'.",
+            "3. **NO ADVERB CLUTTER**: Kurangi kata 'sesungguhnya', 'sejatinya', 'niscaya' yang berlebihan.",
             "",
-            "#### ANTI-REDUNDANSI TEMATIK",
-            "- Setiap fase memiliki FOKUS UNIK. JANGAN ulangi klaim dasar yang sama dari fase sebelumnya.",
-            "- Contoh BURUK: mengulang 'Dabbah menyingkap topeng manusia' di setiap fase.",
-            "- Contoh BAIK: Fase 2 jelaskan APA, Fase 3 jelaskan DAMPAK PSIKOLOGIS, Fase 4 jelaskan IMPLIKASI SOSIAL.",
+            "#### STORYTELLING FLOW",
+            "- **Show, Don't Just Tell**: Jangan cuma bilang 'neraka itu seram'. Deskripsikan suaranya, panasnya, sempitnya.",
+            "- **The 'Kita' Perspective**: Selalu posisikan diri 'kita' (pembicara dan pendengar) di perahu yang sama.",
+            "- **Pacing Dinamis**: Gunakan kalimat pendek (3-5 kata) untuk *punch* emosional. Gunakan kalimat panjang untuk penjelasan mengalir.",
+            "- **Natural Transitions**: Perpindahan antar poin harus terasa seperti alur cerita yang menyambung.",
             "",
-            "#### PACING & DINAMIKA",
-            "- Variasikan panjang kalimat: PENDEK (5-10 kata) untuk momen dramatis, PANJANG (20-30 kata) untuk narasi mengalir.",
-            "- Gunakan jeda dramatis (...) SEBELUM momen puncak atau pengungkapan penting.",
-            "- Turunkan intensitas sebelum klimaks, lalu naikkan tajam — buat kontras emosional.",
-            "- Contoh: '...dan di sinilah... kebenaran itu terungkap.' (jeda → pengungkapan)",
+            "#### JEDA NAFAS (BREATHING SPACES)",
+            "- **Reflective Pause**: Setelah fakta berat/mengerikan, berikan 1 kalimat jeda untuk pemirsa mencerna. Contoh: 'Tarik napas sejenak... bayangkan jika itu kita.'",
+            "- **Variasi**: Jangan gunakan kalimat jeda yang sama berulang kali.",
             "",
-            "#### JEDA NAFAS EMOSIONAL (BREATHING MARKS)",
-            "- WAJIB: Setelah setiap 2-3 paragraf dengan intensitas tinggi, sisipkan 1-2 kalimat PELAN dan REFLEKTIF sebagai 'nafas' bagi pendengar.",
-            "- WAJIB: Setelah kutipan ayat/hadits yang berat, beri 1 kalimat jeda perenungan sebelum melanjutkan.",
-            "- WAJIB: Sebelum momen puncak (climax statement), TURUNKAN nada terlebih dahulu agar kontrasnya terasa kuat.",
-            "- JANGAN: 5+ paragraf berturut-turut dengan intensitas tinggi — pendengar akan kebal dan kehilangan dampak.",
-            "- Teknik jeda: Gunakan kalimat pendek bernada tenang, pertanyaan retoris lembut, atau deskripsi visual yang menenangkan.",
-            "- PENTING: VARIASIKAN kalimat jeda Anda. JANGAN gunakan kalimat yang sama berulang kali.",
-            "- Opsi Variasi (PILIH SATU atau BUAT SENDIRI, jangan diulang):",
-            "  1. 'Tarik napas sejenak... dan rasakan beratnya fakta ini.'",
-            "  2. 'Mari kita berhenti sebentar. Biarkan logika akal kita mencernanya.'",
-            "  3. 'Bayangkan keheningan di detik itu...'",
-            "  4. 'Di titik ini, ada baiknya kita bertanya pada nurani sendiri.'",
-            "  5. 'Resapi kalimat tersebut. Bukan dengan telinga, tapi dengan hati.'",
-            "",
-            "#### KONSOLIDASI KUTIPAN",
-            "- Kutip ayat Al-Quran, hadits, atau sumber referensi secara LENGKAP hanya SATU KALI di posisi paling strategis.",
-            "- Setelah kutipan pertama, gunakan referensi singkat: 'sebagaimana ayat tadi', 'seperti yang telah disebutkan', dll.",
-            "- JANGAN kutip teks yang sama secara penuh lebih dari sekali dalam keseluruhan script."
+            "#### REFERENSI & KUTIPAN",
+            "- Kutip ayat/hadits dengan hormat. Terjemahkan intinya ke dalam alur cerita.",
+            "- Jangan biarkan kutipan memutus flow emosi."
         };
 
         // Add transition bridge rule for non-first phases
         if (!phase.IsFirstPhase && phaseContext.PreviousContent != null)
         {
-            rules.Insert(rules.IndexOf("", rules.IndexOf("#### ANTI-REDUNDANSI TEMATIK")), "#### KALIMAT JEMBATAN");
-            rules.Insert(rules.IndexOf("#### KALIMAT JEMBATAN") + 1, "- WAJIB mulai fase ini dengan kalimat jembatan yang menghubungkan konteks sebelumnya ke konten baru.");
-            rules.Insert(rules.IndexOf("- WAJIB mulai fase ini dengan kalimat jembatan yang menghubungkan konteks sebelumnya ke konten baru.") + 1, "- Contoh: 'Setelah kita tahu dari mana ia muncul, mari lihat rupa dan tanda yang dibawanya — karena di sanalah pesan ilahi itu terwujud.'");
-            rules.Insert(rules.IndexOf("- Contoh: 'Setelah kita tahu dari mana ia muncul, mari lihat rupa dan tanda yang dibawanya — karena di sanalah pesan ilahi itu terwujud.'") + 1, "");
+            rules.Add("");
+            rules.Add("#### TRANSISI WAJIB (BRIDGE)");
+            rules.Add("- WAJIB mulai fase ini dengan kalimat jembatan yang menghubungkan akhir fase sebelumnya dengan awal fase ini.");
+            rules.Add("- Jangan melompat topik tiba-tiba. Kaitkan dengan apa yang baru saja dibahas.");
         }
 
         return string.Join("\n", rules);

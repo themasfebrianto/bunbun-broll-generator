@@ -49,7 +49,7 @@ public class ScriptOrchestrator : IScriptOrchestrator
         ScriptConfig config, string patternId, string? customId = null)
     {
         var pattern = _patternRegistry.Get(patternId)
-            ?? throw new ArgumentException($"Pattern '{patternId}' not found");
+            ?? throw new ArgumentException($"STRICT MODE: Pattern '{patternId}' not found. Cannot initialize session.");
 
         var sessionId = customId ?? Guid.NewGuid().ToString("N")[..8];
         var baseDir = _configuration["ScriptOutput:BaseDirectory"] ?? "output";
@@ -138,7 +138,7 @@ public class ScriptOrchestrator : IScriptOrchestrator
             ?? throw new ArgumentException($"Session '{sessionId}' not found");
 
         var pattern = _patternRegistry.Get(session.PatternId)
-            ?? throw new InvalidOperationException($"Pattern '{session.PatternId}' not found");
+            ?? throw new InvalidOperationException($"STRICT MODE: Pattern '{session.PatternId}' not found. Cannot generate script. Please check if the pattern file exists.");
 
         var context = new GenerationContext
         {
@@ -259,17 +259,41 @@ public class ScriptOrchestrator : IScriptOrchestrator
 
         if (hasOutline || hasBeats)
         {
-            OnSessionProgress?.Invoke(this, new SessionProgressEventArgs
-            {
-                SessionId = session.Id,
-                Status = "Planning",
-                CompletedPhases = 0,
-                TotalPhases = orderedPhases.Count,
-                Message = "📋 Mendistribusikan outline dan story beats ke setiap fase..."
-            });
+            bool skipOutlinePlanning = false;
 
-            if (hasOutline)
+            // 1. Distribute beats FIRST to check for explicit assignment
+            if (hasBeats)
             {
+                var beatDistribution = DistributeBeatsAcrossPhases(context.Config.MustHaveBeats!, orderedPhases);
+                context.SetSharedData("beatDistribution", beatDistribution);
+                
+                _logger.LogInformation("Distributed {BeatCount} beats across {PhaseCount} phases",
+                    context.Config.MustHaveBeats!.Count, beatDistribution.Count);
+
+                // Heuristic: If we successfully distributed beats and the input contained explicit prefixes,
+                // we can assume the "planning" is already done by the specific beats.
+                // We check if at least one beat had a valid prefix format corresponding to a phase.
+                bool hasExplicitPrefixes = context.Config.MustHaveBeats.Any(b => b.Trim().StartsWith("[") && b.Contains("]:"));
+                
+                if (hasExplicitPrefixes)
+                {
+                    skipOutlinePlanning = true;
+                    _logger.LogInformation("Explicit beats detected. Skipping LLM Outline Planner.");
+                }
+            }
+
+            // 2. Run OutlinePlanner ONLY if not skipped
+            if (hasOutline && !skipOutlinePlanning)
+            {
+                OnSessionProgress?.Invoke(this, new SessionProgressEventArgs
+                {
+                    SessionId = session.Id,
+                    Status = "Planning",
+                    CompletedPhases = 0,
+                    TotalPhases = orderedPhases.Count,
+                    Message = "📋 Mendistribusikan outline ke setiap fase (LLM)..."
+                });
+
                 var outlinePlanner = new OutlinePlanner(_intelligenceService, _logger);
                 var distribution = await outlinePlanner.DistributeAsync(
                     context.Config.Outline!,
@@ -285,22 +309,13 @@ public class ScriptOrchestrator : IScriptOrchestrator
                 }
             }
 
-            // Distribute beats proportionally across phases
-            if (hasBeats)
-            {
-                var beatDistribution = DistributeBeatsAcrossPhases(context.Config.MustHaveBeats!, orderedPhases);
-                context.SetSharedData("beatDistribution", beatDistribution);
-                _logger.LogInformation("Distributed {BeatCount} beats across {PhaseCount} phases",
-                    context.Config.MustHaveBeats!.Count, beatDistribution.Count);
-            }
-
             OnSessionProgress?.Invoke(this, new SessionProgressEventArgs
             {
                 SessionId = session.Id,
                 Status = "Planning",
                 CompletedPhases = 0,
                 TotalPhases = orderedPhases.Count,
-                Message = $"✅ Outline & beats terdistribusi ke {orderedPhases.Count} fase"
+                Message = $"✅ Planning selesai. Siap memulai penulisan."
             });
         }
 
@@ -677,8 +692,9 @@ public class ScriptOrchestrator : IScriptOrchestrator
     }
 
     /// <summary>
-    /// Distribute story beats proportionally across phases based on their duration weights.
-    /// Opening/closing get fewer beats; core content phases get more.
+    /// Distribute story beats across phases.
+    /// Supports explicit assignment via "[PhaseName]: Beat..." prefix.
+    /// Falls back to proportional distribution if no prefixes are found.
     /// </summary>
     private static Dictionary<string, List<string>> DistributeBeatsAcrossPhases(
         List<string> beats, List<PhaseDefinition> phases)
@@ -686,6 +702,48 @@ public class ScriptOrchestrator : IScriptOrchestrator
         var result = new Dictionary<string, List<string>>();
         if (beats.Count == 0 || phases.Count == 0) return result;
 
+        // 1. Check for explicit phase prefixes (e.g., "[Cold Open]: ...")
+        bool hasExplicitPrefixes = false;
+        var pendingBeats = new List<string>();
+
+        foreach (var beat in beats)
+        {
+            bool matchFound = false;
+            foreach (var phase in phases)
+            {
+                // check if beat starts with [PhaseName] (case insensitive)
+                if (beat.TrimStart().StartsWith($"[{phase.Name}]", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (!result.ContainsKey(phase.Id)) result[phase.Id] = new List<string>();
+                    
+                    // Remove prefix for cleaner output
+                    var cleanBeat = beat.Substring(beat.IndexOf(']') + 1).Trim();
+                    if (cleanBeat.StartsWith(":")) cleanBeat = cleanBeat.Substring(1).Trim();
+                    
+                    result[phase.Id].Add(cleanBeat);
+                    matchFound = true;
+                    hasExplicitPrefixes = true;
+                    break;
+                }
+            }
+            if (!matchFound)
+            {
+                pendingBeats.Add(beat);
+            }
+        }
+
+        // If we found explicit prefixes, we return what we found
+        // Use pending beats as fallback for phases that got nothing? 
+        // Or just let them be generic/distributed?
+        if (hasExplicitPrefixes)
+        {
+            // If some beats didn't match, maybe distribute them to the largest phase or first phase?
+            // For now, let's just return the explicit mapping.
+            // If a phase has NO beats, it's fine, the generator will just use the outline/guidance.
+            return result;
+        }
+
+        // 2. Fallback: Proportional Distribution (Legacy Logic)
         // Calculate weight for each phase based on avg duration
         var phaseWeights = phases.Select(p =>
             (p.DurationTarget.Min + p.DurationTarget.Max) / 2.0).ToList();

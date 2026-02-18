@@ -497,6 +497,15 @@
             return;
         }
 
+        // Find selected pattern
+        var selectedPattern = _availablePatterns.FirstOrDefault(p => p.Id == _batchPatternId);
+        if (selectedPattern == null)
+        {
+            _batchError = "Error: Pattern tidak valid atau belum dipilih.";
+            Console.WriteLine("[DEBUG] Validation failed: Pattern invalid or not selected.");
+            return;
+        }
+
         _isBatchGenerating = true;
         _batchError = null;
         _batchResults.Clear();
@@ -513,7 +522,7 @@
                 InvokeAsync(StateHasChanged);
             };
 
-            var configs = await BatchGenerator.GenerateConfigsAsync(_batchTheme, _batchChannelName, _batchCount, _batchSeed, onProgress);
+            var configs = await BatchGenerator.GenerateConfigsAsync(_batchTheme, _batchChannelName, _batchCount, selectedPattern, _batchSeed, onProgress);
             Console.WriteLine($"[DEBUG] BatchGenerator returned {configs.Count} configs.");
             
             if (configs.Count == 0)

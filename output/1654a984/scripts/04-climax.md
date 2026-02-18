@@ -1,23 +1,31 @@
 ## The Critical Junction (Reality Check)
 
-[08:40] Maka, kita tersudut pada satu pertanyaan yang tak bisa dihindari... Siapa sebenarnya "tuhan" yang kita layani selama ini?
+[00:00] [Musik: Dentum bass tunggal yang berat, diikuti hening sejenak, lalu masuk nada minimalis yang tajam dan mendesak]
 
-[08:50] Sirat bukan sekadar jembatan. Ia adalah *Final Audit*. Audit yang brutal dan jujur. Di dunia, lisan kita mudah berteriak "Allahu Akbar". Kita fasih mengaku hamba Allah. Tapi Sirat tidak memindai ucapan. Ia memindai prioritas.
+Jika Sirat adalah manifestasi dari kondisi batin kita, maka kita tersudut pada satu pertanyaan brutal: Siapa "tuhan" yang sebenarnya kita layani selama ini?
 
-[09:08] Jika seumur hidup kita lebih takut dimarahi atasan daripada menunda waktu shalat, maka secara teknis, atasan itulah "tuhan" kecil kita. Jika kita lebih takut terlihat miskin di mata tetangga daripada memakan riba, maka gengsi adalah berhala kita. Sirat menelanjangi politeisme tersembunyi ini.
+[00:15] Secara lisan, mudah bagi kita menjawab Allah. Namun, data perilaku kita sering menunjukkan anomali.
 
-[09:30] Mari gunakan metafora visual ini: Bayangkan Anda dipaksa meniti seutas benang tipis di atas jurang. Namun, alih-alih meringankan beban, Anda justru bersikeras memikul brankas besi berisi emas curian di punggung Anda.
+Perhatikan ke mana arah panik kita saat masalah datang. Apakah kita lari ke sujud, atau lari ke saldo rekening? Perhatikan apa yang membuat kita rela begadang. Apakah demi munajat, atau demi mengejar validasi sosial dan *deadline* duniawi?
 
-[09:47] Gila? Tidak masuk akal?
+[00:35] Inilah inti masalahnya. Sirat adalah jembatan menuju Allah.
 
-[09:50] Itulah realitas kita saat mengambil KPR ribawi demi rumah impian. Atau saat kita memakan gaji dari pekerjaan haram demi status sosial. Kita mengira itu aset. Kita sebut itu investasi masa depan. Padahal di atas hukum fisika Sirat, itu adalah pemberat gravitasional. Itu adalah "kargo kematian".
+Secara logika, mustahil seseorang bisa melintasi jembatan menuju Allah dengan selamat, jika seumur hidupnya ia berjalan menuju arah yang berlawanan. Kita tidak bisa menghabiskan usia mengejar materi, lalu berharap kaki kita otomatis melangkah ke surga. Itu cacat logika.
 
-[10:13] Ingat kembali fungsi *Kalalib* atau kait besi tadi. Kait-kait itu bekerja seperti magnet. Setiap rupiah haram yang mendarah daging dalam tubuh kita, ia memancarkan sinyal. Ia memanggil kait-kait neraka itu untuk menyambar. Besi bertemu besi. Kegelapan menyambar kegelapan.
+[00:55] Bayangkan metafora visual ini.
 
-[10:33] Hening sejenak... Tanyakan pada nurani Anda sekarang.
+Kita sedang bersiap meniti tali baja di ketinggian ribuan kaki. Logikanya, kita harus membuang semua beban agar ringan dan seimbang. Namun, apa yang kita lakukan hari ini justru sebaliknya. Kita dengan sadar mengikatkan pemberat timah ke kaki kita sendiri.
 
-[10:40] Apakah validasi sosial yang fana itu sebanding dengan risiko jatuh ke dalam api yang menyala? Apakah rumah mewah yang "dibeli" dengan perang melawan Allah itu layak dipertahankan, jika harganya adalah robeknya daging kita di akhirat nanti?
+[01:15] Tanda tangan kontrak KPR Riba yang kita anggap solusi hunian? Itu pemberat timah. Jabatan yang diraih dengan menyikut kawan? Itu pemberat. Gaya hidup hedonis demi *feed* Instagram? Itu adalah beban yang memadamkan cahaya navigasi kita.
 
-[10:58] Sirat tidak peduli seberapa tinggi jabatan Anda di LinkedIn. Ia tidak peduli seberapa banyak *followers* Anda. Ia hanya peduli pada satu variabel: Berat Jenis Dosa.
+[01:35] Kita sedang "memberi makan" para *Kalalib* di bawah sana.
 
-[11:10] Semakin kita mengejar dunia dengan cara yang salah, semakin berat langkah kita. Dan di atas titian setajam pedang, menjadi berat berarti menjadi target. Satu-satunya cara untuk selamat bukan dengan berlari lebih kencang, tapi dengan berani melepaskan beban-beban haram itu... sekarang juga. Sebelum kita dipaksa melepaskannya di tengah jembatan.
+Setiap rupiah haram yang masuk ke tubuh, secara metafisik meningkatkan daya tarik magnetik antara tubuh kita dan besi pengait neraka. Kita tidak sedang dihukum oleh Tuhan yang kejam. Kita sedang menjatuhkan diri sendiri karena berat jenis dosa yang kita gendong dengan sukarela.
+
+[01:58] Di titik ini, ada baiknya kita bertanya pada nurani sendiri.
+
+[02:05] Sirat tidak menerima negosiasi. Ia adalah audit final yang objektif.
+
+Hukumnya biner: Jika orientasi hidup kita adalah dunia, gravitasi Sirat akan menarik kita ke tempat dunia itu berakhir—yaitu kehancuran. Namun jika orientasi kita adalah Allah, maka hukum fisika akhirat akan meringankan langkah kita, melawan segala ketidakmungkinan.
+
+[02:25] Jadi, Sirat bukanlah sekadar ujian ketangkasan. Ia adalah pembuktian cinta. Ke mana hati ini sebenarnya tertuju? Ke Sang Pencipta, atau ke makhluk ciptaan-Nya?

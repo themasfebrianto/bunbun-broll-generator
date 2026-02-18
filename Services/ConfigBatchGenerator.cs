@@ -20,12 +20,17 @@ public class ConfigBatchGenerator
         _logger = logger;
     }
 
-    public async Task<List<GeneratedConfig>> GenerateConfigsAsync(string theme, string channelName, int count, string? seed = null, Action<int, int>? onProgress = null, CancellationToken cancellationToken = default)
+    public async Task<List<GeneratedConfig>> GenerateConfigsAsync(string theme, string channelName, int count, ScriptPattern? pattern, string? seed = null, Action<int, int>? onProgress = null, CancellationToken cancellationToken = default)
     {
         var generatedConfigs = new List<GeneratedConfig>();
         var generatedTopics = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        _logger.LogInformation("Starting sequential generation of {Count} configs for theme '{Theme}'", count, theme);
+        _logger.LogInformation("Starting sequential generation of {Count} configs for theme '{Theme}' using pattern '{Pattern}'", count, theme, pattern?.Name ?? "Unknown");
+
+        if (pattern == null)
+        {
+            throw new ArgumentNullException(nameof(pattern), "Pattern configuration is missing or invalid. Batch generation requires a valid pattern.");
+        }
 
         for (int i = 0; i < count; i++)
         {
@@ -39,8 +44,8 @@ public class ConfigBatchGenerator
                 {
                     onProgress?.Invoke(currentNumber, count);
 
-                    // 1. Build context-aware prompt focusing on CREDIBLE SOURCES
-                    var prompt = BuildSingleConfigPrompt(theme, channelName, seed, generatedTopics);
+                    // 1. Build context-aware prompt focusing on CREDIBLE SOURCES and PATTERN STRUCTURE
+                    var prompt = BuildSingleConfigPrompt(theme, channelName, seed, generatedTopics, pattern);
 
                     _logger.LogInformation("Generating config {Current}/{Total} (Attempt {Retry})", currentNumber, count, retryCount + 1);
                     
@@ -87,11 +92,18 @@ public class ConfigBatchGenerator
         return generatedConfigs;
     }
 
-    private string BuildSingleConfigPrompt(string theme, string channelName, string? seed, HashSet<string> existingTopics)
+    private string BuildSingleConfigPrompt(string theme, string channelName, string? seed, HashSet<string> existingTopics, ScriptPattern pattern)
     {
         var context = existingTopics.Any()
             ? $"\nCONTEXT - DO NOT REPEAT THESE TOPICS:\n- {string.Join("\n- ", existingTopics)}"
             : "";
+
+        // Construct dynamic phase structure from the pattern
+        var orderedPhases = pattern.Configuration.GetOrderedPhases().ToList();
+        var structureGuidance = string.Join("\n", orderedPhases.Select((p, i) => 
+            $"{i + 1}. {p.Name}: {p.GuidanceTemplate}"));
+
+        var beatCount = orderedPhases.Count;
 
         return $@"
 Generate 1 (ONE) unique video configuration JSON for channel '{channelName}'.
@@ -107,8 +119,15 @@ Seed/Instruction: {seed ?? "None"}
 1. TITLE (Topic): High CTR but Elegant. Use 'Storytelling' hooks. (e.g., 'Misteri...', 'Alasan Kenapa...', 'Detik-detik...'). No Clickbait shouting.
 2. DURATION: Between 15 - 35 minutes.
 3. SOURCES (SourceReferences): THIS IS CRITICAL. You must cite specific valid sources (Quran Surah:Ayat, Hadith Narrator/Number, Name of Classical Kitab/Book). Do NOT make this up.
-4. BEATS: Create narrative beats based on duration (Duration / 2.5 = number of beats).
-   - Beats must be narrative steps (Hook -> Conflict -> Dalil/Evidence -> Resolution).
+
+=== REQUIRED STORY STRUCTURE ===
+You MUST generate detailed 'mustHaveBeats' for EACH phase to ensure depth.
+Follow this structure exactly:
+
+{structureGuidance}
+
+For EACH phase above, generate 3-5 specific story beats (bullet points of what happens).
+Format each beat string as: ""[Phase Name]: Beat description...""
 
 === OUTPUT FORMAT (STRICT JSON) ===
 Return ONLY this JSON structure (no markdown text):
@@ -118,10 +137,12 @@ Return ONLY this JSON structure (no markdown text):
   ""outline"": ""Ringkasan alur cerita dalam 2-3 kalimat..."",
   ""sourceReferences"": ""QS. Al-Mulk: 1-5, HR. Muslim No. 203, Kitab Al-Bidaya wan Nihaya Vol 3, Jurnal Sains Ibnu Sina"",
   ""mustHaveBeats"": [
-    ""Intro: Visualisasi masalah/konflik"",
-    ""Pembahasan Dalil (Quran/Hadits)"",
-    ""Analisa Sejarah/Sains"",
-    ""... (lanjutkan sesuai durasi)""
+    ""[Phase 1 Name]: Hook visual yang kuat..."",
+    ""[Phase 1 Name]: Pertanyaan retoris untuk memancing rasa ingin tahu..."",
+    ""[Phase 1 Name]: Statement tesis awal..."",
+    ""[Phase 2 Name]: Penjelasan konteks sejarah..."",
+    ""[Phase 2 Name]: Kutipan dalil pertama..."",
+    ""... (lanjutkan untuk SEMUA phase, total 15-25 beats)""
   ]
 }}";
     }

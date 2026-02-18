@@ -59,6 +59,11 @@ public class ScriptGenerationService : IScriptGenerationService
         string patternId, string topic, string? outline, int targetDuration,
         string? sourceReferences = null, string channelName = "")
     {
+        if (!_patternRegistry.Exists(patternId))
+        {
+            throw new ArgumentException($"STRICT MODE: Pattern '{patternId}' not found. Cannot create session.");
+        }
+
         var config = new ScriptConfig
         {
             Topic = topic,

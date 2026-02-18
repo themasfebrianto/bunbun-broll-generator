@@ -1,11 +1,15 @@
-## opening-hook
+## The Cold Open (Hook)
 
-[00:00] [Musik Misterius, Intensitas Rendah]
+## Opening Hook
 
-Assalamualaikum warahmatullahi wabarakatuh. Sahabat Riwayat Umat, ada satu struktur arsitektur akhirat yang menentang segala hukum fisika. Kita mengenalnya sebagai Jembatan Sirat.
+[00:00] [Musik: Drone bass yang dalam dan menegangkan, perlahan naik intensitasnya]
 
-[00:12] Deskripsinya mengerikan: lebih halus dari rambut, lebih tajam dari pedang, membentang tepat di atas neraka Jahanam. Namun, paradoksnya bukan pada bentuk jembatannya, melainkan pada siapa yang melintasinya.
+Ada sebuah lintasan yang secara matematis mustahil dilewati. Referensi kuno menyebutnya lebih halus dari sehelai rambut, namun lebih tajam dari pedang, terbentang tepat di atas jurang Jahanam.
 
-[00:24] Jika lintasannya sama, mengapa hasil akhirnya berbeda drastis? Riwayat mencatat ada manusia yang melesat secepat kilat, namun ada pula yang merangkak hingga terkoyak dan jatuh.
+[00:15] Namun, perhatikan anomali ini.
 
-[00:36] Ini membuktikan satu hal: keselamatan di Sirat bukan soal ketangkasan, melainkan tentang 'bahan bakar' tersembunyi yang kita bawa dari dunia. Mari kita bongkar rahasianya.
+Di atas titian maut tersebut, hukum fisika seolah runtuh. Sebagian orang melesat secepat kilat—hanya sekejap mata—sementara yang lain harus merangkak, tercabik, hingga akhirnya jatuh ke dalam api.
+
+[00:30] Apa variabel rahasia yang membedakan kecepatan mereka?
+
+Analisis menunjukkan bahwa ini bukan soal kekuatan otot atau strategi bertahan hidup. Ada satu 'mata uang' spesifik yang sedang kita kumpulkan hari ini, yang menjadi satu-satunya penentu: apakah kita akan melayang... atau tumbang.
