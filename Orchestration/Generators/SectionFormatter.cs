@@ -20,9 +20,11 @@ public class SectionFormatter
         // Clean up the output
         var cleaned = CleanOutput(llmOutput);
 
-        // Check if LLM already included the phase header
+        // Check if LLM already included the phase header (by name or ID)
         var phaseHeaderPattern = $"^##\\s*{Regex.Escape(phase.Name)}";
-        var alreadyHasHeader = Regex.IsMatch(cleaned, phaseHeaderPattern, RegexOptions.IgnoreCase | RegexOptions.Multiline);
+        var phaseIdHeaderPattern = $"^##\\s*{Regex.Escape(phase.Id)}";
+        var alreadyHasHeader = Regex.IsMatch(cleaned, phaseHeaderPattern, RegexOptions.IgnoreCase | RegexOptions.Multiline)
+                            || Regex.IsMatch(cleaned, phaseIdHeaderPattern, RegexOptions.IgnoreCase | RegexOptions.Multiline);
 
         // Only add phase header if LLM didn't include it
         if (!alreadyHasHeader)
