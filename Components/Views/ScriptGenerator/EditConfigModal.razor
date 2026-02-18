@@ -33,7 +33,9 @@
                     </div>
                     <div class="space-y-2">
                         <label class="block text-sm font-medium">Target Durasi (menit)</label>
-                        <input type="number" class="input" min="5" max="60" @bind="TargetDuration" />
+                        <input type="number" class="input" min="5" max="60"
+                               value="@TargetDuration"
+                               @onchange="async e => { if (int.TryParse(e.Value?.ToString(), out var val)) { TargetDuration = val; await TargetDurationChanged.InvokeAsync(val); } }" />
                     </div>
                 </div>
 
