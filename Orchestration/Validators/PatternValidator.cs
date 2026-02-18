@@ -37,7 +37,7 @@ public class PatternValidator : IPhaseValidator
         {
             IsValid = !allIssues.Any(i => i.Severity == IssueSeverity.Error),
             WordCount = wordCount,
-            EstimatedDurationSeconds = (int)(wordCount / 2.5), // ~150 words/min = 2.5 words/sec
+            EstimatedDurationSeconds = (int)(wordCount / 2.33), // ~140 words/min = 2.33 words/sec
             Issues = allIssues
         };
     }

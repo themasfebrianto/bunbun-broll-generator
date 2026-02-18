@@ -612,6 +612,8 @@
                 ChannelName = _editChannelName
             };
 
+            Console.WriteLine($"[DEBUG] SaveAndRegenerateConfig: Sending TargetDurationMinutes = {_editTargetDuration}");
+
             await ScriptService.UpdateSessionAsync(_resultSession.Id, config);
             
             _resultSession.Topic = config.Topic;
@@ -905,9 +907,13 @@
 
         try
         {
-            _progressMessage = "Regenerating semua fase...";
+            _progressMessage = "Mempersiapkan regenerasi...";
             _completedPhases = 0;
             _progressPercent = 0;
+
+            // Reset all phases to Pending so they regenerate with new config
+            Console.WriteLine($"[DEBUG] HandleRegenerateAll: Resetting phases for session {_sessionId}");
+            await ScriptService.ResetSessionPhasesAsync(_sessionId);
 
             _phaseStatuses = _resultSections.Select(s => new PhaseStatusItem
             {
@@ -917,6 +923,7 @@
             _currentView = "progress";
             StateHasChanged();
 
+            _progressMessage = "Regenerating semua fase...";
             SubscribeToProgress(_sessionId);
             BgService.EnqueueGeneration(_sessionId);
         }
@@ -2292,7 +2299,7 @@
     {
         if (string.IsNullOrWhiteSpace(text)) return 1;
         var words = text.Split(new[] { ' ', '\t', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
-        var baseDuration = words.Length / 2.5;
+        var baseDuration = words.Length / 2.33;
         var ellipsisCount = System.Text.RegularExpressions.Regex.Matches(text, @"\.\.\.").Count;
         var totalDuration = baseDuration + (ellipsisCount * 0.5);
         return (int)Math.Ceiling(Math.Max(3, totalDuration));

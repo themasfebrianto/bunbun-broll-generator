@@ -179,6 +179,9 @@ public class ScriptGenerationService : IScriptGenerationService
         var session = await _orchestrator.LoadSessionAsync(sessionId)
             ?? throw new ArgumentException($"Session '{sessionId}' not found");
 
+        _logger.LogInformation("Updating session {SessionId} config: TargetDurationMinutes {OldValue} -> {NewValue}",
+            sessionId, session.TargetDurationMinutes, config.TargetDurationMinutes);
+
         session.Topic = config.Topic;
         session.Outline = config.Outline;
         session.TargetDurationMinutes = config.TargetDurationMinutes;
@@ -187,6 +190,13 @@ public class ScriptGenerationService : IScriptGenerationService
         session.UpdatedAt = DateTime.UtcNow;
 
         await _orchestrator.SaveSessionAsync(session);
+
+        _logger.LogInformation("Session {SessionId} config updated successfully", sessionId);
+
+        // Immediately export to JSON so the change is persisted
+        using var scope = _serviceProvider.CreateScope();
+        var syncService = scope.ServiceProvider.GetRequiredService<SessionSyncService>();
+        await syncService.ExportSessionAsync(sessionId);
     }
 
     public async Task ReplaceSessionPhasesAsync(string sessionId, List<ScriptGenerationPhase> newPhases)
@@ -220,10 +230,32 @@ public class ScriptGenerationService : IScriptGenerationService
 
         // Update phase metadata
         phase.WordCount = content.Split(new[] { ' ', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Length;
-        // Simple estimation: 150 words per minute ~ 2.5 words per second
-        phase.DurationSeconds = phase.WordCount.Value / 2.5;
+        // Simple estimation: 140 words per minute ~ 2.33 words per second
+        phase.DurationSeconds = phase.WordCount.Value / 2.33;
         
         // Update session timestamp
+        session.UpdatedAt = DateTime.UtcNow;
+
+        await _orchestrator.SaveSessionAsync(session);
+    }
+
+    public async Task ResetSessionPhasesAsync(string sessionId)
+    {
+        var session = await _orchestrator.LoadSessionAsync(sessionId)
+            ?? throw new ArgumentException($"Session '{sessionId}' not found");
+
+        foreach (var phase in session.Phases)
+        {
+            phase.Status = PhaseStatus.Pending;
+            phase.WordCount = null;
+            phase.DurationSeconds = null;
+            phase.IsValidated = false;
+            phase.WarningsJson = null;
+            phase.CompletedAt = null;
+        }
+
+        session.Status = SessionStatus.Pending;
+        session.CompletedAt = null;
         session.UpdatedAt = DateTime.UtcNow;
 
         await _orchestrator.SaveSessionAsync(session);

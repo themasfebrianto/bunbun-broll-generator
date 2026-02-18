@@ -213,16 +213,21 @@ public class ScriptOrchestrator : IScriptOrchestrator
             .Cast<PhaseDefinition>()
             .ToList();
 
+        _logger.LogInformation("[DEBUG] ExecuteGenerationAsync: TargetDurationMinutes from config = {Target}m", context.Config.TargetDurationMinutes);
+
         // Scale targets based on user preference
         if (context.Config.TargetDurationMinutes > 0)
         {
             // Calculate total base duration from pattern (average of min/max)
             double patternBaseMinutes = orderedPhases.Sum(p => (p.DurationTarget.Min + p.DurationTarget.Max) / 2.0) / 60.0;
-            
+
+            _logger.LogInformation("[DEBUG] Pattern base duration = {Base:F1}m, Scale calculation: {Target} / {Base}",
+                patternBaseMinutes, context.Config.TargetDurationMinutes, patternBaseMinutes);
+
             if (patternBaseMinutes > 0)
             {
                 double scaleFactor = context.Config.TargetDurationMinutes / patternBaseMinutes;
-                _logger.LogInformation("Scaling script targets by factor {Scale:F2} (Target: {Target}m / Base: {Base:F1}m)", 
+                _logger.LogInformation("Scaling script targets by factor {Scale:F2} (Target: {Target}m / Base: {Base:F1}m)",
                     scaleFactor, context.Config.TargetDurationMinutes, patternBaseMinutes);
 
                 foreach (var phase in orderedPhases)
@@ -231,7 +236,7 @@ public class ScriptOrchestrator : IScriptOrchestrator
                     phase.DurationTarget.Min = (int)(phase.DurationTarget.Min * scaleFactor);
                     phase.DurationTarget.Max = (int)(phase.DurationTarget.Max * scaleFactor);
 
-                    // Scale Word Count (assuming 150 wpm average)
+                    // Scale Word Count (assuming 140 wpm average)
                     // We scale the original targets to preserve the phase's relative "density"
                     phase.WordCountTarget.Min = (int)(phase.WordCountTarget.Min * scaleFactor);
                     phase.WordCountTarget.Max = (int)(phase.WordCountTarget.Max * scaleFactor);
