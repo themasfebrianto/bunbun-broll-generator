@@ -311,6 +311,26 @@ Format:
             }
         }
 
+        // Add Fact Check
+        if (context.Pattern.ProductionChecklist?.FactCheck?.Count > 0)
+        {
+            parts.Add("\n### FACT CHECK (WAJIB ADA)");
+            foreach (var item in context.Pattern.ProductionChecklist.FactCheck)
+            {
+                parts.Add($"- {item}");
+            }
+        }
+
+        // Add Tone Check
+        if (context.Pattern.ProductionChecklist?.ToneCheck?.Count > 0)
+        {
+            parts.Add("\n### TONE CHECK");
+            foreach (var item in context.Pattern.ProductionChecklist.ToneCheck)
+            {
+                parts.Add($"- {item}");
+            }
+        }
+
         if (phase.IsFinalPhase)
         {
             parts.Add("\n### FINAL PHASE REQUIREMENTS\n" +

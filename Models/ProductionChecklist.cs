@@ -9,4 +9,10 @@ public class ProductionChecklist
 
     [JsonPropertyName("penulisan")]
     public List<string> Penulisan { get; set; } = new();
+
+    [JsonPropertyName("factCheck")]
+    public List<string> FactCheck { get; set; } = new();
+
+    [JsonPropertyName("toneCheck")]
+    public List<string> ToneCheck { get; set; } = new();
 }
