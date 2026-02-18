@@ -340,8 +340,9 @@ Gunakan (dengan suara bergetar), (tertawa) untuk TTS emotion.
             "1. JANGAN ulangi klaim/tesis utama yang sudah disampaikan — cukup referensikan singkat jika perlu",
             "2. JANGAN kutip ayat/hadits/sumber yang sudah dikutip penuh di fase sebelumnya — gunakan referensi singkat saja",
             "3. JANGAN gunakan metafora atau frasa kunci yang sama — kembangkan metafora BARU",
-            "4. Setiap fase harus membawa PERSPEKTIF/SUDUT PANDANG BARU (psikologis, sosial, etis, spiritual, historis)",
-            "5. Jika ide dasar sama, kembangkan ASPEK BERBEDA — bukan mengulang dengan kata berbeda"
+            "4. JANGAN ceritakan ulang ANEKDOT/KISAH yang sama (misal: Kisah Nabi di Sirat). Jika sudah ada, cukup referensikan ('Ingatkah doa Nabi tadi?').",
+            "5. Setiap fase harus membawa PERSPEKTIF/SUDUT PANDANG BARU (psikologis, sosial, etis, spiritual, historis)",
+            "6. Jika ide dasar sama, kembangkan ASPEK BERBEDA — bukan mengulang dengan kata berbeda"
         };
 
         return string.Join("\n", parts);
@@ -374,8 +375,14 @@ Gunakan (dengan suara bergetar), (tertawa) untuk TTS emotion.
             "- WAJIB: Setelah kutipan ayat/hadits yang berat, beri 1 kalimat jeda perenungan sebelum melanjutkan.",
             "- WAJIB: Sebelum momen puncak (climax statement), TURUNKAN nada terlebih dahulu agar kontrasnya terasa kuat.",
             "- JANGAN: 5+ paragraf berturut-turut dengan intensitas tinggi — pendengar akan kebal dan kehilangan dampak.",
-            "- Teknik jeda: kalimat pendek bernada tenang, pertanyaan retoris lembut, atau deskripsi visual yang menenangkan.",
-            "- Contoh jeda: 'Mari kita berhenti sejenak dan resapi itu.' atau 'Bayangkan keheningan di saat itu...'",
+            "- Teknik jeda: Gunakan kalimat pendek bernada tenang, pertanyaan retoris lembut, atau deskripsi visual yang menenangkan.",
+            "- PENTING: VARIASIKAN kalimat jeda Anda. JANGAN gunakan kalimat yang sama berulang kali.",
+            "- Opsi Variasi (PILIH SATU atau BUAT SENDIRI, jangan diulang):",
+            "  1. 'Tarik napas sejenak... dan rasakan beratnya fakta ini.'",
+            "  2. 'Mari kita berhenti sebentar. Biarkan logika akal kita mencernanya.'",
+            "  3. 'Bayangkan keheningan di detik itu...'",
+            "  4. 'Di titik ini, ada baiknya kita bertanya pada nurani sendiri.'",
+            "  5. 'Resapi kalimat tersebut. Bukan dengan telinga, tapi dengan hati.'",
             "",
             "#### KONSOLIDASI KUTIPAN",
             "- Kutip ayat Al-Quran, hadits, atau sumber referensi secara LENGKAP hanya SATU KALI di posisi paling strategis.",

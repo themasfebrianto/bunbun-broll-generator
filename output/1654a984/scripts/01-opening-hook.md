@@ -1,11 +1,11 @@
-## Opening Hook
+## opening-hook
 
-[00:00] Assalamualaikum warahmatullahi wabarakatuh. Selamat datang kembali di Riwayat Umat. Sahabat-sahabatku sekalian.
+[00:00] [Musik Misterius, Intensitas Rendah]
 
-[00:10] Kita sering mendengar deskripsi mengerikan tentang Sirat. Sebuah titian yang membentang di atas neraka Jahanam, yang digambarkan dalam riwayat lebih tipis dari sehelai rambut dan lebih tajam dari mata pedang. Secara logika manusia, mustahil ada fisik yang mampu berpijak di sana tanpa teriris.
+Assalamualaikum warahmatullahi wabarakatuh. Sahabat Riwayat Umat, ada satu struktur arsitektur akhirat yang menentang segala hukum fisika. Kita mengenalnya sebagai Jembatan Sirat.
 
-[00:28] Namun, di sinilah letak paradoks terbesarnya.
+[00:12] Deskripsinya mengerikan: lebih halus dari rambut, lebih tajam dari pedang, membentang tepat di atas neraka Jahanam. Namun, paradoksnya bukan pada bentuk jembatannya, melainkan pada siapa yang melintasinya.
 
-[00:32] Jika lintasannya sama, mengapa nasib pelintasnya begitu berbeda? Mengapa ada yang mampu menyeberang secepat kilat menyambar, sementara yang lain harus merangkak tertatih, bahkan tergelincir ke dalam jurang api?
+[00:24] Jika lintasannya sama, mengapa hasil akhirnya berbeda drastis? Riwayat mencatat ada manusia yang melesat secepat kilat, namun ada pula yang merangkak hingga terkoyak dan jatuh.
 
-[00:45] Perbedaan ini jelas bukan tentang ketangkasan fisik. Ada variabel tersembunyi yang menentukan keselamatan kita di sana, sebuah 'bahan bakar' yang sering kita abaikan di dunia. Mari kita bedah rahasia di balik ujian terberat ini.
+[00:36] Ini membuktikan satu hal: keselamatan di Sirat bukan soal ketangkasan, melainkan tentang 'bahan bakar' tersembunyi yang kita bawa dari dunia. Mari kita bongkar rahasianya.

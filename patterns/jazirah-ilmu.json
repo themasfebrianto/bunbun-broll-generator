@@ -1,249 +1,207 @@
 {
   "name": "jazirah-ilmu",
-  "description": "Video Essay Reflektif-Eskatologis-Kritik Sosial - 5 fase untuk konten Islami mendalam dengan pendekatan intelektual, analitis, dan naratif",
-  "version": "2.0",
+  "description": "Video Essay Investigatif & Intelektual - 5 fase dengan pendekatan dokumenter, berbasis data/sejarah, menghindari kesan ceramah/menggurui",
+  "version": "3.0-GoldenStandard",
   "phases": [
     {
       "id": "opening-hook",
-      "name": "Opening Hook",
+      "name": "The Cold Open (Hook)",
       "order": 1,
       "durationTarget": {
         "min": 60,
         "max": 90
       },
       "wordCountTarget": {
-        "min": 150,
-        "max": 225
+        "min": 130,
+        "max": 200
       },
       "requiredElements": [
-        "Salam pembuka: 'Assalamualaikum warahmatullahi wabarakatuh' atau variasi 'Assalamualaikum'",
-        "Pertanyaan provokatif, paradoks, atau kontras yang menggugah pikiran",
-        "Alamat audiens yang hangat: 'sahabat-sahabatku', 'saudara-saudaraku', atau 'teman-teman'",
-        "Topik utama diperkenalkan sebagai pertanyaan besar atau misteri"
+        "Salam pembuka standar: 'Assalamualaikum warahmatullahi wabarakatuh'",
+        "Statement paradoks atau fakta kontraintuitif yang menantang asumsi umum",
+        "Sapaan audiens yang inklusif namun profesional: 'Sahabat Jazirah Ilmu' atau 'Teman-teman'",
+        "Framing topik sebagai misteri intelektual, bukan sekadar nasehat moral"
       ],
       "forbiddenPatterns": [
         "Bayangkan...",
-        "Pada kesempatan kali ini",
-        "Hari ini kita bahas",
-        "Kali ini kita akan membahas",
-        "Mulai dengan definisi kering",
-        "Kata sambutan formal yang kaku"
+        "Pernahkah Anda berpikir...",
+        "Pada kesempatan ini...",
+        "Pertanyaan retoris yang klise/lemah (misal: 'Tahukah kamu?')",
+        "Kalimat pembuka yang bertele-tele"
       ],
-      "guidanceTemplate": "Gunakan kontras atau paradoks secara natural untuk memancing rasa terusik. Fokus pada satu ketegangan utama. Template: [Realitas yang dianggap biasa] → [retakan tersembunyi] → [topik sebagai pertanyaan besar]. Contoh: 'Dunia terlihat tenang, tapi di baliknya...', 'Kemerdekaan sering dibayangkan sebagai garis akhir, namun...'",
-      "transitionHint": null,
+      "guidanceTemplate": "Mulai dengan 'Cold Open' seperti dokumenter Netflix/Vox. Langsung ke inti masalah/paradoks. Contoh: 'Dunia mengira X adalah solusi, padahal data menunjukkan X adalah awal bencana. Mengapa hal ini luput dari pandangan kita?'",
       "customRules": {
-        "mustHaveGreeting": "true",
-        "mustHaveAudienceAddress": "true",
-        "cognitiveDisturbance": "moderate",
-        "preferredOpeningStyle": "Kontras realitas vs ketegangan tersembunyi"
+        "cognitiveDisturbance": "high",
+        "hookStyle": "Investigative Mystery"
       },
-      "emotionalArc": "Tenang (salam) → Rasa ingin tahu (pertanyaan provokatif) → Gelisah/terusik (paradoks terungkap) → Penasaran tinggi (hook ke fase berikut)",
-      "exampleOpenings": [
-        "Dunia hari ini terlihat tenang. Layar menyala, pasar bergerak, teknologi berkembang seolah semuanya terkendali. Tapi di balik itu semua...",
-        "Kemerdekaan sering dibayangkan sebagai garis akhir dari sebuah penderitaan. Seolah setelah bendera dikibarkan...",
-        "Siapa di dunia ini yang tidak kenal [Tokoh]? Sosok yang namanya identik dengan kekerasan... Namun di balik citra monster..."
-      ]
+      "emotionalArc": "Intrik (Misteri) -> Skeptis (Paradoks) -> Ingin Tahu (Hook)"
     },
     {
       "id": "contextualization",
-      "name": "Kontekstualisasi",
+      "name": "The Hidden Reality (Data & Context)",
       "order": 2,
       "durationTarget": {
         "min": 180,
         "max": 240
       },
       "wordCountTarget": {
-        "min": 450,
-        "max": 600
+        "min": 400,
+        "max": 550
       },
       "requiredElements": [
-        "Tahun/angka spesifik (1–3 data numerik relevan)",
-        "Konteks historis singkat yang membangun pemahaman",
-        "Penggambaran visual yang bisa dibayangkan pendengar",
-        "Definisi konseptual jika diperlukan (singkat, tidak bertele-tele)",
-        "Transisi lembut dari hook ke konteks"
+        "Minimal 2 DATA KERAS (Angka, Tahun, Nama Tokoh, Lokasi Spesifik)",
+        "Studi kasus nyata atau peristiwa sejarah yang JARANG diketahui",
+        "Definisi ulang masalah: Mengubah persepsi audiens dari 'ini masalah biasa' menjadi 'ini masalah sistemik/krusial'",
+        "Kalimat transisi yang menghubungkan makro (dunia) ke mikro (kita)"
       ],
       "forbiddenPatterns": [
-        "Memulai langsung dengan tahun tanpa transisi",
-        "Menyebutkan terlalu banyak data numerik sekaligus"
+        "Generalisasi tanpa bukti ('Banyak orang berkata...')",
+        "Kutipan dalil tanpa konteks realitas",
+        "Bahasa yang terlalu abstrak/filosofis tanpa pijakan bumi"
       ],
-      "guidanceTemplate": "Bangun pemahaman secara bertahap. Data berfungsi sebagai penopang cerita, bukan pusat. Gunakan transisi lembut: 'Namun, untuk memahami ini, kita perlu mundur sejenak...', 'Ini bukan sekadar tentang [Y], melainkan tentang [Z]', 'Sejarah menunjukkan bahwa...'",
-      "transitionHint": "Setelah kita merasakan urgensi di pembuka, sekarang mari kita telusuri akar dan konteks dari [topik] ini...",
+      "guidanceTemplate": "Jangan ceramah. Tunjukkan BUKTI. Sebutkan tahun kejadian, nama perjanjian, jumlah korban, atau statistik spesifik. Buat audiens merasa 'lebih pintar' setelah mendengar bagian ini.",
+      "transitionHint": "Namun, data sejarah mencatat anomali yang mengerikan...",
       "customRules": {
-        "minNumericData": "1",
-        "mustHaveHistoricalContext": "true",
-        "visualImagery": "strong"
+        "mustHaveConcreteData": "true",
+        "narrativeMode": "Expository-Analytic"
       },
-      "emotionalArc": "Analitis/tenang (konteks historis) → Perlahan membangun ketegangan (fakta mengejutkan) → Jeda reflektif → Antisipasi meningkat (mengarah ke pendalaman)"
+      "emotionalArc": "Terkejut (Fakta baru) -> Rasional (Analisis) -> Concern (Implikasi)"
     },
     {
       "id": "multi-dimensi",
-      "name": "Pengungkapan Multi-Dimensi",
+      "name": "The Systematic Breakdown (Progressive Escalation)",
       "order": 3,
       "durationTarget": {
         "min": 480,
         "max": 600
       },
       "wordCountTarget": {
-        "min": 1200,
-        "max": 1500
+        "min": 1000,
+        "max": 1300
       },
       "requiredElements": [
-        "Dimensi historis/sosial sebagai fondasi",
-        "Dimensi religius atau psikologis sebagai poros refleksi",
-        "Dimensi ekonomi, politik, atau geopolitik jika relevan",
-        "Pertanyaan retoris yang mengarahkan pemikiran",
-        "Kontras antara perspektif berbeda"
+        "Analisis Layer 1: Sebab-akibat material/logis (Ekonomi/Sosial/Politik)",
+        "Analisis Layer 2: Psikologi manusia/behavioral science",
+        "Analisis Layer 3: Perspektif Teologis/Eskatologis (tetap rasional, bukan mistis)",
+        "Penggunaan istilah teknis yang tepat (misal: 'Hedonic Treadmill', 'Cognitive Dissonance', 'Istidraj')",
+        "Studi kasus pembanding (Komparasi zaman dulu vs sekarang dengan detail)"
       ],
       "forbiddenPatterns": [
-        "Pemaparan semua dimensi secara dangkal dan setara",
-        "Menggurui atau memberi kesimpulan mutlak",
-        "Kalimat yang terlalu panjang dan kompleks"
+        "Pengulangan poin yang sama dengan kata berbeda",
+        "Judgemental language ('Kita semua berdosa', 'Anda salah')",
+        "Bahasa 'langit' yang tidak membumi"
       ],
-      "guidanceTemplate": "Gunakan teknik layering secara selektif. Alur ideal: Narasi dominan → pendalaman makna → implikasi moral/spiritual. Ritme boleh melambat dan berulang untuk penekanan emosional. Gunakan kata-kata transisi: 'Namun', 'Tetapi', 'Justru', 'Sebaliknya', 'Ironisnya', 'Di balik'",
-      "transitionHint": "Dengan pemahaman dasar itu, sekarang kita masuk ke lapisan yang lebih dalam...",
+      "guidanceTemplate": "Gunakan struktur 'Progressive Escalation'. Masalah ini bukan cuma soal X, tapi memicu Y, dan akhirnya menghancurkan Z. Setiap paragraf harus menaikkan taruhan (raise the stakes). Gunakan perspektif multidisiplin (Sains + Agama).",
+      "transitionHint": "Dan di sinilah letak ironi terbesarnya...",
       "customRules": {
-        "minDimensions": "2",
-        "mustUseLayering": "true",
-        "mustHaveRhetoricalQuestions": "true",
-        "preferredKeywords": "namun, tetapi, justru, sebaliknya, ironisnya, di balik, tersembunyi, mungkin, barangkali"
+        "progressiveStakes": "true",
+        "interdisciplinary": "true"
       },
-      "emotionalArc": "Tegang↗ (masuk dimensi pertama) → Jeda nafas↘ (kalimat reflektif pelan) → Lebih tegang↗↗ (dimensi kedua) → Brief relief↘ (pertanyaan retoris) → Puncak kecil↗ (menuju climax)"
+      "emotionalArc": "Fokus (Analisis mendalam) -> Gelisah (Koneksi ke realitas diri) -> Takut/Awe (Skala masalah membesar)"
     },
     {
       "id": "climax",
-      "name": "Titik Kritis / Climax Naratif",
+      "name": "The Critical Junction (Reality Check)",
       "order": 4,
       "durationTarget": {
         "min": 240,
         "max": 300
       },
       "wordCountTarget": {
-        "min": 600,
-        "max": 750
+        "min": 500,
+        "max": 650
       },
       "requiredElements": [
-        "Pertanyaan retoris penantang yang memaksa refleksi",
-        "Fakta atau contoh konkret yang menghantam (tidak harus numerik)",
-        "Momen kesadaran atau pembalikan sudut pandang",
-        "Metafora kuat yang mudah divisualisasikan",
-        "Pengungkapan 'yang tersembunyi' atau 'yang tidak terlihat'"
+        "Satu METAFORA VISUAL yang kuat dan orisinil (bukan klise)",
+        "Konfrontasi intelektual: Menghadapkan audiens pada pilihan logis, bukan emosional murahan",
+        "Call to Mind (bukan just Call to Action): Mengubah cara pikir",
+        "Penggunaan 'Silent Pauses' dalam naskah untuk efek dramatis"
       ],
       "forbiddenPatterns": [
-        "Climax yang terlalu dramatis seperti film action",
-        "Kesimpulan yang terlalu dini"
+        "Menangis-nangis atau over-dramatisasi",
+        "Solusi instan/gampangan ('Pokoknya tobat')",
+        "Menyalahkan pihak tertentu secara vulgar"
       ],
-      "guidanceTemplate": "Climax adalah momen kesadaran, bukan kuliah. Fokus pada satu kebenaran yang terasa menghantam. Struktur: Ketegangan → Fakta/Kisah → Kesadaran → Metafora. Gunakan kalimat pendek dan bertenaga.",
-      "transitionHint": "Dan di sinilah kita sampai pada titik yang paling mengguncang...",
+      "guidanceTemplate": "Hantam dengan realitas. Bongkar ilusi kenyamanan. Gunakan kalimat pendek, tajam, dan ritmik (Staccato). Jangan minta audiens berubah, tapi tunjukkan konsekuensi logis jika TIDAK berubah.",
+      "transitionHint": "Maka, kita tersudut pada satu pertanyaan yang tak bisa dihindari...",
       "customRules": {
-        "emotionalIntensity": "high",
-        "mustHaveDarkMetaphor": "preferred",
-        "mustRevealHidden": "true",
-        "sentenceStyle": "short and punchy"
+        "sentenceStyle": "Staccato (Short, Punchy)",
+        "visualMetaphor": "required"
       },
-      "emotionalArc": "Turunkan nada↘ (tenang sebelum badai) → Naikkan perlahan↗ (membangun ke momen puncak) → PUNCAK EMOSI↗↗↗ (pengungkapan/pukulan keras) → Hening sejenak↘↘ (biarkan dampak meresap) → Pelan naik kembali↗ (refleksi pasca-puncak)"
+      "emotionalArc": "Tegang (Konfrontasi) -> Hening (Refleksi) -> Tercerahkan (Shift perspective)"
     },
     {
       "id": "eschatology",
-      "name": "Refleksi Eskatologis",
+      "name": "The Humble Conclusion (Epilogue)",
       "order": 5,
       "durationTarget": {
         "min": 180,
-        "max": 300
+        "max": 240
       },
       "wordCountTarget": {
-        "min": 450,
-        "max": 750
+        "min": 350,
+        "max": 500
       },
       "requiredElements": [
-        "Perbandingan masa lalu → kini → implikasi masa depan",
-        "Pertanyaan terbuka tanpa jawaban instan yang menggugah",
-        "Refleksi religius yang menenangkan sekaligus menggugah",
-        "Penutup religius: 'Wallahu a'lam bish-shawab'",
-        "Salam penutup: 'Wassalamualaikum warahmatullahi wabarakatuh'",
-        "Sapaan hangat penutup: 'Semoga kisah ini bermanfaat...'"
+        "Zoom out: Kembali ke *big picture*",
+        "Open loop: Pertanyaan yang dibawa pulang (lingering thought)",
+        "Closing statement yang rendah hati (Sikap 'Kita sama-sama belajar')",
+        "Salam penutup lengkap"
       ],
       "forbiddenPatterns": [
-        "Kesimpulan mutlak atau menggurui",
-        "Membuka topik baru",
-        "Penutup yang terlalu singkat atau terburu-buru"
+        "Kesimpulan yang mematikan diskusi (Absolute ending)",
+        "Kesan 'Saya lebih suci dari Anda'",
+        "Promosi berlebihan"
       ],
-      "guidanceTemplate": "Ini adalah fase penutup yang bersifat kontemplatif dan rendah hati. Biarkan pendengar pulang dengan perenungan, bukan jawaban final. Nada tenang, rendah hati, dan terbuka. Acknowledge keterbatasan narator: 'Yang benar datangnya dari Allah... Khilaf datangnya dari saya...'",
-      "transitionHint": "Setelah semua yang kita ungkap, ada satu pertanyaan yang tersisa...",
+      "guidanceTemplate": "Tutup dengan elegan. Jangan simpulkan semuanya untuk audiens; biarkan mereka menyimpulkan sendiri. Posisi narator: Teman berpikir, bukan guru moral.",
+      "transitionHint": "Pada akhirnya, sejarah akan mencatat pilihan kita...",
       "customRules": {
-        "mustHaveClosing": "true",
-        "mustConnectToUmmah": "true",
-        "openEnded": "true",
-        "humilityRequired": "true"
+        "humility": "max",
+        "lingeringThought": "true"
       },
-      "emotionalArc": "Kontemplatif/tenang (refleksi lembut) → Hangat↗ (koneksi personal dengan pendengar) → Lembut menggugah (pertanyaan terbuka) → Damai↘ (penutup salam dengan ketenangan)"
+      "emotionalArc": "Reda (De-escalation) -> Hangat (Connection) -> Kontemplatif (Closing)"
     }
   ],
   "globalRules": {
-    "tone": "Intelektual-edukatif, analitis, reflektif — prioritaskan substansi pemikiran dan kedalaman argumentasi",
-    "perspective": "Kritis terhadap kekuasaan, empati pada yang tertindas, narator sebagai pembimbing pemikiran",
-    "structure": "Hook-Konteks-Pendalaman-Climax-Refleksi",
-    "language": "Bahasa Indonesia formal-naratif yang lugas, menghindari ornamentasi berlebihan",
-    "wordsPerMinute": "150-200",
-    "targetDuration": "15-40 menit",
-    "honorificsRequired": "true",
-    "maxWordsPerSentence": "30",
-    "preferredWordsPerSentence": "Variasi alami, prioritas pada kejelasan logika dan alur berpikir",
-    "mustUseKeywords": "opsional dan alami: namun, tetapi, justru, sebaliknya, ironisnya, di balik, tersembunyi, mungkin, barangkali",
-    "sentenceStructure": "Variasi antara kalimat pendek (untuk impak) dan kalimat panjang (untuk elaborasi)",
-    "narrativeVoice": "First person plural (kita) untuk inklusi, first person singular (saya) untuk opini pribadi"
+    "tone": "Video Essay Dokumenter: Cerdas tapi Membumi (Smart Casual). Hindari bahasa akademis yang kaku atau istilah teknis yang tidak perlu.",
+    "voice": "Investigative Journalist meets Storyteller. Bicara seperti menjelaskan ke teman pintar, bukan kuliah dosen.",
+    "perspective": "Objective Observer. Gunakan 'Kita' untuk refleksi bersama.",
+    "vocabulary": "Gunakan Bahasa Indonesia baku yang ENARIC (Enak Dibaca & Didengar). Hindari istilah sains/teknis yang membuat kening berkerut (misal: 'variabel', 'kausalitas', 'anomali data' -> GANTI DENGAN 'faktor', 'sebab-akibat', 'keanehan').",
+    "narrativeStructure": "Progressive (Maju & Membesar).",
+    "intellectualSurprise": "Setiap fase HARUS menyajikan minimal 1 fakta/insight baru."
   },
   "styleCharacteristics": {
-    "openingStyle": "Kontras paradoks antara realitas surface vs retakan tersembunyi",
-    "transitionStyle": "Lembut menggunakan konjungsi kontras dan penanda waktu",
-    "argumentationStyle": "Deduktif-induktif, menggunakan contoh konkret untuk mendukung argumen abstrak",
-    "rhetoricalDevices": [
-      "Pertanyaan retoris yang mengarahkan pemikiran",
-      "Kontras dan paradoks",
-      "Metafora visual yang kuat (terutama di climax)",
-      "Repetisi untuk penekanan",
-      "Triada (pola tiga) untuk ritme"
-    ],
-    "emotionalTechniques": [
-      "Mengejutkan dengan fakta tersembunyi",
-      "Menyentuh empati pada korban/tertindas",
-      "Menggugah rasa ingin tahu dengan misteri",
-      "Menimbulkan keprihatinan dengan ketidakadilan"
-    ]
+    "visualThinking": "Tulis naskah untuk MATA (Visual). Deskripsikan adegan nyata.",
+    "dataIntegration": "Sebutkan data secara natural dalam kalimat, jangan kaku.",
+    "rhetoricalStrategy": "Ajak audiens berpikir kritis dengan bahasa sehari-hari yang tajam."
   },
-  "closingFormula": "Wallahu a'lam bish-shawab. Semoga kisah ini bermanfaat. Lebih dan kurangnya mohon dimaafkan. Yang benar datangnya dari Allah Subhanahu wa ta'ala. Khilaf atau keliru datangnya dari saya pribadi sebagai manusia biasa. Sampai ketemu di kisah-kisah seru yang penuh makna selanjutnya. Saya akhiri. Wassalamualaikum warahmatullahi wabarakatuh.",
   "productionChecklist": {
-    "praProduksi": [
-      "Topik memiliki kedalaman historis atau moral",
-      "Ada ketegangan dengan narasi umum (paradoks/kontras)",
-      "Tersedia fakta atau contoh konkret",
-      "Ada relevansi dengan kondisi umat/kontemporer",
-      "Durasi target realistis untuk satu fokus utama"
+    "factCheck": [
+      "Apakah ada Data Keras (Angka/Nama/Tahun)?",
+      "Apakah ada Studi Kasus Nyata?"
     ],
-    "penulisan": [
-      "Hook jelas yang memancing pemikiran kritis, bukan sekadar emosi",
-      "Data, fakta historis, dan referensi keilmuan digunakan untuk memperkuat argumentasi",
-      "Pergeseran emosi tetap ada tapi dipicu oleh insight intelektual, bukan manipulasi kata-kata",
-      "Metafora digunakan SANGAT selektif (maksimal 1-2 per fase) dan hanya untuk momen puncak",
-      "Pertanyaan retoris mengarahkan pemikiran, bukan sekadar drama",
-      "Penutup religius disampaikan dengan tenang dan mengandung pengajaran yang dapat dipraktikkan",
-      "Prioritaskan ANALISIS dan EKSPLANASI atas estetika kata-kata",
-      "Setiap klaim signifikan didukung fakta atau contoh konkret"
-    ],
-    "pascaPenulisan": [
-      "Cek alur emosional: apakah naik turun dengan alami?",
-      "Cek keseimbangan: tidak terlalu gelap, tidak terlalu ringan",
-      "Cek kejujuran intelektual: tidak menggurui, tidak memaksakan opini",
-      "Cek penutup: mengandung Wallahu a'lam, permohonan maaf, dan salam lengkap"
+    "toneCheck": [
+      "Apakah bahasanya terlalu 'tinggi/ilmiah'? Jika ya, SEDERHANAKAN.",
+      "Apakah terdengar pretensius? Gunakan 'Bahasa Manusia' saja.",
+      "Apakah ada 'Intellectual Surprise'?"
     ]
   },
   "exampleTopics": [
-    "Perusahaan/teknologi yang mengontrol dunia (TSMC, Chip)",
-    "Konflik geopolitik dengan sudut pandang berbeda (Greenland, Timor Leste)",
-    "Transformasi spiritual tokoh kontroversial (Mike Tyson)",
-    "Kritik sosial-politik Indonesia dengan nuansa eskatologis (Rangga Sasana, Dharma Pongrekun)",
-    "Sejarah keturunan Nabi dan legitimasi kekuasaan (Suku Lemba, Ethiopia)",
-    "Kasus kriminal elit global dengan perspektif moral (Epstein Files)",
-    "Sejarah peradaban dengan pelajaran kontemporer (Abad Kegelapan)"
+    "Geopolitik Chip Semikonduktor (TSMC)",
+    "Sejarah Mata Uang Fiat & Riba",
+    "Psikologi Massa di Era Algoritma",
+    "Keruntuhan Peradaban Islam Andalusia (Studi Kasus)",
+    "Eskatologi Iklim & Lingkungan"
+  ],
+  "forbiddenPhrases": [
+    "Marilah kita...",
+    "Sungguh sayang sekali...",
+    "Wahai saudaraku yang budiman...",
+    "Betapa indahnya jika...",
+    "Alangkah ruginya...",
+    "Secara teknis...",
+    "Variabel determinan...",
+    "Anomali data...",
+    "Korelasi linear...",
+    "Residu energi..."
   ]
 }
