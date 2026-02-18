@@ -61,6 +61,14 @@ public class BackgroundGenerationService
             using var scope = _serviceProvider.CreateScope();
             var orchestrator = scope.ServiceProvider.GetRequiredService<IScriptOrchestrator>();
 
+            // Verify session config before generation
+            var sessionCheck = await orchestrator.LoadSessionAsync(sessionId);
+            if (sessionCheck != null)
+            {
+                _logger.LogInformation("[DEBUG] BgService: Session {SessionId} TargetDurationMinutes = {Target}m",
+                    sessionId, sessionCheck.TargetDurationMinutes);
+            }
+
             // Wire orchestrator events → event bus
             void OnPhaseProgress(object? sender, PhaseProgressEventArgs e)
             {
