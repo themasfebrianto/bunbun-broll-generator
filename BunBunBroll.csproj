@@ -5,11 +5,16 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>BunbunBroll</RootNamespace>
+    <EnableDefaultContentItems>false</EnableDefaultContentItems>
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Include Razor components (scoped CSS is handled automatically) -->
+    <Content Include="**\*.razor" />
     <!-- Ensure texture files are copied to output -->
     <Content Include="wwwroot\assets\textures\**" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Include other wwwroot content -->
+    <Content Include="wwwroot\**" Exclude="wwwroot\assets\textures\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

@@ -38,6 +38,13 @@ public class PhaseDefinition
     public string? EmotionalArc { get; set; }
 
     /// <summary>
+    /// Names of rule templates this phase extends (applied in order).
+    /// Templates are resolved from the parent PatternConfiguration.
+    /// </summary>
+    [JsonPropertyName("extends")]
+    public List<string>? ExtendsTemplateNames { get; set; }
+
+    /// <summary>
     /// Whether this is the first phase
     /// </summary>
     [JsonIgnore]

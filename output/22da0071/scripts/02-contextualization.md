@@ -1,0 +1,13 @@
+## The Hidden Reality (Data & Context)
+
+[01:05] Namun, jika Anda berpikir narasi tentang "penggembalaan" ini hanya metafora yang berlebihan, mari kita hadapkan perasaan itu dengan data yang dingin dan jujur. Laporan *State of Mobile* tahun 2024 mencatat sebuah rekor yang seharusnya membuat kita merinding: Indonesia kembali menjadi salah satu negara dengan rata-rata penggunaan ponsel tertinggi di dunia.
+
+[01:28] Rata-rata dari kita menghabiskan lebih dari 6 jam setiap hari menatap layar bercahaya ini. Sekarang, mari kita sandingkan angka itu dengan kewajiban utama kita sebagai hamba. Jika kita asumsikan satu kali shalat butuh waktu 10 menit—dan itu sudah sangat khusyuk—maka total waktu kita menghadap Allah hanya 50 menit sehari. Enam jam untuk makhluk digital, lima puluh menit untuk Sang Pencipta. Proporsi ini bukan sekadar statistik; ini adalah diagnosis penyakit hati.
+
+[01:58] Di sinilah kita perlu membuka kembali lembaran kitab *Al-Ubudiyah*. Syaikhul Islam Ibnu Taimiyah memberikan definisi yang menampar kesadaran kita tentang kata 'Ilah' atau Tuhan. Beliau menjelaskan bahwa Tuhan bukan sekadar "Siapa yang menciptakan alam semesta". Bagi hati manusia, Tuhan adalah *al-ma'luh*, sesuatu yang hati kita terpaut padanya, yang kita taati perintahnya tanpa syarat, dan yang mendominasi seluruh perasaan kita hingga mengalahkan segalanya.
+
+[02:29] Definisi Ibnu Taimiyah ini memberikan konteks yang sangat spesifik—dan mengerikan—pada firman Allah dalam Surah Al-Furqan ayat 43: *"Ara-aita manittakhaza ilahahu hawahu"*. Terangkanlah kepadaku tentang orang yang menjadikan hawa nafsunya sebagai tuhannya. Ketika notifikasi berbunyi dan kita lebih takut ketinggalan berita daripada ketinggalan waktu shalat, saat itulah definisi 'Ilah' sedang bergeser diam-diam di dalam dada.
+
+[02:58] Pertanyaannya, bagaimana benda mati di saku kita ini bisa memperbudak hawa nafsu begitu kuat? Jawabannya tidak terjadi secara kebetulan, melainkan dirancang di laboratorium Silicon Valley. Para insinyur perangkat lunak meminjam konsep psikologi perilaku yang disebut *Variable Rewards* atau Hadiah Tak Terduga. Ini adalah mekanisme persis yang digunakan dalam mesin judi slot di kasino Las Vegas.
+
+[03:25] Saat kita menarik layar ke bawah untuk *refresh* media sosial, otak kita sebenarnya sedang menarik tuas mesin judi. Kita tidak tahu apa yang akan muncul: apakah berita buruk, foto teman menikah, atau notifikasi 'like' yang memuaskan ego. Ketidakpastian inilah yang memicu lonjakan dopamin di otak, membuat kita terus menerus mengecek layar bukan karena butuh informasi, tapi karena kecanduan sensasi. Kita mengira kita sedang bermain ponsel, padahal hawa nafsu kitalah yang sedang dimainkan oleh sistem.

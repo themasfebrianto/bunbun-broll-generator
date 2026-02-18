@@ -1,0 +1,13 @@
+## The Hidden Reality (Data & Context)
+
+[00:00] Mungkin kita akan menyangkal dan berkata, "Ah, ini cuma hiburan, jangan terlalu serius." Namun, data statistik mencatat sebuah anomali yang mengerikan jika kita berani jujur membacanya. Laporan digital global "We Are Social" tahun 2024 mengungkap sebuah fakta keras: rata-rata orang Indonesia menghabiskan waktu 8 jam 36 menit setiap hari untuk berselancar di internet.
+
+[00:26] Mari kita hitung ulang matematika kehidupan kita. Jika dikurangi waktu tidur, artinya hampir sepertiga jatah usia kita habis dalam kondisi "sujud digital"—terpaku menatap layar. Bandingkan durasi fantastis ini dengan waktu yang kita berikan untuk Sang Pencipta. Jika satu kali shalat butuh 5 sampai 10 menit, maka total ibadah wajib kita tak sampai satu jam. Kita memberikan sisa-sisa waktu untuk Tuhan, sementara waktu utama dan energi terbaik kita persembahkan untuk algoritma.
+
+[00:58] Pertanyaannya, apakah durasi waktu semata menentukan siapa Tuhan kita? Untuk menjawab ini, kita perlu membedah definisi teologis yang sangat presisi. Dalam kitab *Majmu' Fatawa* Jilid 10, ulama besar Ibnu Taimiyah memberikan definisi 'Ilah' atau Tuhan yang sangat menohok kesadaran modern kita. Beliau menjelaskan bahwa Tuhan bukan sekadar siapa yang menciptakan langit dan bumi.
+
+[01:25] Menurut Ibnu Taimiyah, Tuhan adalah *ma taskunu ilayhi*—sesuatu yang hatimu merasa tenang karenanya, jiwamu sangat bergantung padanya, dan demi hal itu, kamu rela berkorban apa saja. Definisi ini mengubah segalanya. Coba kita refleksikan dengan jujur: Saat kita sedang stres, gelisah, atau lelah bekerja, ke mana hati kita mencari ketenangan pertama kali? Apakah kita menggelar sajadah untuk mengadu, atau refleks tangan kita langsung meraba saku celana mencari layar bercahaya itu?
+
+[01:58] Jika ketenangan kita lebih mudah didapat dari *scrolling* video pendek daripada melantunkan ayat suci, maka kita sedang menghadapi masalah akidah yang serius. Al-Qur'an telah memprediksi fenomena pergeseran loyalitas hati ini ribuan tahun silam. Dalam Surah Al-Jatsiyah ayat 23, Allah berfirman dengan nada pertanyaan yang tajam: *"Maka pernahkah kamu melihat orang yang menjadikan hawa nafsunya sebagai tuhannya?"*
+
+[02:28] Kita mungkin tidak menyadarinya saat kondisi normal. Tapi lihatlah reaksi tubuh kita saat sinyal mendadak hilang, atau saat baterai menyentuh angka 1% di tengah perjalanan. Kepanikan luar biasa yang muncul, keringat dingin yang keluar, dan rasa hampa yang menyergap—itu bukanlah sekadar rasa bosan. Itu adalah gejala sakau spiritual. Itu adalah bukti bahwa jiwa kita telah menggantungkan rasa amannya bukan lagi pada Allah, melainkan pada koneksi data.

@@ -9,6 +9,7 @@ namespace BunbunBroll.Orchestration.Generators;
 /// </summary>
 public class PromptBuilder
 {
+    private readonly RuleRenderer _ruleRenderer = new();
     /// <summary>
     /// Build generation prompt for a phase
     /// </summary>
@@ -151,11 +152,9 @@ public class PromptBuilder
         if (phase.CustomRules.Count > 0)
         {
             parts.Add("\n### ATURAN KHUSUS");
-            foreach (var rule in phase.CustomRules)
+            foreach (var ruleInstruction in _ruleRenderer.RenderAllRules(phase, context))
             {
-                var ruleInstruction = FormatCustomRule(rule.Key, rule.Value, context);
-                if (!string.IsNullOrEmpty(ruleInstruction))
-                    parts.Add($"- {ruleInstruction}");
+                parts.Add($"- {ruleInstruction}");
             }
         }
 
@@ -176,47 +175,6 @@ public class PromptBuilder
         }
 
         return string.Join("\n", parts);
-    }
-
-    /// <summary>
-    /// Convert customRule key-value pairs into human-readable LLM instructions
-    /// </summary>
-    private string FormatCustomRule(string key, string value, GenerationContext context)
-    {
-        return key switch
-        {
-            "mustHaveGreeting" when value == "true" =>
-                !string.IsNullOrEmpty(context.Config.ChannelName)
-                    ? $"WAJIB: Mulai dengan salam pembuka dan sebutkan nama channel \"{context.Config.ChannelName}\""
-                    : "WAJIB: Mulai dengan salam pembuka (Assalamualaikum)",
-            "mustHaveAudienceAddress" when value == "true" =>
-                "WAJIB: Sapa audiens secara personal (contoh: 'sahabat', 'saudara-saudaraku')",
-            "cognitiveDisturbance" =>
-                $"Tingkat gangguan kognitif: {value} — buat penonton terpancing rasa ingin tahu",
-            "minNumericData" =>
-                $"WAJIB: Sertakan minimal {value} data numerik/statistik relevan",
-            "mustHaveHistoricalContext" when value == "true" =>
-                "WAJIB: Sertakan konteks historis singkat",
-            "minDimensions" =>
-                $"WAJIB: Eksplorasi minimal {value} dimensi/perspektif berbeda",
-            "mustUseLayering" when value != "false" =>
-                "DISARANKAN: Gunakan teknik layering — narasi dominan → pendalaman makna → implikasi moral",
-            "mustHaveRhetoricalQuestions" when value == "true" =>
-                "WAJIB: Sertakan pertanyaan retoris di momen penting",
-            "emotionalIntensity" =>
-                $"Intensitas emosional: {value} — buat momen yang menghantam perasaan",
-            "mustHaveDarkMetaphor" when value is "true" or "preferred" =>
-                "DISARANKAN: Gunakan metafora gelap/kuat yang mudah divisualisasikan",
-            "mustRevealHidden" when value == "true" =>
-                "WAJIB: Ungkapkan kebenaran tersembunyi atau hal yang sering diabaikan",
-            "mustHaveClosing" when value == "true" =>
-                "WAJIB: Akhiri dengan penutup religius yang tenang",
-            "mustConnectToUmmah" when value == "true" =>
-                "WAJIB: Hubungkan penutup dengan kondisi umat secara universal",
-            "openEnded" when value == "true" =>
-                "WAJIB: Akhiri dengan pertanyaan terbuka yang mengundang refleksi, bukan jawaban final",
-            _ => $"{key}: {value}"
-        };
     }
 
     private string BuildPreviousPhaseContext(PhaseContext phaseContext)

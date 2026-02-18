@@ -1,0 +1,15 @@
+## The Humble Conclusion (Epilogue)
+
+[00:00] Tentu, kita tidak bisa naif. Kita hidup di zaman di mana *smartphone* adalah perpanjangan tangan kita untuk bekerja, belajar, dan menyambung silaturahmi. Membuang teknologi bukanlah jawaban, karena Islam tidak pernah menyuruh umatnya menjadi manusia gua yang anti-kemajuan. Namun, kita perlu menegosiasikan ulang posisi kita: Siapa majikan, dan siapa alat.
+
+[00:27] Imam Al-Ghazali dalam mahakaryanya, *Ihya Ulumuddin*, menawarkan sebuah konsep penyucian jiwa yang disebut *Uzlah*—mengasingkan diri sejenak dari keramaian manusia untuk menata hati yang keruh. Di abad ke-11, *Uzlah* mungkin berarti pergi ke pinggiran kota atau menyepi di kamar. Namun di abad ke-21, definisi *Uzlah* mengalami evolusi teknis yang menarik.
+
+[00:54] *Uzlah* modern adalah keberanian jari telunjukmu untuk menekan tombol "Airplane Mode" atau fitur "Do Not Disturb". Sesederhana itu, namun dampaknya revolusioner. Cobalah mulai hari ini. Saat adzan berkumandang, atau saat duduk bersama orang tua dan pasangan, aktifkan mode itu. Putuskan koneksi dengan dunia maya untuk menyambung koneksi dengan langit. Biarkan dunia menunggu. Jika kita bisa tahan duduk diam selama dua jam di bioskop tanpa mengecek HP demi sebuah film, sungguh memalukan jika kita tidak mampu memberikan 10 menit waktu eksklusif tanpa gangguan untuk Sang Pencipta alam semesta.
+
+[01:38] Ingatlah kembali realitas pahit yang sering kita lupakan: Algoritma media sosial memang dirancang jenius agar kita betah berlama-lama di sana. Tapi senyaman apa pun "rumah digital" itu, tidak ada sinyal Wi-Fi di alam kubur. Tidak ada fitur *infinite scroll* di Padang Mahsyar. Di ruang tunggu abadi itu, *followers* jutaan tidak akan bisa menolong, dan viralitas tidak akan meringankan hisab.
+
+[02:08] Yang akan menemani kita di kesunyian itu hanyalah apa yang nyata. Pertanyaannya untuk kita renungkan malam ini: Konten apa yang sedang kita tabung untuk menemani kita di sana? Apakah rekaman debat kusir penuh caci maki, tarian yang mengumbar aurat, ataukah jejak-jejak kebaikan dan lantunan ayat yang kita baca di sela-sela kesibukan? Pilihan itu ada di ujung jari kita, detik ini juga.
+
+[02:36] Maka, mari kita akhiri pembahasan ini dengan sebuah tindakan nyata. Letakkan benda bercahaya itu sekarang. Telungkupkan layarnya di atas meja agar cahayanya tak lagi menggoda. Tarik napas panjang, rasakan kehadiranmu di dunia nyata, dan berjalanlah menuju keran air untuk berwudhu. Basuhlah wajah yang lelah itu. Kembalikan "cahaya" ke dalam dadamu, bukan ke dalam layarmu.
+
+[03:05] Wallahu a'lam bish-shawab. Semoga kisah ini bermanfaat. Lebih dan kurangnya mohon dimaafkan. Yang benar datangnya dari Allah Subhanahu wa ta'ala. Khilaf atau keliru itu datangnya dari saya pribadi sebagai manusia biasa. Sampai ketemu di kisah-kisah seru yang penuh makna selanjutnya. Saya akhiri wassalamualaikum warahmatullahi wabarakatuh.

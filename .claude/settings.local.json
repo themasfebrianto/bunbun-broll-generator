@@ -27,7 +27,12 @@
       "Bash(docker build:*)",
       "Bash(docker system prune:*)",
       "Bash(docker builder prune:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(dotnet msbuild:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(tasklist:*)",
+      "Bash(findstr:*)",
+      "Bash(cmd //c \"tasklist | findstr bunbun\")"
     ]
   }
 }

@@ -10,7 +10,7 @@ namespace BunbunBroll.Orchestration.Services;
 /// <summary>
 /// Coordinates execution of a single phase with retry logic.
 /// Ported from ScriptFlow's PhaseCoordinator with validation-driven regeneration.
-/// Enhanced with pattern-specific system prompt generation.
+/// Enhanced with pattern-specific system prompt generation and prompt caching.
 /// </summary>
 public class PhaseCoordinator
 {
@@ -19,6 +19,11 @@ public class PhaseCoordinator
     private readonly SectionFormatter _formatter;
     private readonly IPhaseValidator _validator;
     private readonly ILogger? _logger;
+    private readonly RuleRenderer _ruleRenderer = new();
+
+    // System prompt cache: key = sessionId_patternId, value = cached prompt
+    private string? _cachedSystemPromptKey;
+    private string? _cachedSystemPrompt;
 
     public PhaseCoordinator(
         IIntelligenceService intelligenceService,
@@ -101,8 +106,8 @@ public class PhaseCoordinator
                         phase, context, phaseContext, validationFeedback ?? string.Empty);
                 }
 
-                // Build pattern-specific system prompt
-                var systemPrompt = BuildEnhancedSystemPrompt(context, phase);
+                // Build or get cached pattern-specific system prompt
+                var systemPrompt = GetOrBuildSystemPrompt(context, phase);
 
                 // Estimate max tokens
                 var maxTokens = Math.Min(phase.WordCountTarget.Max * 2 + 500, 8000);
@@ -232,17 +237,35 @@ public class PhaseCoordinator
         };
     }
 
+    /// <summary>
+    /// Get or build the cached system prompt for this session/pattern combination.
+    /// System prompts are static per session and can be reused across all phases.
+    /// </summary>
+    private string GetOrBuildSystemPrompt(GenerationContext context, PhaseDefinition phase)
+    {
+        var cacheKey = $"{context.SessionId}_{context.Pattern.Name}";
+
+        if (_cachedSystemPromptKey == cacheKey && _cachedSystemPrompt != null)
+        {
+            return _cachedSystemPrompt;
+        }
+
+        _cachedSystemPrompt = BuildEnhancedSystemPrompt(context, phase);
+        _cachedSystemPromptKey = cacheKey;
+        return _cachedSystemPrompt;
+    }
+
     private string BuildEnhancedSystemPrompt(GenerationContext context, PhaseDefinition phase)
     {
         var parts = new List<string>();
-        
+
         // Identity and base role
         parts.Add("Anda adalah penulis script video essay profesional dengan keahlian dalam storytelling intelektual-edukatif.");
         parts.Add($"Gaya tulisan: {context.Pattern.GlobalRules.Tone}");
         parts.Add($"Bahasa: {context.Pattern.GlobalRules.Language}");
-        
+
         // Channel-specific enhancement for Jazirah Ilmu style
-        if (context.Pattern.Name == "jazirah-ilmu" || 
+        if (context.Pattern.Name == "jazirah-ilmu" ||
             context.Config.ChannelName?.Contains("Jazirah", StringComparison.OrdinalIgnoreCase) == true)
         {
             parts.Add("");
@@ -277,19 +300,21 @@ public class PhaseCoordinator
             parts.Add("- Sampai ketemu di kisah-kisah seru yang penuh makna selanjutnya.");
             parts.Add("- Wassalamualaikum warahmatullahi wabarakatuh.");
         }
-        
+
         // General rules
         if (!string.IsNullOrEmpty(context.Config.ChannelName))
-            parts.Add($"");
+        {
+            parts.Add("");
             parts.Add($"Channel: {context.Config.ChannelName}");
+        }
 
         if (!string.IsNullOrEmpty(context.Pattern.GlobalRules.Perspective))
             parts.Add($"Perspektif: {context.Pattern.GlobalRules.Perspective}");
-            
+
         // Technical constraints
         parts.Add("");
         parts.Add("=== BATASAN TEKNIS ===");
-        
+
         if (!string.IsNullOrEmpty(context.Pattern.GlobalRules.MaxWordsPerSentence))
             parts.Add($"Maksimal kata per kalimat: {context.Pattern.GlobalRules.MaxWordsPerSentence}");
         if (!string.IsNullOrEmpty(context.Pattern.GlobalRules.PreferredWordsPerSentence))
@@ -303,7 +328,7 @@ public class PhaseCoordinator
         parts.Add("");
         parts.Add("=== INSTRUKSI OUTPUT ===");
         parts.Add("- Tulis konten script langsung, TANPA markup, header, atau metadata");
-            parts.Add("- JANGAN sebutkan label struktur seperti 'Analisis Layer 1', 'Poin 1', atau 'Bagian A'. Langsung masuk ke pembahasannya.");
+        parts.Add("- JANGAN sebutkan label struktur seperti 'Analisis Layer 1', 'Poin 1', atau 'Bagian A'. Langsung masuk ke pembahasannya.");
         parts.Add("- Tulis dalam paragraf narasi yang mengalir natural");
         parts.Add("- JANGAN gunakan bullet point, numbering, atau formatting khusus");
         parts.Add("- Fokus pada kualitas tulisan dan kedalaman konten");

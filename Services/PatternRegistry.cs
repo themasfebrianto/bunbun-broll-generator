@@ -13,6 +13,9 @@ public class PatternRegistry : IPatternRegistry
     private readonly ConcurrentDictionary<string, PatternConfiguration> _patterns = new();
     private readonly Dictionary<string, DateTime> _fileLastWriteTimes = new();
     private string? _patternsDirectory;
+    private DateTime _lastReloadCheck = DateTime.MinValue;
+    private readonly TimeSpan _reloadCheckInterval = TimeSpan.FromSeconds(2);
+    private readonly PatternConfigValidator _validator = new();
     private static readonly JsonSerializerOptions _jsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
@@ -72,9 +75,27 @@ public class PatternRegistry : IPatternRegistry
             var config = JsonSerializer.Deserialize<PatternConfiguration>(json, _jsonOptions);
             if (config != null && !string.IsNullOrEmpty(config.Name))
             {
+                // Validate before storing
+                var validation = _validator.Validate(config);
+                if (!validation.IsValid)
+                {
+                    Console.WriteLine($"❌ Pattern validation FAILED for {Path.GetFileName(filePath)}:");
+                    Console.WriteLine(validation.GetSummary());
+                    return; // Don't load invalid patterns
+                }
+
+                // Show warnings if any
+                if (validation.Warnings.Count > 0)
+                {
+                    Console.WriteLine($"⚠️ Pattern warnings for {Path.GetFileName(filePath)}:");
+                    Console.WriteLine(validation.GetSummary());
+                }
+
+                // Resolve rule templates before storing
+                config.ResolveTemplates();
                 _patterns[config.Name] = config;
                 _fileLastWriteTimes[filePath] = File.GetLastWriteTime(filePath);
-                Console.WriteLine($"Loaded pattern: {config.Name} ({config.Phases.Count} phases) from {Path.GetFileName(filePath)}");
+                Console.WriteLine($"✓ Loaded pattern: {config.Name} ({config.Phases.Count} phases, {config.RuleTemplates.Count} templates) from {Path.GetFileName(filePath)}");
             }
         }
         catch (Exception ex)
@@ -85,6 +106,13 @@ public class PatternRegistry : IPatternRegistry
 
     private void TryReloadIfChanged()
     {
+        // Debounce: Skip checking if we checked too recently
+        var now = DateTime.UtcNow;
+        if (now - _lastReloadCheck < _reloadCheckInterval)
+            return;
+
+        _lastReloadCheck = now;
+
         if (string.IsNullOrEmpty(_patternsDirectory) || !Directory.Exists(_patternsDirectory))
             return;
 

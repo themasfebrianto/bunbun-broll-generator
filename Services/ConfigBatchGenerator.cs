@@ -98,12 +98,10 @@ public class ConfigBatchGenerator
             ? $"\nCONTEXT - DO NOT REPEAT THESE TOPICS:\n- {string.Join("\n- ", existingTopics)}"
             : "";
 
-        // Construct dynamic phase structure from the pattern
-        var orderedPhases = pattern.Configuration.GetOrderedPhases().ToList();
-        var structureGuidance = string.Join("\n", orderedPhases.Select((p, i) => 
-            $"{i + 1}. {p.Name}: {p.GuidanceTemplate}"));
-
-        var beatCount = orderedPhases.Count;
+        // Build phase beat templates
+        var templateBuilder = new PhaseBeatTemplateBuilder();
+        var phaseTemplates = templateBuilder.BuildTemplatesFromPattern(pattern.Configuration);
+        var beatTemplateSection = string.Join("\n", phaseTemplates.Select(t => t.GetBeatPrompt()));
 
         return $@"
 Generate 1 (ONE) unique video configuration JSON for channel '{channelName}'.
@@ -116,54 +114,51 @@ Seed/Instruction: {seed ?? "None"}
 {GetThemeGuidance(theme)}
 
 === REQUIREMENTS ===
-1. TITLE (Topic): CRITICAL - YOU MUST USE one of the following 10 formulas (Variasikan pattern ini):
+1. TITLE (Topic): CRITICAL - YOU MUST USE one of the following 10 formulas:
 
    Formula 1: Angka + Subjek + yang Bisa/Mungkin + Konsekuensi
-   (Contoh: ""1 Perusahaan yang Bisa Memicu Perang Dunia 3"", ""3 Teknologi yang Bisa Mengubah Wajah Perang"")
-
    Formula 2: Durasi + Kata Kerja Memahami + Kenapa + Subjek + Kata Kunci Emosional
-   (Contoh: ""38 Menit Memahami Kenapa AS Ngotot Ingin Membeli Greenland"", ""20 Menit Memahami Kenapa Perusahaan X Gagal"")
-
    Formula 3: Beginilah Nasib/Keadaan + [Tempat/Orang] Setelah + [X Tahun/Kejadian]
-   (Contoh: ""Beginilah Nasib Timor Leste Setelah 24 Tahun Berpisah Dari Indonesia"")
-
    Formula 4: Ketika + Ide/Agama/Metode + Untuk + Hasil/Peristiwa + [Tokoh]
-   (Contoh: ""Ketika Islam Dipakai Untuk Menjinakkan Amarah Seorang Mike Tyson"", ""Ketika Sains Dipakai Untuk Menenangkan Publik"")
-
-   Formula 5: Mereka Dibilang X, Tapi Y. Apakah Kebetulan? (Retorik)
-   (Contoh: ""Mereka dibilang Gila, Tapi Beberapa Omongannya Terjadi. Apakah Kebetulan?"", ""Dulu Diremehkan, Sekarang Jadi Kunci — Kebetulan?"")
-
+   Formula 5: Mereka Dibilang X, Tapi Y. Apakah Kebetulan?
    Formula 6: Mitos Atau Fakta: [Klaim Provokatif]
-   (Contoh: ""Mitos Atau Fakta: Suku Keturunan Asli Nabi Sulaiman Di Afrika"")
-
    Formula 7: [Nama Orang] dan [Nama Orang] di Catatan [Pelaku/Tokoh Misterius]
-   (Contoh: ""Mulyono dan Mulyani di Catatan Sang Predator"")
-
    Formula 8: Seberapa [Adjektif Ekstrem] + [Periode/Peristiwa] + ?
-   (Contoh: ""Seberapa Mematikan Abad Kegelapan?"", ""Seberapa Nyata Ancaman Iklim Tahun 2050?"")
-
    Formula 9: Bagaimana Jika + Hipotesis/Perubahan + [Konsekuensi Besar]
-   (Contoh: ""Bagaimana Jika US Menjual Greenland?"", ""Bagaimana Jika Batas Negara Diubah Sekarang?"")
-
    Formula 10: Reportase singkat: [Tempat/Peristiwa] — [Frasa Menarik]
-   (Contoh: ""Di Balik Pintu Gedung X — Jejak yang Tak Terlihat"")
-
-   STYLE RULES:
-   - Spesifik (sebut angka, waktu, nama).
-   - Intelektual tapi ""Genkas"" (Gen-Z/Kaskus/Casual).
-   - BUKAN clickbait murahan. Jaga kebenaran.
 
 2. DURATION: Between 15 - 35 minutes.
-3. SOURCES (SourceReferences): THIS IS CRITICAL. You must cite specific valid sources (Quran Surah:Ayat, Hadith Narrator/Number, Name of Classical Kitab/Book). Do NOT make this up.
+3. SOURCES (SourceReferences): THIS IS CRITICAL. You must cite specific valid sources (Quran Surah:Ayat, Hadith Narrator/Number, Name of Classical Kitab/Book).
 
-=== REQUIRED STORY STRUCTURE ===
-You MUST generate detailed 'mustHaveBeats' for EACH phase to ensure depth.
-Follow this structure exactly:
+=== PHASE-SPECIFIC BEAT REQUIREMENTS ===
 
-{structureGuidance}
+Each phase has specific REQUIRED ELEMENTS that must be reflected in the beats:
 
-For EACH phase above, generate 3-5 specific story beats (bullet points of what happens).
-Format each beat string as: ""[Phase Name]: Beat description...""
+{beatTemplateSection}
+
+=== BEAT QUALITY RULES ===
+
+ATURAN PENULISAN BEAT YANG WAJIB DIPATUHI:
+
+1. **SPESIFIK & KONKRET**: Gunakan deskripsi visual jelas (warna, suasana, adegan)
+2. **REFERENSI JELAS**: Sebutkan QS. X:Y, HR. Nama#Nomor, Nama Kitab, Nama Tokoh, Tahun
+3. **KONSEPSI ILMIAH/PSIKOLOGIS**: Nama teori, mekanisme, istilah teknis dengan konteks
+4. **NARASI/KALIMAT CONTOH**: Tulis kalimat aktual yang bisa diucapkan, bukan ringkasan
+5. **EMOSI**: Hubungkan dengan perasaan (takut, kagum, sedih, terkejut, gelisah)
+6. **HINDARI FRASA UMUM**: Jangan gunakan 'analisis', 'penjelasan', 'membahas', 'mengulas'
+
+CONTOH BEAT YANG BAIK (SUBSTANTIAL):
+- [The Cold Open]: Visual hening sebuah kamar gelap, hanya diterangi cahaya biru layar smartphone yang menyorot wajah kosong seseorang.
+- [The Cold Open]: Narasi paradoks: 'Dulu, berhala itu diam di tempat dan kita yang mendatanginya. Hari ini, berhala itu ada di saku...'
+- [The Hidden Reality]: Penjelasan linguistik kata 'Ilah' merujuk Ibnu Taimiyah dalam Al-Ubudiyah: Bukan sekadar pencipta, tapi 'sesuatu yang hati terpaut padanya'.
+- [The Systematic Breakdown]: Konsep 'Riya Digital': Bagaimana arsitektur 'Like' dan 'Comment' memfasilitasi penyakit hati (Ujub/Sum'ah).
+- [The Critical Junction]: Pertanyaan tajam: 'Jika besok internet mati selamanya, siapa ''tuhan'' yang hilang dari hidupmu?'
+
+CONTOH BEAT YANG BURUK (TERLALU UMUM) - HINDARI:
+- [The Cold Open]: Hook visual yang kuat... ❌
+- [The Hidden Reality]: Penjelasan konteks sejarah... ❌
+- [The Systematic Breakdown]: Analisis mendalam tentang... ❌
+- [The Critical Junction]: Pertanyaan reflektif... ❌
 
 === OUTPUT FORMAT (STRICT JSON) ===
 Return ONLY this JSON structure (no markdown text):
@@ -171,14 +166,13 @@ Return ONLY this JSON structure (no markdown text):
   ""topic"": ""Judul video bahasa Indonesia"",
   ""targetDurationMinutes"": 20,
   ""outline"": ""Ringkasan alur cerita dalam 2-3 kalimat..."",
-  ""sourceReferences"": ""QS. Al-Mulk: 1-5, HR. Muslim No. 203, Kitab Al-Bidaya wan Nihaya Vol 3, Jurnal Sains Ibnu Sina"",
+  ""sourceReferences"": ""QS. Al-Mulk: 1-5, HR. Muslim No. 203, Kitab Al-Bidaya wan Nihaya Vol 3"",
   ""mustHaveBeats"": [
-    ""[Phase 1 Name]: Hook visual yang kuat..."",
-    ""[Phase 1 Name]: Pertanyaan retoris untuk memancing rasa ingin tahu..."",
-    ""[Phase 1 Name]: Statement tesis awal..."",
-    ""[Phase 2 Name]: Penjelasan konteks sejarah..."",
-    ""[Phase 2 Name]: Kutipan dalil pertama..."",
-    ""... (lanjutkan untuk SEMUA phase, total 15-25 beats)""
+    ""[The Cold Open]: Visual spesifik dengan deskripsi mendetak..."",
+    ""[The Cold Open]: Narasi paradoks dengan kutipan langsung..."",
+    ""[The Hidden Reality]: Data konkret: Angka/Tahun/Nama spesifik..."",
+    ""[The Hidden Reality]: Referensi jelas: QS. atau HR. atau Kitab..."",
+    ""... (lanjutkan untuk SEMUA 5 phase, total 15-25 beats yang substansial)""
   ]
 }}";
     }
@@ -188,30 +182,55 @@ Return ONLY this JSON structure (no markdown text):
         try
         {
             response = StripMarkdownCodeBlocks(response);
-            
+
             int idxStart = response.IndexOf('{');
             int idxEnd = response.LastIndexOf('}');
-            
+
             if (idxStart == -1 || idxEnd == -1) return null;
 
             string jsonClean = response.Substring(idxStart, idxEnd - idxStart + 1);
-            
-            var options = new JsonSerializerOptions 
-            { 
+
+            var options = new JsonSerializerOptions
+            {
                 PropertyNameCaseInsensitive = true,
                 ReadCommentHandling = JsonCommentHandling.Skip,
                 AllowTrailingCommas = true
             };
 
+            GeneratedConfig? config = null;
             if (jsonClean.TrimStart().StartsWith("["))
             {
                 var list = JsonSerializer.Deserialize<List<GeneratedConfig>>(jsonClean, options);
-                return list?.FirstOrDefault();
+                config = list?.FirstOrDefault();
             }
             else
             {
-                return JsonSerializer.Deserialize<GeneratedConfig>(jsonClean, options);
+                config = JsonSerializer.Deserialize<GeneratedConfig>(jsonClean, options);
             }
+
+            // Validate beat quality if beats exist
+            if (config?.MustHaveBeats != null && config.MustHaveBeats.Count > 0)
+            {
+                var validator = new BeatQualityValidator();
+                var validationResult = validator.Validate(config.MustHaveBeats);
+
+                if (!validationResult.IsValid)
+                {
+                    _logger.LogWarning(
+                        "Generated config has low-quality beats: {Ratio:P0} substantial. Issues: {Issues}",
+                        validationResult.SubstantialRatio,
+                        string.Join("; ", validationResult.Issues));
+
+                    // Return null to trigger retry
+                    return null;
+                }
+
+                _logger.LogInformation(
+                    "Beat quality validation passed: {Ratio:P0} substantial beats",
+                    validationResult.SubstantialRatio);
+            }
+
+            return config;
         }
         catch (Exception)
         {
