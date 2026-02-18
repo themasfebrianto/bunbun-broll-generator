@@ -176,14 +176,7 @@
         "openEnded": "true",
         "humilityRequired": "true"
       },
-      "emotionalArc": "Kontemplatif/tenang (refleksi lembut) → Hangat↗ (koneksi personal dengan pendengar) → Lembut menggugah (pertanyaan terbuka) → Damai↘ (penutup salam dengan ketenangan)",
-      "closingFormula": [
-        "Wallahu a'lam bish-shawab",
-        "Semoga kisah ini bermanfaat. Lebih dan kurangnya mohon dimaafkan.",
-        "Yang benar datangnya dari Allah Subhanahu wa ta'ala. Khilaf atau keliru datangnya dari saya pribadi sebagai manusia biasa.",
-        "Sampai ketemu di kisah-kisah seru yang penuh makna selanjutnya.",
-        "Saya akhiri. Wassalamualaikum warahmatullahi wabarakatuh."
-      ]
+      "emotionalArc": "Kontemplatif/tenang (refleksi lembut) → Hangat↗ (koneksi personal dengan pendengar) → Lembut menggugah (pertanyaan terbuka) → Damai↘ (penutup salam dengan ketenangan)"
     }
   ],
   "globalRules": {
@@ -218,17 +211,7 @@
       "Menimbulkan keprihatinan dengan ketidakadilan"
     ]
   },
-  "closingFormula": {
-    "religious": "Wallahu a'lam bish-shawab",
-    "fullClosing": [
-      "Wallahu a'lam bish-shawab.",
-      "Semoga kisah ini bermanfaat. Lebih dan kurangnya mohon dimaafkan.",
-      "Yang benar datangnya dari Allah Subhanahu wa ta'ala. Khilaf atau keliru datangnya dari saya pribadi sebagai manusia biasa.",
-      "Sampai ketemu di kisah-kisah seru yang penuh makna selanjutnya.",
-      "Saya akhiri.",
-      "Wassalamualaikum warahmatullahi wabarakatuh."
-    ]
-  },
+  "closingFormula": "Wallahu a'lam bish-shawab. Semoga kisah ini bermanfaat. Lebih dan kurangnya mohon dimaafkan. Yang benar datangnya dari Allah Subhanahu wa ta'ala. Khilaf atau keliru datangnya dari saya pribadi sebagai manusia biasa. Sampai ketemu di kisah-kisah seru yang penuh makna selanjutnya. Saya akhiri. Wassalamualaikum warahmatullahi wabarakatuh.",
   "productionChecklist": {
     "praProduksi": [
       "Topik memiliki kedalaman historis atau moral",
