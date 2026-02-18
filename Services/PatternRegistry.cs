@@ -6,13 +6,18 @@ namespace BunbunBroll.Services;
 
 /// <summary>
 /// Singleton pattern registry that loads configurations from JSON files.
+/// Supports hot-reloading of patterns.
 /// </summary>
 public class PatternRegistry : IPatternRegistry
 {
     private readonly ConcurrentDictionary<string, PatternConfiguration> _patterns = new();
+    private readonly Dictionary<string, DateTime> _fileLastWriteTimes = new();
+    private string? _patternsDirectory;
     private static readonly JsonSerializerOptions _jsonOptions = new()
     {
-        PropertyNameCaseInsensitive = true
+        PropertyNameCaseInsensitive = true,
+        ReadCommentHandling = JsonCommentHandling.Skip,
+        AllowTrailingCommas = true
     };
 
     public void Register(string id, PatternConfiguration config)
@@ -22,21 +27,28 @@ public class PatternRegistry : IPatternRegistry
 
     public PatternConfiguration? Get(string id)
     {
+        // Try to reload patterns if directory is set and files have changed
+        TryReloadIfChanged();
+        
         return _patterns.TryGetValue(id, out var config) ? config : null;
     }
 
     public IEnumerable<string> ListPatterns()
     {
+        TryReloadIfChanged();
         return _patterns.Keys;
     }
 
     public bool Exists(string id)
     {
+        TryReloadIfChanged();
         return _patterns.ContainsKey(id);
     }
 
     public void LoadFromDirectory(string directory)
     {
+        _patternsDirectory = directory;
+        
         if (!Directory.Exists(directory))
         {
             Console.WriteLine($"Patterns directory not found: {directory}");
@@ -46,22 +58,67 @@ public class PatternRegistry : IPatternRegistry
         var jsonFiles = Directory.GetFiles(directory, "*.json", SearchOption.TopDirectoryOnly);
         foreach (var file in jsonFiles)
         {
-            try
-            {
-                var json = File.ReadAllText(file);
-                var config = JsonSerializer.Deserialize<PatternConfiguration>(json, _jsonOptions);
-                if (config != null && !string.IsNullOrEmpty(config.Name))
-                {
-                    _patterns[config.Name] = config;
-                    Console.WriteLine($"Loaded pattern: {config.Name} ({config.Phases.Count} phases) from {Path.GetFileName(file)}");
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Failed to load pattern from {file}: {ex.Message}");
-            }
+            LoadPatternFromFile(file);
         }
 
         Console.WriteLine($"Pattern registry loaded {_patterns.Count} patterns from {directory}");
+    }
+
+    private void LoadPatternFromFile(string filePath)
+    {
+        try
+        {
+            var json = File.ReadAllText(filePath);
+            var config = JsonSerializer.Deserialize<PatternConfiguration>(json, _jsonOptions);
+            if (config != null && !string.IsNullOrEmpty(config.Name))
+            {
+                _patterns[config.Name] = config;
+                _fileLastWriteTimes[filePath] = File.GetLastWriteTime(filePath);
+                Console.WriteLine($"Loaded pattern: {config.Name} ({config.Phases.Count} phases) from {Path.GetFileName(filePath)}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to load pattern from {filePath}: {ex.Message}");
+        }
+    }
+
+    private void TryReloadIfChanged()
+    {
+        if (string.IsNullOrEmpty(_patternsDirectory) || !Directory.Exists(_patternsDirectory))
+            return;
+
+        var jsonFiles = Directory.GetFiles(_patternsDirectory, "*.json", SearchOption.TopDirectoryOnly);
+        bool anyChanged = false;
+
+        foreach (var file in jsonFiles)
+        {
+            var lastWrite = File.GetLastWriteTime(file);
+            if (!_fileLastWriteTimes.TryGetValue(file, out var cachedWrite) || lastWrite > cachedWrite)
+            {
+                Console.WriteLine($"Pattern file changed, reloading: {Path.GetFileName(file)}");
+                LoadPatternFromFile(file);
+                anyChanged = true;
+            }
+        }
+
+        if (anyChanged)
+        {
+            Console.WriteLine($"Pattern registry now has {_patterns.Count} patterns");
+        }
+    }
+
+    /// <summary>
+    /// Force reload of all patterns from the directory.
+    /// </summary>
+    public void ReloadAll()
+    {
+        if (!string.IsNullOrEmpty(_patternsDirectory))
+        {
+            Console.WriteLine("Force reloading all patterns...");
+            _patterns.Clear();
+            _fileLastWriteTimes.Clear();
+            LoadFromDirectory(_patternsDirectory);
+        }
     }
 }

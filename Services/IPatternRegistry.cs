@@ -5,6 +5,7 @@ namespace BunbunBroll.Services;
 /// <summary>
 /// Pattern discovery and management service.
 /// Loads pattern configurations from JSON files.
+/// Supports hot-reloading when files change.
 /// </summary>
 public interface IPatternRegistry
 {
@@ -13,4 +14,9 @@ public interface IPatternRegistry
     IEnumerable<string> ListPatterns();
     bool Exists(string id);
     void LoadFromDirectory(string directory);
+    
+    /// <summary>
+    /// Force reload of all patterns from the directory.
+    /// </summary>
+    void ReloadAll();
 }
