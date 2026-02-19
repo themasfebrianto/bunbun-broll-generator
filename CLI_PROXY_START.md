@@ -22,3 +22,10 @@ Status:
                                                                                                                         
   # Re-login (if token expires)                                                                                         
   cd ~/CLIProxyAPI && ./cli-proxy-api -login   
+  cd ~/CLIProxyAPI && ./cli-proxy-api --antigravity-login
+
+  # list login   
+  ls -la ~/.ccs/cliproxy/auth/  
+  
+  # Option 1: Delete all auth files                                                                                                                                           
+  rm ~/.ccs/cliproxy/auth/*.json  

@@ -1,0 +1,5 @@
+## The Cold Open (Hook)
+
+[00:00] Sejarah peradaban manusia selalu mencatat bahwa periode paling berdarah seringkali tidak dimulai dengan deklarasi perang yang bising, melainkan diawali oleh heningnya sebuah kesepakatan damai yang terjalin di atas fondasi yang rapuh dan kepentingan sesaat. Kita sering membayangkan akhir zaman sebagai konflik total sejak detik pertama, namun naskah-naskah kuno justru melukiskan sebuah era paradoks yang disebut 'Sulhan Amnan' atau perdamaian yang aman, di mana dua kekuatan militer terbesar dunia justru bersatu dalam satu parit melawan musuh misterius di belakang mereka.
+
+[00:35] Namun, ini adalah ketenangan yang menipu, sebuah gencatan senjata yang diikat bukan oleh kepercayaan, melainkan oleh kebutuhan taktis yang mendesak. Peristiwa Dabiq mengajarkan kita bahwa dalam panggung besar sejarah, aliansi politik hanyalah tirai tipis yang menutupi benturan peradaban yang tak terelakkan, sebuah siklus yang terus berputar menunggu giliran generasinya, hingga satu teriakan kecil tentang simbol agama cukup untuk meruntuhkan segalanya menjadi debu.

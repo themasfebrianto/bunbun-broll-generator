@@ -1,0 +1,5 @@
+## The Cold Open (Hook)
+
+[00:00] Sejarah peradaban manusia selalu mencatat bahwa periode paling berdarah seringkali tidak dimulai dengan deklarasi perang yang bising, melainkan diawali oleh heningnya sebuah kesepakatan damai yang terjalin di atas fondasi yang rapuh dan kepentingan sesaat. Kita sering membayangkan akhir zaman sebagai konflik total sejak detik pertama, di mana seluruh dunia langsung terjerumus dalam kekacauan tanpa aturan yang jelas. Namun, naskah-naskah kuno justru melukiskan sebuah era paradoks yang disebut 'Sulhan Amnan' atau perdamaian yang aman, di mana dua kekuatan besar dunia—umat Islam dan Bangsa Rum—justru bersatu dalam satu parit, berbagi strategi, dan menumpahkan darah bersama melawan musuh misterius di belakang mereka.
+
+[00:45] Di sinilah letak ironi terbesarnya, karena koalisi militer raksasa ini bukanlah akhir dari permusuhan, melainkan justru menjadi panggung persiapan bagi sebuah pengkhianatan global yang akan menyeret ratusan ribu nyawa ke satu titik geografis spesifik untuk menyelesaikan dendam sejarah yang tertunda.
