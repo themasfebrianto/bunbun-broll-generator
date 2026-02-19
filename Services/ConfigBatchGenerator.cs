@@ -48,13 +48,13 @@ public class ConfigBatchGenerator
                     var prompt = BuildSingleConfigPrompt(theme, channelName, seed, generatedTopics, pattern);
 
                     _logger.LogInformation("Generating config {Current}/{Total} (Attempt {Retry})", currentNumber, count, retryCount + 1);
-                    
+
                     // 2. Call LLM
                     var response = await _intelligenceService.GenerateContentAsync(
                         systemPrompt: "You are a creative Director for a high-end Islamic Documentary YouTube channel. You prioritize ACCURACY (Dalil/Sources) and Storytelling. You output strictly valid JSON.",
                         userPrompt: prompt,
-                        maxTokens: 2500, 
-                        temperature: 0.85, 
+                        maxTokens: 2500,
+                        temperature: 0.85,
                         cancellationToken: cancellationToken);
 
                     if (string.IsNullOrEmpty(response)) throw new InvalidOperationException("Empty response from LLM");
@@ -65,7 +65,7 @@ public class ConfigBatchGenerator
                     if (config != null)
                     {
                         // Post-processing & Validation
-                        config.ChannelName = channelName; 
+                        config.ChannelName = channelName;
                         if (config.Topic.Length > 100) config.Topic = config.Topic.Substring(0, 97) + "...";
 
                         generatedConfigs.Add(config);
@@ -82,7 +82,7 @@ public class ConfigBatchGenerator
                 {
                     retryCount++;
                     _logger.LogWarning("Failed to generate config {Current}: {Message}. Retrying...", currentNumber, ex.Message);
-                    
+
                     // Exponential backoff
                     await Task.Delay(2000 * retryCount, cancellationToken);
                 }
@@ -136,29 +136,33 @@ Each phase has specific REQUIRED ELEMENTS that must be reflected in the beats:
 
 {beatTemplateSection}
 
-=== BEAT QUALITY RULES ===
+=== BEAT QUALITY RULES (JAZIRAH ILMU STYLE) ===
 
 ATURAN PENULISAN BEAT YANG WAJIB DIPATUHI:
 
-1. **SPESIFIK & KONKRET**: Gunakan deskripsi visual jelas (warna, suasana, adegan)
-2. **REFERENSI JELAS**: Sebutkan QS. X:Y, HR. Nama#Nomor, Nama Kitab, Nama Tokoh, Tahun
-3. **KONSEPSI ILMIAH/PSIKOLOGIS**: Nama teori, mekanisme, istilah teknis dengan konteks
-4. **NARASI/KALIMAT CONTOH**: Tulis kalimat aktual yang bisa diucapkan, bukan ringkasan
-5. **EMOSI**: Hubungkan dengan perasaan (takut, kagum, sedih, terkejut, gelisah)
-6. **HINDARI FRASA UMUM**: Jangan gunakan 'analisis', 'penjelasan', 'membahas', 'mengulas'
+1. NARATIF-FOCUSED: Setiap beat harus berisi KONTEN CERITA, bukan instruksi visual. Tulis apa yang Diceritakan, bukan apa yang Dilihat.
+2. KALIMAT PANJANG MENGALIR: Setiap beat harus berupa narasi panjang yang mengalir (3-5 klausa), bukan poin-poin pendek.
+3. REFERENSI JELAS: Sebutkan QS. X:Y, HR. Nama#Nomor, Nama Kitab, Nama Tokoh, Tahun sebagai FAKTA SEJARAH.
+4. DATA KONKRET: Sertakan angka, nama, tahun, atau fakta spesifik dalam setiap beat.
+5. HINDARI: Visual instructions (close-up, zoom, fade), dramatic pauses (Hening 3 detik), direct confrontation (Siapa Tuanamu?).
+6. JI STYLE: Gunakan pola Jazirah Ilmu - observasi luas -> hidden reality -> analisis mendalam -> refleksi.
 
-CONTOH BEAT YANG BAIK (SUBSTANTIAL):
-- [The Cold Open]: Visual hening sebuah kamar gelap, hanya diterangi cahaya biru layar smartphone yang menyorot wajah kosong seseorang.
-- [The Cold Open]: Narasi paradoks: 'Dulu, berhala itu diam di tempat dan kita yang mendatanginya. Hari ini, berhala itu ada di saku...'
-- [The Hidden Reality]: Penjelasan linguistik kata 'Ilah' merujuk Ibnu Taimiyah dalam Al-Ubudiyah: Bukan sekadar pencipta, tapi 'sesuatu yang hati terpaut padanya'.
-- [The Systematic Breakdown]: Konsep 'Riya Digital': Bagaimana arsitektur 'Like' dan 'Comment' memfasilitasi penyakit hati (Ujub/Sum'ah).
-- [The Critical Junction]: Pertanyaan tajam: 'Jika besok internet mati selamanya, siapa ''tuhan'' yang hilang dari hidupmu?'
+KHUSUS UNTUK OPEN LOOP/REFLEKSI (Phase Terakhir):
+- JANGAN gunakan pertanyaan langsung seperti Siapa Tuanmu? atau Apakah kamu siap?
+- GUNAKAN pernyataan reflektif yang menggantungkan kesimpulan pada audiens
+- CONTOH JI: Di titik inilah abad pertengahan benar-benar berakhir. Bukan karena kegelapan menghilang sepenuhnya, melainkan karena manusia mulai berani menyalakan cahaya mereka sendiri.
 
-CONTOH BEAT YANG BURUK (TERLALU UMUM) - HINDARI:
-- [The Cold Open]: Hook visual yang kuat... ❌
-- [The Hidden Reality]: Penjelasan konteks sejarah... ❌
-- [The Systematic Breakdown]: Analisis mendalam tentang... ❌
-- [The Critical Junction]: Pertanyaan reflektif... ❌
+CONTOH BEAT YANG BAIK (JI STYLE):
+- Beat 1: Narasi pembuka panjang yang mengalir - mulai dengan observasi luas tentang dunia yang tampak tenang, lalu perlahan mengarah ke anomali. Contoh JI: Dunia hari ini terlihat tenang. Layar menyala, pasar bergerak, teknologi berkembang seolah semuanya terkendali. Tapi di balik itu semua, ada satu titik rapuh.
+- Beat 2: DATA KONKRET - Sajikan angka/statistik dengan naratif yang mengalir. Contoh: Jika dikalkulasi, hampir sepertiga usia produktif kita habis dalam posisi menunduk pada layar, melakukan sujud digital yang durasinya jauh melampaui waktu yang kita berikan untuk Tuhan pemilik semesta.
+- Beat 3: REFERENSI KITAB - Sebut tokoh/kitab sebagai konsep analisis. Contoh: Dalam kitab Majmu Fatawa Jilid 10, Ibnu Taimiyah menjelaskan bahwa Ilah bukan sekadar yang kita sembah dalam ritual, melainkan apa yang membuat hati tenang karenanya, jiwamu bergantung padanya.
+- Beat 4: OPEN LOOP - Pernyataan reflektif, BUKAN pertanyaan. Contoh: Pada akhirnya, pertanyaan bukan lagi tentang kebenaran klaim keagamaan di masa lalu, melainkan tentang apakah kita memiliki kebijaksanaan untuk membedakan antara keyakinan yang memerdekakan dan fanatisme yang memperbudak.
+
+CONTOH BEAT YANG BURUK:
+- Beat: Visual close-up iris mata yang memantulkan logo... (Ini instruksi visual, bukan narasi)
+- Beat: Pertanyaan tajam: Siapa Tuanmu yang sebenarnya sekarang? (Direct confrontation, tidak JI style)
+- Beat: Pertanyaan konfrontatif: Apakah kamu siap menghadapi hari ketika... (JANGAN gunakan pertanyaan langsung)
+- Beat: Momen Hening: Layar menjadi hitam total selama 3 detik. (Dramatic pause, bukan narasi)
 
 === OUTPUT FORMAT (STRICT JSON) ===
 Return ONLY this JSON structure (no markdown text):
@@ -168,11 +172,11 @@ Return ONLY this JSON structure (no markdown text):
   ""outline"": ""Ringkasan alur cerita dalam 2-3 kalimat..."",
   ""sourceReferences"": ""QS. Al-Mulk: 1-5, HR. Muslim No. 203, Kitab Al-Bidaya wan Nihaya Vol 3"",
   ""mustHaveBeats"": [
-    ""[The Cold Open]: Visual spesifik dengan deskripsi mendetak..."",
-    ""[The Cold Open]: Narasi paradoks dengan kutipan langsung..."",
-    ""[The Hidden Reality]: Data konkret: Angka/Tahun/Nama spesifik..."",
-    ""[The Hidden Reality]: Referensi jelas: QS. atau HR. atau Kitab..."",
-    ""... (lanjutkan untuk SEMUA 5 phase, total 15-25 beats yang substansial)""
+    ""Narasi pembuka panjang yang mengalir: 'Dunia hari ini terlihat tenang. Layar menyala...' (Gunakan kalimat panjang dengan klausa yang terhubung)"",
+    ""DATA KONKRET: Sertakan angka/tahun/nama spesifik dengan narasi yang mengalir, bukan hanya sebut data mentah"",
+    ""REFERENSI KITAB: Sebut tokoh/kitab sebagai FAKTA SEJARAH dalam analisis, bukan untuk dakwah"",
+    ""OPEN LOOP/REFLEKSI: Pernyataan reflektif, BUKAN pertanyaan langsung. Contoh: Pada akhirnya, pertanyaan bukan lagi tentang kebenaran klaim keagamaan di masa lalu, melainkan tentang apakah kita memiliki kebijaksanaan..."",
+    ""... (lanjutkan untuk SEMUA 5 phase, total 15-25 beats yang substansial dan naratif)""
   ]
 }}";
     }
@@ -326,9 +330,9 @@ public class GeneratedConfig
     public int TargetDurationMinutes { get; set; } = 20;
     public string ChannelName { get; set; } = "";
     public string? Outline { get; set; }
-    
+
     // Dikembalikan ke SourceReferences untuk menyimpan Dalil/Sumber Kitab
-    public string? SourceReferences { get; set; } 
-    
+    public string? SourceReferences { get; set; }
+
     public List<string>? MustHaveBeats { get; set; }
 }

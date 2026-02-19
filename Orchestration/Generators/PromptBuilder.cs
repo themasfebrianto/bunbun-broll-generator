@@ -5,65 +5,34 @@ namespace BunbunBroll.Orchestration.Generators;
 
 /// <summary>
 /// Builds LLM prompts from pattern configuration.
-/// Incorporates all pattern rules: globalRules, customRules, closingFormula, productionChecklist.
+/// Simplified to 4-part structure: TASK, RULES, STYLE (JI Patterns), OUTPUT FORMAT
 /// </summary>
 public class PromptBuilder
 {
     private readonly RuleRenderer _ruleRenderer = new();
+
     /// <summary>
-    /// Build generation prompt for a phase
+    /// Build generation prompt for a phase - simplified to 4 parts
     /// </summary>
     public string BuildPrompt(
         PhaseDefinition phase,
         GenerationContext context,
         PhaseContext phaseContext)
     {
-        var promptParts = new List<string>();
-
-        // 1. System instruction (topic, channel, duration)
-        promptParts.Add(BuildSystemInstruction(context));
-
-        // 2. Phase-specific guidance (with customRules)
-        promptParts.Add(BuildPhaseGuidance(phase, context));
-
-        // 3. Context from previous phases
-        if (phaseContext.PreviousContent != null)
+        var promptParts = new List<string>
         {
-            promptParts.Add(BuildPreviousPhaseContext(phaseContext));
-        }
+            // PART 1: TASK (What to generate)
+            BuildTaskSection(phase, context, phaseContext),
 
-        // 4. Entity tracking context (if available)
-        if (phaseContext.EntityContext != null)
-        {
-            promptParts.Add(phaseContext.EntityContext);
-        }
+            // PART 2: RULES (Do's and Don'ts)
+            BuildRulesSection(phase, context, phaseContext),
 
-        // 5. Assigned beats (if available)
-        if (phaseContext.AssignedBeats.Count > 0)
-        {
-            promptParts.Add(BuildAssignedBeats(phaseContext.AssignedBeats));
-        }
+            // PART 3: STYLE (Jazirah Ilmu Patterns) - MOST IMPORTANT
+            BuildStyleSection(phase, context),
 
-        // 6. Global Context (Anti-Repetition)
-        if (phaseContext.GlobalContext != null && phaseContext.GlobalContext.Count > 0)
-        {
-            promptParts.Add(BuildGlobalContext(phaseContext.GlobalContext));
-        }
-
-        // 6. Assigned outline points (if available)
-        if (phaseContext.AssignedOutlinePoints.Count > 0)
-        {
-            promptParts.Add(BuildAssignedOutline(phaseContext.AssignedOutlinePoints));
-        }
-
-        // 7. Requirements (requiredElements, forbiddenPatterns, closingFormula)
-        promptParts.Add(BuildRequirements(phase, context));
-
-        // 8. Narrative quality rules (consistency, anti-redundancy, transitions, pacing, citations)
-        promptParts.Add(BuildNarrativeQualityRules(phase, phaseContext, context));
-
-        // 9. Output format + writing quality guidelines
-        promptParts.Add(BuildOutputFormatInstructions(phase, context));
+            // PART 4: OUTPUT FORMAT
+            BuildOutputFormatSection(phase)
+        };
 
         return string.Join("\n\n", promptParts.Where(p => !string.IsNullOrWhiteSpace(p)));
     }
@@ -77,7 +46,7 @@ public class PromptBuilder
         PhaseContext phaseContext,
         string feedback)
     {
-        var promptParts = new List<string>
+        var header = new List<string>
         {
             "=== REGENERASI KONTEN ===",
             "Konten sebelumnya tidak memenuhi validasi. Berikut adalah feedback yang harus diperbaiki:",
@@ -88,304 +57,278 @@ public class PromptBuilder
 
         var basePrompt = BuildPrompt(phase, context, phaseContext);
 
-        return string.Join("\n\n", promptParts) + "\n\n" + basePrompt;
+        return string.Join("\n\n", header) + "\n\n" + basePrompt;
     }
 
-    private string BuildSystemInstruction(GenerationContext context)
+    #region PART 1: TASK
+
+    private string BuildTaskSection(PhaseDefinition phase, GenerationContext context, PhaseContext phaseContext)
     {
-        var instructions = new List<string>
+        var parts = new List<string>
         {
+            "════════════════════════════════════════════════════════════════",
+            "                           PART 1: TUGAS                                   ",
+            "════════════════════════════════════════════════════════════════",
+            "",
             "### SYSTEM INSTRUCTION",
             $"Topik: {context.Config.Topic}",
             $"Target Durasi: {context.Config.TargetDurationMinutes} menit"
         };
 
         if (!string.IsNullOrEmpty(context.Config.ChannelName))
-        {
-            instructions.Add($"Channel: {context.Config.ChannelName}");
-        }
+            parts.Add($"Channel: {context.Config.ChannelName}");
 
-        // Always include global outline for context
         if (!string.IsNullOrEmpty(context.Config.Outline))
-        {
-            instructions.Add($"Outline Global: {context.Config.Outline}");
-        }
+            parts.Add($"Outline: {context.Config.Outline}");
 
         if (!string.IsNullOrEmpty(context.Config.SourceReferences))
-        {
-            instructions.Add($"Sumber: {context.Config.SourceReferences}");
-        }
+            parts.Add($"Sumber: {context.Config.SourceReferences}");
 
-        return string.Join("\n", instructions);
-    }
-
-    private string BuildPhaseGuidance(PhaseDefinition phase, GenerationContext context)
-    {
-        var parts = new List<string>
-        {
-            $"### PHASE: {phase.Name} (Order {phase.Order})",
-            $"Phase ID: {phase.Id}",
-            $"Durasi Target: {phase.DurationTarget.Min}-{phase.DurationTarget.Max} detik",
-            $"Target Kata: {phase.WordCountTarget.Min}-{phase.WordCountTarget.Max} kata",
-            $"⚠️ BATAS KATA KERAS: JANGAN melebihi {phase.WordCountTarget.Max} kata."
-        };
+        parts.Add("");
+        parts.Add($"### PHASE: {phase.Name} (Order {phase.Order})");
+        parts.Add($"Phase ID: {phase.Id}");
+        parts.Add($"Durasi Target: {phase.DurationTarget.Min}-{phase.DurationTarget.Max} detik");
+        parts.Add($"Target Kata: {phase.WordCountTarget.Min}-{phase.WordCountTarget.Max} kata");
+        parts.Add($"⚠️ BATAS KATA KERAS: JANGAN melebihi {phase.WordCountTarget.Max} kata.");
 
         if (!string.IsNullOrWhiteSpace(phase.GuidanceTemplate))
-        {
             parts.Add($"\nGuidance:\n{phase.GuidanceTemplate}");
+
+        // Add assigned beats if available
+        if (phaseContext.AssignedBeats.Count > 0)
+        {
+            parts.Add("");
+            parts.Add("### STORY BEATS UNTUK PHASE INI");
+            foreach (var beat in phaseContext.AssignedBeats.Select((b, i) => $"{i + 1}. {b}"))
+                parts.Add(beat);
         }
 
-        if (!string.IsNullOrWhiteSpace(phase.EmotionalArc))
+        // Add assigned outline if available
+        if (phaseContext.AssignedOutlinePoints.Count > 0)
         {
-            parts.Add($"\n### ALUR EMOSI");
-            parts.Add($"Kurva Emosi: {phase.EmotionalArc}");
-            parts.Add("Transisi emosi harus mengalir alami (smooth liquid transition). Jangan patah-patah.");
-        }
-
-        if (!string.IsNullOrWhiteSpace(phase.TransitionHint) && !phase.IsFirstPhase)
-        {
-            parts.Add($"\n⚠️ TRANSISI: Mulai dengan 'Kyōkan Bridge' (Jembatan Empati).");
-            parts.Add($"Contoh: \"{phase.TransitionHint}\"");
-        }
-
-        // Include customRules as explicit instructions
-        if (phase.CustomRules.Count > 0)
-        {
-            parts.Add("\n### ATURAN KHUSUS");
-            foreach (var ruleInstruction in _ruleRenderer.RenderAllRules(phase, context))
-            {
-                parts.Add($"- {ruleInstruction}");
-            }
-        }
-
-        // Add channel greeting instruction ONLY for the first phase
-        bool isColdOpen = phase.CustomRules.TryGetValue("coldOpen", out var isCold) && isCold == "true";
-        if (phase.IsFirstPhase && !string.IsNullOrEmpty(context.Config.ChannelName) && !isColdOpen)
-        {
-            parts.Add($"\nNOTE: Mulai dengan sapaan khas channel \"{context.Config.ChannelName}\".");
-        }
-        else if (!phase.IsFirstPhase)
-        {
-            parts.Add("\n⛔ NO GREETING: JANGAN mengulang salam pembuka. Langsung masuk ke konten.");
-        }
-
-        if (phase.IsFinalPhase)
-        {
-            parts.Add("\n⚠️ PHASE TERAKHIR: Berikan konklusi yang mendalam (open loop/reflective).");
+            parts.Add("");
+            parts.Add("### OUTLINE UNTUK PHASE INI");
+            parts.Add("Poin-poin berikut HARUS tercakup:");
+            foreach (var point in phaseContext.AssignedOutlinePoints.Select((p, i) => $"{i + 1}. {p}"))
+                parts.Add(point);
         }
 
         return string.Join("\n", parts);
     }
 
-    private string BuildPreviousPhaseContext(PhaseContext phaseContext)
-    {
-        return $"### KONTEKS PHASE SEBELUMNYA\n" +
-               $"Phase Sebelumnya: {phaseContext.PreviousPhaseName}\n\n" +
-               $"Ringkasan Konten:\n{phaseContext.PreviousContent}";
-    }
+    #endregion
 
-    private string BuildAssignedBeats(List<string> beats)
-    {
-        return $"### STORY BEATS UNTUK PHASE INI\n" +
-               string.Join("\n", beats.Select((b, i) => $"{i + 1}. {b}"));
-    }
+    #region PART 2: RULES
 
-    private string BuildAssignedOutline(List<string> outlinePoints)
+    private string BuildRulesSection(PhaseDefinition phase, GenerationContext context, PhaseContext phaseContext)
     {
-        return $"### OUTLINE UNTUK PHASE INI\n" +
-               $"Poin-poin outline berikut HARUS tercakup dalam konten fase ini:\n" +
-               string.Join("\n", outlinePoints.Select((p, i) => $"{i + 1}. {p}"));
-    }
+        var parts = new List<string>
+        {
+            "",
+            "════════════════════════════════════════════════════════════════",
+            "                           PART 2: ATURAN                                 ",
+            "════════════════════════════════════════════════════════════════",
+            ""
+        };
 
-    private string BuildRequirements(PhaseDefinition phase, GenerationContext context)
-    {
-        var requirements = new List<string>();
-
+        // Required elements
         if (phase.RequiredElements.Count > 0)
         {
-            requirements.Add("### ELEMEN YANG HARUS ADA");
-            requirements.AddRange(phase.RequiredElements.Select(e => $"- [ ] {e}"));
+            parts.Add("### ✅ ELEMEN YANG HARUS ADA");
+            foreach (var element in phase.RequiredElements)
+                parts.Add($"- [ ] {element}");
+            parts.Add("");
         }
 
+        // Forbidden patterns
         if (phase.ForbiddenPatterns.Count > 0)
         {
-            requirements.Add("\n### PATTERN YANG DILARANG");
-            requirements.AddRange(phase.ForbiddenPatterns.Select(p => $"- JANGAN gunakan: {p}"));
+            parts.Add("### ❌ PATTERN YANG DILARANG");
+            foreach (var pattern in phase.ForbiddenPatterns)
+                parts.Add($"- {pattern}");
+            parts.Add("");
         }
 
         // Add closing formula for final phase
         if (phase.IsFinalPhase)
         {
-            requirements.Add($"\n### FORMULA PENUTUP");
-            requirements.Add($"WAJIB akhiri script dengan kalimat persis berikut (Jazirah Ilmu Style):");
-            requirements.Add("\"Wallahuam bissawab. Semoga kisah ini bermanfaat. Lebih dan kurangnya mohon dimaafkan. Yang benar datangnya dari Allah Subhanahu wa taala. Khilaf atau keliru itu datangnya dari saya pribadi sebagai manusia biasa. Sampai ketemu di kisah-kisah seru yang penuh makna selanjutnya. Saya akhiri wassalamualaikum warahmatullahi wabarakatuh.\"");
+            parts.Add("### FORMULA PENUTUP (WAJIB)");
+            parts.Add("Akhiri dengan persis seperti ini:");
+            parts.Add("\"Wallahuam bissawab. Semoga kisah ini bermanfaat. Lebih dan kurangnya mohon dimaafkan. Yang benar datangnya dari Allah Subhanahu wa taala. Khilaf atau keliru itu datangnya dari saya pribadi sebagai manusia biasa. Sampai ketemu di kisah-kisah seru yang penuh makna selanjutnya. Saya akhiri wassalamualaikum warahmatullahi wabarakatuh.\"");
+            parts.Add("");
         }
 
-        return string.Join("\n", requirements);
-    }
-
-    private string BuildOutputFormatInstructions(PhaseDefinition phase, GenerationContext context)
-    {
-        var parts = new List<string>
+        // Anti-repetition context (only for non-first phases)
+        if (phaseContext.GlobalContext != null && phaseContext.GlobalContext.Count > 0)
         {
-            @"### OUTPUT FORMAT
-
-Output harus SANGAT SEDERHANA.
-HANYA tuliskan Timestamp dan Narasi.
-JANGAN gunakan header (## Judul), JANGAN pakai label [Visual]/[Audio].
-JANGAN gunakan label beat/meta-comments.
-
-Format:
-[00:00] Narasi dimulai di sini...
-
-[00:15] Narasi berlanjut...
-
-... dan seterusnya.
-
-### ATURAN FORMAT PENTING:
-1.  **No Headers**: JANGAN gunakan judul/header apapun. Langsung mulai dengan timestamp pertama.
-2.  **No Labels**: Hapus semua label seperti `[Visual]`, `[Audio]`, `**The Domino Effect**`.
-3.  **No Beat Labels**: Beat hanya untuk struktur pikiranmu. Jangan ditulis di output.
-4.  **Meta-Comments**: Jangan masukkan instruksi audio/musik. Fokus pada teks yang akan dibaca.
-
-### GAYA PENULISAN: PHILOSOPHICAL STORYTELLER (JAZIRAH ILMU STYLE)
-- **Persona**: Kamu adalah seorang pencerita yang bijak, reflektif, dan mengajak pemirsa merenung (contemplative). Kamu bukan dosen yang kaku, tapi sahabat yang mengajak diskusi mendalam.
-- **Tone**: Religius-Intelektual tapi Rendah Hati. Gunakan kata 'Kita' untuk merangkul pemirsa. Hindari nada menggurui.
-- **Diction (Pilihan Kata)**:
-    -   HINDARI: Istilah akademis kering ('signifikansi', 'implikasi', 'paradoks teologis', 'infrastruktur fisik').
-    -   GUNAKAN: Kata-kata yang menyentuh hati ('titik rapuh', 'jejak', 'gema', 'kenyataan pahit', 'cahaya', 'kegelapan').
-    -   HINDARI: Frasa 'AI-banget' ('menelusuri jejak', 'merajut makna', 'simfoni kehidupan'). Ganti dengan kalimat langsung yang kuat.
--   **Koneksi Emosional**: Setiap fakta harus punya relevansi emosional dengan pemirsa. Jangan cuma sampaikan data, sampaikan *rasanya*.
--   **Structure**: Mulai dari fenomena umum/filosofis -> Masuk ke topik spesifik -> Akhiri dengan refleksi moral/spiritual."
-        };
-
-        // Add production checklist as writing guidelines
-        if (context.Pattern.ProductionChecklist?.Penulisan?.Count > 0)
-        {
-            parts.Add("\n### CHECKLIST KUALITAS PENULISAN");
-            foreach (var item in context.Pattern.ProductionChecklist.Penulisan)
-            {
+            parts.Add("### ANTI-PENGULANGAN");
+            parts.Add("Konten dari fase sebelumnya (DILARANG mengulang):");
+            foreach (var item in phaseContext.GlobalContext.Select((c, i) => $"{i + 1}. {c}"))
                 parts.Add($"- {item}");
-            }
+            parts.Add("");
         }
 
-        // Add Fact Check
-        if (context.Pattern.ProductionChecklist?.FactCheck?.Count > 0)
+        // Previous phase context (only for non-first phases)
+        if (phaseContext.PreviousContent != null)
         {
-            parts.Add("\n### FACT CHECK (WAJIB ADA)");
-            foreach (var item in context.Pattern.ProductionChecklist.FactCheck)
-            {
-                parts.Add($"- {item}");
-            }
-        }
-
-        // Add Tone Check
-        if (context.Pattern.ProductionChecklist?.ToneCheck?.Count > 0)
-        {
-            parts.Add("\n### TONE CHECK");
-            foreach (var item in context.Pattern.ProductionChecklist.ToneCheck)
-            {
-                parts.Add($"- {item}");
-            }
-        }
-
-        if (phase.IsFinalPhase)
-        {
-            parts.Add("\n### FINAL PHASE REQUIREMENTS\n" +
-                "- This is the CONCLUSION of the script\n" +
-                "- Provide closure and final reflection\n" +
-                "- Do NOT introduce new topics or cliffhangers\n" +
-                "- End with a thoughtful, conclusive message");
+            parts.Add("### KONTEKS FASE SEBELUMNYA");
+            parts.Add($"Phase: {phaseContext.PreviousPhaseName}");
+            parts.Add($"Ringkasan: {phaseContext.PreviousContent}");
+            parts.Add("");
         }
 
         return string.Join("\n", parts);
     }
 
-    private string BuildGlobalContext(List<string> globalContext)
-    {
-        var parts = new List<string>
-        {
-            "### KONTEKS GLOBAL (ANTI-REPETITION)",
-            "Berikut adalah konten dari fase-fase sebelumnya. DILARANG MENGULANG poin/ide yang sudah dibahas:",
-            string.Join("\n", globalContext.Select(c => $"- {c}")),
-            "",
-            "⚠️ ATURAN ANTI-PENGULANGAN:",
-            "1. JANGAN ulangi klaim/tesis utama yang sudah disampaikan — cukup referensikan singkat jika perlu",
-            "2. JANGAN kutip ayat/hadits/sumber yang sudah dikutip penuh di fase sebelumnya — gunakan referensi singkat saja",
-            "3. JANGAN gunakan metafora atau frasa kunci yang sama — kembangkan metafora BARU",
-            "4. JANGAN ceritakan ulang ANEKDOT/KISAH yang sama (misal: Kisah Nabi di Sirat). Jika sudah ada, cukup referensikan ('Ingatkah doa Nabi tadi?').",
-            "5. Setiap fase harus membawa PERSPEKTIF/SUDUT PANDANG BARU (psikologis, sosial, etis, spiritual, historis)",
-            "6. Jika ide dasar sama, kembangkan ASPEK BERBEDA — bukan mengulang dengan kata berbeda"
-        };
+    #endregion
 
-        return string.Join("\n", parts);
-    }
+    #region PART 3: STYLE (Jazirah Ilmu Patterns)
 
-    private string BuildNarrativeQualityRules(PhaseDefinition phase, PhaseContext phaseContext, GenerationContext context)
+    private string BuildStyleSection(PhaseDefinition phase, GenerationContext context)
     {
         var globalRules = context.Pattern.GlobalRules;
-        var rules = new List<string>
+        var parts = new List<string>
         {
-            "### ATURAN KUALITAS NARASI & STYLE",
+            "",
+            "════════════════════════════════════════════════════════════════",
+            "                     PART 3: GAYA JAZIRAH ILMU (PENTING!)         ",
+            "════════════════════════════════════════════════════════════════",
+            "",
+            "### 4 POLA PENTING (CONTOH ASLI DARI SRT)",
             ""
         };
 
-        // 1. Tone & Voice
+        // Pattern 1: Long flowing sentences
+        parts.Add("**PATTERN 1: KALIMAT PANJANG MENGALIR (Wajib)**");
+        parts.Add("❌ JANGAN: 'Kita sering merasa aman. Kita tidak sujud. Tapi lihat.'");
+        parts.Add("✅ LAKUKAN: 'Dunia hari ini terlihat tenang. Layar menyala, pasar bergerak, teknologi berkembang seolah semuanya terkendali. Tapi di balik itu semua, ada satu titik rapuh yang menahan seluruh sistem agar tidak runtuh.'");
+        parts.Add("✅ LAKUKAN: 'Sejak manusia mengenal kekuasaan, ada satu pola yang selalu berulang di hampir semua peradaban, yaitu penguasa tidak pernah puas hanya disebut kuat. Mereka ingin disebut sah, suci, dan ditakdirkan.'");
+        parts.Add("");
+
+        // Pattern 2: Minimal rhetorical questions
+        parts.Add("**PATTERN 2: PERTANYAAN RETORIS MINIMAL (Maks 1-2 per phase)**");
+        parts.Add("❌ JANGAN: Setiap 2-3 kalimat bertanya 'Apakah...?', 'Siapa...?', 'Kapan...?'");
+        parts.Add("✅ LAKUKAN: Hanya di transisi penting - 'Maka pertanyaannya bukan lagi siapa yang benar di masa lalu, melainkan satu hal yang lebih jujur dan lebih menyakitkan...'");
+        parts.Add("");
+
+        // Pattern 3: Natural Indonesian transitions
+        parts.Add("**PATTERN 3: TRANSISI INDONESIA NATURAL**");
+        parts.Add("❌ JANGAN: '(Hening 3 detik)', '(Layar gelap gulita)', dramatic pauses");
+        parts.Add("✅ LAKUKAN: 'Di titik ini...', 'Dari sinilah...', 'Namun di balik...', 'Di sinilah letak ironi terbesarnya...', 'Di balik itu, ada satu sisi yang jarang dibicarakan'");
+        parts.Add("");
+
+        // Pattern 4: Religious content last
+        parts.Add("**PATTERN 4: KONTEN ISLAMI TERAKHIR**");
+        parts.Add("❌ JANGAN: Kutip ayat/hadits di tengah analisis sebagai 'bukti' atau 'dalil'");
+        parts.Add("✅ LAKUKAN: Sebut tokoh/kitab sebagai FAKTA SEJARAH. Konten islami eksplisit HANYA di closing formula.");
+        parts.Add("");
+
+        // Phase 1 specific reinforcement
+        if (phase.IsFirstPhase)
+        {
+            parts.Add("════════════════════════════════════════════════════════════════");
+            parts.Add("         ⚠️ PHASE 1 SPECIAL: CONTOH OPENING JAZIRAH ILMU ⚠️          ");
+            parts.Add("════════════════════════════════════════════════════════════════");
+            parts.Add("");
+            parts.Add("Pelajari dan TIRU pola opening berikut untuk Phase 1:");
+            parts.Add("");
+
+            // Get opening examples from phase if available
+            if (phase.OpeningExamples != null && phase.OpeningExamples.Count > 0)
+            {
+                foreach (var example in phase.OpeningExamples)
+                {
+                    parts.Add($"✅ {example}");
+                    parts.Add("");
+                }
+            }
+            else
+            {
+                // Fallback examples if not in pattern
+                parts.Add("✅ CONTOH 1: 'Dunia hari ini terlihat tenang. Layar menyala, pasar bergerak, teknologi berkembang seolah semuanya terkendali. Tapi di balik itu semua, ada satu titik rapuh yang menahan seluruh sistem agar tidak runtuh, dan titik rapuh itu berada tepat di telapak tangan kita.'");
+                parts.Add("");
+                parts.Add("✅ CONTOH 2: 'Sejak manusia mengenal kekuasaan, ada satu pola yang selalu berulang di hampir semua peradaban, yaitu penguasa tidak pernah puas hanya disebut kuat. Mereka ingin disebut sah, suci, dan ditakdirkan.'");
+                parts.Add("");
+            }
+
+            parts.Add("❌ JANGAN: 'Bayangkan jika setiap suara notifikasi... Kita sering merasa aman. Menunduk dalam. Khusyuk. Mata tak berkedip...'");
+            parts.Add("");
+            parts.Add("KUNCI: Mulai dengan kalimat PANJANG (3-5 klausa) yang mengalir, bukan kalimat pendek terpisah.");
+            parts.Add("");
+        }
+
+        // Additional global rules (tone, voice, perspective, etc.)
+        parts.Add("### ATURAN TAMBAHAN");
         if (!string.IsNullOrWhiteSpace(globalRules.Tone))
-            rules.Add($"- **Tone**: {globalRules.Tone}");
-        
+            parts.Add($"- **Tone**: {globalRules.Tone}");
         if (!string.IsNullOrWhiteSpace(globalRules.Voice))
-            rules.Add($"- **Voice**: {globalRules.Voice}");
-
-        // 2. Perspective & Structure
+            parts.Add($"- **Voice**: {globalRules.Voice}");
         if (!string.IsNullOrWhiteSpace(globalRules.Perspective))
-            rules.Add($"- **Perspective**: {globalRules.Perspective}");
-
-        if (!string.IsNullOrWhiteSpace(globalRules.NarrativeStructure))
-            rules.Add($"- **Structure**: {globalRules.NarrativeStructure}");
-
-        // 3. Language & Vocabulary
-        rules.Add($"- **Language**: {globalRules.Language}");
-        
+            parts.Add($"- **Perspective**: {globalRules.Perspective}");
         if (!string.IsNullOrWhiteSpace(globalRules.Vocabulary))
-            rules.Add($"- **Vocabulary**: {globalRules.Vocabulary}");
-
-        // 4. Content Requirements (Intellectual Surprise, etc)
+            parts.Add($"- **Vocabulary**: {globalRules.Vocabulary}");
         if (!string.IsNullOrWhiteSpace(globalRules.IntellectualSurprise))
-            rules.Add($"- **Intellectual Surprise**: {globalRules.IntellectualSurprise}");
+            parts.Add($"- **Intellectual Surprise**: {globalRules.IntellectualSurprise}");
 
-        // 5. Additional Rules (including Authoritative Content)
+        // Additional rules (authoritative, references, humility)
         if (globalRules.AdditionalRules != null && globalRules.AdditionalRules.Count > 0)
         {
-            rules.Add("");
-            rules.Add("#### GUIDELINES TAMBAHAN (WAJIB DIPATUHI)");
+            parts.Add("");
             foreach (var rule in globalRules.AdditionalRules)
-            {
-                // Convert JsonElement to string if necessary, or just ToString
-                rules.Add($"- **{rule.Key}**: {rule.Value}");
-            }
+                parts.Add($"- **{rule.Key}**: {rule.Value}");
         }
 
-        rules.Add("");
-        rules.Add("#### ⛔ STRICT NEGATIVE CONSTRAINTS (JANGAN LAKUKAN)");
-        rules.Add("1. **NO META-LABELS**: JANGAN PERNAH mengucapkan label struktur seperti 'Ini adalah The Domino Effect'.");
-        rules.Add("2. **NO ENGLISH TERMS**: Hindari istilah Inggris jika ada padanan Indonesia yang kuat (kecuali nama diri/tempat).");
-        rules.Add("3. **NO ADVERB CLUTTER**: Kurangi kata 'sesungguhnya', 'sejatinya', 'niscaya' yang berlebihan.");
+        parts.Add("");
+        parts.Add("### ⛔ NEGATIVE CONSTRAINTS");
+        parts.Add("- **NO META-LABELS**: JANGAN ucap label struktur seperti 'Ini adalah The Domino Effect'");
+        parts.Add("- **NO ENGLISH TERMS**: Hindari istilah Inggris jika ada padanan Indonesia");
+        parts.Add("- **NO AI CLUTTER**: Hindari 'menelusuri jejak', 'merajut makna', 'simfoni kehidupan'");
 
-        rules.Add("");
-        rules.Add("#### STORYTELLING FLOW");
-        rules.Add("- **Show, Don't Just Tell**: Deskripsikan suaranya, panasnya, sempitnya.");
-        rules.Add("- **The 'Kita' Perspective**: Selalu posisikan diri 'kita' (pembicara dan pendengar) di perahu yang sama.");
-        rules.Add("- **Pacing Dinamis**: Gunakan kalimat pendek untuk *punch* emosional. Gunakan kalimat panjang untuk penjelasan mengalir.");
-
-        // Add transition bridge rule for non-first phases
-        if (!phase.IsFirstPhase && phaseContext.PreviousContent != null)
-        {
-            rules.Add("");
-            rules.Add("#### TRANSISI WAJIB (BRIDGE)");
-            rules.Add("- WAJIB mulai fase ini dengan kalimat jembatan yang menghubungkan akhir fase sebelumnya dengan awal fase ini.");
-        }
-
-        return string.Join("\n", rules);
+        return string.Join("\n", parts);
     }
+
+    #endregion
+
+    #region PART 4: OUTPUT FORMAT
+
+    private string BuildOutputFormatSection(PhaseDefinition phase)
+    {
+        var parts = new List<string>
+        {
+            "",
+            "════════════════════════════════════════════════════════════════",
+            "                        PART 4: FORMAT OUTPUT                          ",
+            "════════════════════════════════════════════════════════════════",
+            "",
+            "### FORMAT OUTPUT",
+            "",
+            "HANYA tulis Timestamp dan Narasi. TANPA header, label, atau komentar.",
+            "",
+            "Contoh:",
+            "[00:00] Narasi dimulai di sini...",
+            "",
+            "[00:15] Narasi berlanjut...",
+            "",
+            "... dan seterusnya.",
+            "",
+            "### ⛔ KONSTRAIN FORMAT",
+            "- JANGAN gunakan header (## Judul)",
+            "- JANGAN gunakan label [Visual], [Audio], **The Domino Effect**",
+            "- JANGAN gunakan meta-comments (instruksi musik/suara)"
+        };
+
+        // Final phase requirements
+        if (phase.IsFinalPhase)
+        {
+            parts.Add("");
+            parts.Add("### CATATAN PHASE TERAKHIR");
+            parts.Add("- Ini adalah KONKLUSI script");
+            parts.Add("- Berikan penutup yang mendalam (open loop/reflective)");
+            parts.Add("- JANGAN perkenalkan topik baru");
+        }
+
+        return string.Join("\n", parts);
+    }
+
+    #endregion
 }

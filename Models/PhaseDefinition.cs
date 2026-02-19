@@ -38,6 +38,12 @@ public class PhaseDefinition
     public string? EmotionalArc { get; set; }
 
     /// <summary>
+    /// Example opening scripts for reference (primarily for Phase 1 opening-hook)
+    /// </summary>
+    [JsonPropertyName("openingExamples")]
+    public List<string>? OpeningExamples { get; set; }
+
+    /// <summary>
     /// Names of rule templates this phase extends (applied in order).
     /// Templates are resolved from the parent PatternConfiguration.
     /// </summary>

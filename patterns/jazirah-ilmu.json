@@ -17,6 +17,7 @@
       },
       "requiredElements": [
         "Cold Open: Langsung masuk ke narasi/cerita TANPA salam pembuka",
+        "Kalimat PANJANG MENGALIR dari awal (WAJIB) - JANGAN mulai dengan kalimat pendek-terpisah",
         "Misteri: Bangun ketegangan/pertanyaan besar sebelum menyebut topik utama",
         "Statement paradoks atau fakta kontraintuitif yang menantang asumsi umum",
         "Framing topik sebagai misteri intelektual, bukan sekadar nasehat moral"
@@ -27,15 +28,22 @@
         "Pernahkah Anda berpikir...",
         "Pada kesempatan ini...",
         "Pertanyaan retoris yang klise/lemah (misal: 'Tahukah kamu?')",
-        "Kalimat pembuka yang bertele-tele"
+        "Kalimat pembuka yang bertele-tele",
+        "Kalimat pendek-terpisah di awal seperti 'Menunduk dalam. Khusyuk. Mata tak berkedip' - GUNAKAN kalimat panjang mengalir"
       ],
-      "guidanceTemplate": "Mulai dengan 'Cold Open' seperti dokumenter Netflix/Vox. JANGAN ucapkan salam. Langsung ke inti masalah/paradoks. Contoh: 'Dunia mengira X adalah solusi, padahal data menunjukkan X adalah awal bencana. Mengapa hal ini luput dari pandangan kita?'",
+      "guidanceTemplate": "Mulai dengan 'Cold Open' seperti dokumenter Jazirah Ilmu. JANGAN ucapkan salam. MULAI dengan kalimat PANJANG yang mengalir. Contoh JI: 'Dunia hari ini terlihat tenang. Layar menyala, pasar bergerak, teknologi berkembang seolah semuanya terkendali. Tapi di balik itu semua, ada satu titik rapuh...' atau 'Sejak manusia mengenal kekuasaan, ada satu pola yang selalu berulang di hampir semua peradaban, yaitu penguasa tidak pernah puas hanya disebut kuat...'",
       "customRules": {
         "cognitiveDisturbance": "high",
         "hookStyle": "Investigative Mystery",
         "coldOpen": "true"
       },
-      "emotionalArc": "Intrik (Misteri) -> Skeptis (Paradoks) -> Ingin Tahu (Hook)"
+      "emotionalArc": "Intrik (Misteri) -> Skeptis (Paradoks) -> Ingin Tahu (Hook)",
+      "openingExamples": [
+        "Contoh 1 (Smartphone Addiction): 'Dunia hari ini terlihat tenang. Layar menyala, pasar bergerak, teknologi berkembang seolah semuanya terkendali. Tapi di balik itu semua, ada satu titik rapuh yang menahan seluruh sistem agar tidak runtuh, dan titik rapuh itu berada tepat di telapak tangan kita. Sejarah mencatat bahwa manusia pernah mengelilingi patung batu, membungkuk pada berhala yang terukir dari kayu, dan menyembah sosok yang mereka ciptakan sendiri dengan tangan mereka sendiri. Kita sering mengira tradisi tersebut telah lama mati, terkubur oleh masa dan kemajuan peradaban. Namun, cobalah lihat ke sekeliling ruangan ini saat ini. Di setiap sudut, terdapat puluh bahkan ratusan orang yang menunduk dalam keheningan, mata tak berkedip menatap cahaya buatan, jempol bergerak ritmis tanpa henti, seolah mereka sedang melakukan ritual ibadah yang abadi.'",
+        "Contoh 2 (Social Media Validation): 'Sejak manusia mengenal kekuasaan, ada satu pola yang selalu berulang di hampir semua peradaban, yaitu penguasa tidak pernah puas hanya disebut kuat. Mereka ingin disebut sah, suci, dan ditakdirkan, dan mereka akan melakukan segala cara untuk melegitimasi posisi tersebut, termasuk menulis ulang sejarah dan menciptakan silsilah dewa. Di abad ke-21, pola yang sama muncul kembali, tetapi bukan di istana kerajaan atau takhta kekaisaran, melainkan di kantong celana dan dompet setiap orang. Kita sekarang memiliki mata uang baru yang menentukan nilai diri seseorang, dan mata uang itu diberi nama yang sangat sederhana: like. Sebuah angka yang muncul di layar ketika seseorang menyetujui keberadaan kita, sebuah tanda bahwa kita dilihat, diakui, dan dianggap ada.'",
+        "Contoh 3 (Climate Eschatology): 'Ada satu masa dalam sejarah umat manusia ketika seluruh peradaban merasa sudah mencapai puncak kejayaan. Gedung-gedung menjulang, perdagangan berkembang, dan ilmu pengetahuan maju pesat seolah-olah tidak ada batas lagi yang bisa ditembus. Namun di balik kemegahan yang tampak itu, ada satu kebenaran yang sering terlupakan: segala sesuatu yang naik, suatu saat akan turun. Kitab suci umat berbagai agama telah mencatat fenomena ini ribuan tahun yang lalu, bukan sebagai ramalan mistis, melainkan sebagai pola sejarah yang berulang. Peradaban besar bangkit, mencapai puncak kejayaan, dan kemudian runtuh bukan karena serangan musuh dari luar, melainkan karena keropos dari dalam.'",
+        "Contoh 4 (Wealth Materialism): 'Nabi Muhammad Shallallahu alaihi wa sallam pernah bersabda tentang golongan orang yang akan celaka, dan beliau menyebut mereka dengan sebutan yang sangat spesifik: Hamba dinar, hamba dirham. Dalam bahasa Arab klasik, kata abdu berarti hamba sahaya, seseorang yang sepenuhnya dimiliki oleh tuannya, yang tidak memiliki kebebasan untuk bergerak tanpa izin. Di masa kini, mata uangnya mungkin berubah namanya, tetapi pola perilaku tetap sama. Kita mungkin tidak lagi menyembah koin emas dan perak secara fisik, tetapi hati kita masih dapat diperbudak oleh sesuatu yang lebih halus, lebih abstrak, namun jauh lebih kuat cengkeramnya.'"
+      ]
     },
     {
       "id": "contextualization",
@@ -123,7 +131,9 @@
       "forbiddenPatterns": [
         "Menangis-nangis atau over-dramatisasi",
         "Solusi instan/gampangan ('Pokoknya tobat')",
-        "Menyalahkan pihak tertentu secara vulgar"
+        "Menyalahkan pihak tertentu secara vulgar",
+        "Dramatic pauses format seperti '(Hening total selama 3 detik. Layar gelap gulita)' - gunakan narasi visual saja",
+        "Direct confrontation questions like 'Siapa Tuanmu?' tanpa konteks - gunakan metafor visual yang lebih halus"
       ],
       "guidanceTemplate": "Hantam dengan realitas. Bongkar ilusi kenyamanan. Gunakan kalimat pendek, tajam, dan ritmik (Staccato). Jangan minta audiens berubah, tapi tunjukkan konsekuensi logis jika TIDAK berubah.",
       "transitionHint": "Maka, kita tersudut pada satu pertanyaan yang tak bisa dihindari...",
