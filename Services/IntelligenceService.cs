@@ -55,6 +55,30 @@ public interface IIntelligenceService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Classify segments ONLY (BROLL vs IMAGE_GEN), without generating any prompts.
+    /// Returns items with MediaType set but Prompt empty.
+    /// </summary>
+    Task<List<BrollPromptItem>> ClassifySegmentsOnlyAsync(
+        List<(string Timestamp, string ScriptText)> segments,
+        string topic,
+        ImagePromptConfig? config = null,
+        Func<List<BrollPromptItem>, Task>? onBatchComplete = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Generate prompts in batch for segments of a specific media type.
+    /// For IMAGE_GEN: generates detailed Whisk image prompts using config.
+    /// For BROLL: generates concise search keywords.
+    /// </summary>
+    Task GeneratePromptsForTypeBatchAsync(
+        List<BrollPromptItem> items,
+        BrollMediaType targetType,
+        string topic,
+        ImagePromptConfig? config = null,
+        Func<int, Task>? onProgress = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Forces generation of a specific prompt type (B-Roll or Image Gen) for a given segment.
     /// This avoids re-classification errors during regeneration.
     /// </summary>
@@ -936,6 +960,241 @@ RULES:
 
         _logger.LogInformation("ClassifyBroll: Completed with {Count} items in {Ms}ms", results.Count, stopwatch.ElapsedMilliseconds);
         return results;
+    }
+
+    /// <summary>
+    /// Classification-only: determines BROLL vs IMAGE_GEN for each segment without generating prompts.
+    /// Much faster than ClassifyAndGeneratePromptsAsync since prompts are skipped.
+    /// </summary>
+    public async Task<List<BrollPromptItem>> ClassifySegmentsOnlyAsync(
+        List<(string Timestamp, string ScriptText)> segments,
+        string topic,
+        ImagePromptConfig? config = null,
+        Func<List<BrollPromptItem>, Task>? onBatchComplete = null,
+        CancellationToken cancellationToken = default)
+    {
+        var results = new List<BrollPromptItem>();
+        if (segments.Count == 0) return results;
+
+        var stopwatch = Stopwatch.StartNew();
+        const int batchSize = 15; // Larger batches since no prompt gen = smaller response
+
+        var eraBiasInstruction = config?.DefaultEra != VideoEra.None && config?.DefaultEra != null
+            ? $"\nDEFAULT ERA CONTEXT: Unless a segment clearly belongs to a different era, default to {config.DefaultEra} era.\n"
+            : string.Empty;
+
+        var classifySystemPrompt = $@"You are a visual content classifier for Islamic video essays. Classify each segment as BROLL or IMAGE_GEN.
+{eraBiasInstruction}
+BROLL - Stock footage (no humans): landscapes, nature, textures, cityscapes, atmospheric shots
+IMAGE_GEN - AI image generation: historical scenes, prophets, supernatural events, specific Islamic historical contexts, abstract spiritual concepts
+
+RESPOND WITH JSON ONLY (no markdown):
+[{{ ""index"": 0, ""mediaType"": ""BROLL"" }}]
+
+RULES:
+- Return ONLY index and mediaType (""BROLL"" or ""IMAGE_GEN"")
+- Do NOT generate prompts — just classify";
+
+        var totalBatches = (int)Math.Ceiling((double)segments.Count / batchSize);
+        var semaphore = new SemaphoreSlim(3, 3);
+        var batchTasks = new List<Task>();
+        var resultsLock = new object();
+
+        for (int batchIdx = 0; batchIdx < totalBatches; batchIdx++)
+        {
+            var batchIdxCapture = batchIdx;
+            var batchStart = batchIdx * batchSize;
+            var batchSegments = segments.Skip(batchStart).Take(batchSize).ToList();
+
+            var batchTask = Task.Run(async () =>
+            {
+                await semaphore.WaitAsync(cancellationToken);
+                try
+                {
+                    var userPrompt = new System.Text.StringBuilder();
+                    userPrompt.AppendLine($"Topic: {topic}");
+                    userPrompt.AppendLine("\nSEGMENTS:");
+                    for (int i = 0; i < batchSegments.Count; i++)
+                        userPrompt.AppendLine($"[{i}] {batchSegments[i].Timestamp} {batchSegments[i].ScriptText}");
+
+                    var request = new GeminiChatRequest
+                    {
+                        Model = _settings.Model,
+                        Messages = new List<GeminiMessage>
+                        {
+                            new() { Role = "system", Content = classifySystemPrompt },
+                            new() { Role = "user", Content = userPrompt.ToString() }
+                        },
+                        Temperature = 0.3,
+                        MaxTokens = Math.Min(batchSegments.Count * 30, 1000) // Tiny: just index+mediaType
+                    };
+
+                    var response = await _httpClient.PostAsJsonAsync("v1/chat/completions", request, cancellationToken);
+                    response.EnsureSuccessStatusCode();
+
+                    var geminiResponse = await response.Content.ReadFromJsonAsync<GeminiChatResponse>(cancellationToken: cancellationToken);
+                    var rawContent = geminiResponse?.Choices?.FirstOrDefault()?.Message?.Content;
+                    var batchResults = new List<BrollPromptItem>();
+
+                    if (!string.IsNullOrEmpty(rawContent))
+                    {
+                        var cleanedJson = CleanJsonResponse(rawContent);
+                        try
+                        {
+                            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                            var parsed = JsonSerializer.Deserialize<List<BrollClassificationResponse>>(cleanedJson, options);
+                            if (parsed != null)
+                            {
+                                foreach (var item in parsed)
+                                {
+                                    if (item.Index >= 0 && item.Index < batchSegments.Count)
+                                    {
+                                        var globalIdx = batchStart + item.Index;
+                                        batchResults.Add(new BrollPromptItem
+                                        {
+                                            Index = globalIdx,
+                                            Timestamp = segments[globalIdx].Timestamp,
+                                            ScriptText = segments[globalIdx].ScriptText,
+                                            MediaType = item.MediaType?.ToUpperInvariant() == "IMAGE_GEN"
+                                                ? BrollMediaType.ImageGeneration
+                                                : BrollMediaType.BrollVideo,
+                                            Prompt = string.Empty // No prompt yet
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                        catch (JsonException)
+                        {
+                            _logger.LogWarning("ClassifyOnly batch {Batch} JSON parse failed", batchIdxCapture + 1);
+                        }
+                    }
+
+                    // Fill missing with fallback
+                    for (int i = 0; i < batchSegments.Count; i++)
+                    {
+                        var globalIdx = batchStart + i;
+                        if (!batchResults.Any(r => r.Index == globalIdx))
+                        {
+                            batchResults.Add(new BrollPromptItem
+                            {
+                                Index = globalIdx,
+                                Timestamp = segments[globalIdx].Timestamp,
+                                ScriptText = segments[globalIdx].ScriptText,
+                                MediaType = BrollMediaType.BrollVideo,
+                                Prompt = string.Empty
+                            });
+                        }
+                    }
+
+                    lock (resultsLock) { results.AddRange(batchResults); }
+
+                    if (onBatchComplete != null)
+                    {
+                        List<BrollPromptItem> snapshot;
+                        lock (resultsLock) { snapshot = results.OrderBy(r => r.Index).ToList(); }
+                        await onBatchComplete(snapshot);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "ClassifyOnly batch {Batch} failed", batchIdxCapture + 1);
+                    lock (resultsLock)
+                    {
+                        for (int i = 0; i < batchSegments.Count; i++)
+                        {
+                            var globalIdx = batchStart + i;
+                            if (!results.Any(r => r.Index == globalIdx))
+                            {
+                                results.Add(new BrollPromptItem
+                                {
+                                    Index = globalIdx,
+                                    Timestamp = segments[globalIdx].Timestamp,
+                                    ScriptText = segments[globalIdx].ScriptText,
+                                    MediaType = BrollMediaType.BrollVideo,
+                                    Prompt = string.Empty
+                                });
+                            }
+                        }
+                    }
+                    if (onBatchComplete != null)
+                    {
+                        List<BrollPromptItem> snapshot;
+                        lock (resultsLock) { snapshot = results.OrderBy(r => r.Index).ToList(); }
+                        await onBatchComplete(snapshot);
+                    }
+                }
+                finally { semaphore.Release(); }
+            }, cancellationToken);
+
+            batchTasks.Add(batchTask);
+        }
+
+        await Task.WhenAll(batchTasks);
+
+        // Fill missing
+        for (int i = 0; i < segments.Count; i++)
+        {
+            if (!results.Any(r => r.Index == i))
+            {
+                results.Add(new BrollPromptItem
+                {
+                    Index = i, Timestamp = segments[i].Timestamp, ScriptText = segments[i].ScriptText,
+                    MediaType = BrollMediaType.BrollVideo, Prompt = string.Empty
+                });
+            }
+        }
+
+        results = results.OrderBy(r => r.Index).ToList();
+        var brollCount = results.Count(r => r.MediaType == BrollMediaType.BrollVideo);
+        var imageGenCount = results.Count(r => r.MediaType == BrollMediaType.ImageGeneration);
+        _logger.LogInformation("ClassifyOnly: {Total} segments ({Broll} broll, {ImageGen} image gen) in {Ms}ms",
+            results.Count, brollCount, imageGenCount, stopwatch.ElapsedMilliseconds);
+
+        return results;
+    }
+
+    /// <summary>
+    /// Batch-generate prompts for segments of a specific media type.
+    /// Updates items in-place with generated prompts.
+    /// </summary>
+    public async Task GeneratePromptsForTypeBatchAsync(
+        List<BrollPromptItem> items,
+        BrollMediaType targetType,
+        string topic,
+        ImagePromptConfig? config = null,
+        Func<int, Task>? onProgress = null,
+        CancellationToken cancellationToken = default)
+    {
+        var targetItems = items.Where(i => i.MediaType == targetType).ToList();
+        if (targetItems.Count == 0) return;
+
+        var stopwatch = Stopwatch.StartNew();
+        var semaphore = new SemaphoreSlim(3, 3);
+        int completedCount = 0;
+
+        var tasks = targetItems.Select(async item =>
+        {
+            await semaphore.WaitAsync(cancellationToken);
+            try
+            {
+                item.Prompt = await GeneratePromptForTypeAsync(
+                    item.ScriptText, targetType, topic, config, cancellationToken);
+
+                // Auto-detect era for IMAGE_GEN
+                if (targetType == BrollMediaType.ImageGeneration)
+                    EraLibrary.AutoAssignEraStyle(item);
+
+                var count = Interlocked.Increment(ref completedCount);
+                if (onProgress != null) await onProgress(count);
+            }
+            finally { semaphore.Release(); }
+        });
+
+        await Task.WhenAll(tasks);
+
+        _logger.LogInformation("GeneratePromptsBatch: Generated {Count} {Type} prompts in {Ms}ms",
+            targetItems.Count, targetType, stopwatch.ElapsedMilliseconds);
     }
 
     public async Task<string> GeneratePromptForTypeAsync(

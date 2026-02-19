@@ -172,7 +172,15 @@
             OnGenerateAllKenBurnsVideos="HandleGenerateAllKenBurnsVideos"
             OnResetAllImageStates='() => RequestConfirmation("Reset All Images", "🗑️ DESTRUCTIVE: Ini akan menghapus SEMUA image dan video. Anda harus men-generate ulang semuanya. Yakin?", HandleResetAllImageStates)'
             OnResetAllVideoStates='() => RequestConfirmation("Reset KB Videos", "⚠️ Ini akan menghapus semua video Ken Burns yang sudah jadi. Image asli tetap aman. Lanjutkan?", HandleResetAllVideoStates)'
-            OnGeneratePrompts="RunBrollClassification"
+            OnGeneratePrompts="RunClassifyOnly"
+            OnGenerateImagePrompts="RunGenerateImagePrompts"
+            OnGenerateKeywords="RunGenerateKeywords"
+            IsGeneratingImagePrompts="_isGeneratingImagePrompts"
+            ImagePromptGeneratedCount="_imagePromptGeneratedCount"
+            ImagePromptTotalCount="_imagePromptTotalCount"
+            IsGeneratingKeywords="_isGeneratingKeywords"
+            KeywordGeneratedCount="_keywordGeneratedCount"
+            KeywordTotalCount="_keywordTotalCount"
             OnToggleMediaType="HandleToggleMediaType"
             OnSearchSegment="HandleSearchSingleSegment"
             OnRegenSegmentKeywords="HandleRegenSegmentKeywords"
@@ -283,6 +291,12 @@
     private bool _isGeneratingWhisk;
     private int _whiskGeneratedCount;
     private int _whiskTotalCount;
+    private bool _isGeneratingImagePrompts;
+    private int _imagePromptGeneratedCount;
+    private int _imagePromptTotalCount;
+    private bool _isGeneratingKeywords;
+    private int _keywordGeneratedCount;
+    private int _keywordTotalCount;
 
     // Delete
     private bool _showDeleteConfirm;
@@ -1001,13 +1015,14 @@
         if (_brollPromptItems.Count == 0)
         {
             await LoadBrollPromptsFromDisk();
+            await LoadImageConfigFromDisk();
         }
 
         _currentView = "broll-prompts";
         StateHasChanged();
     }
 
-    private async Task RunBrollClassification()
+    private async Task RunClassifyOnly()
     {
         if (_resultSession == null) return;
 
@@ -1091,7 +1106,8 @@
             _classifyTotalSegments = segments.Count;
             await InvokeAsync(StateHasChanged);
 
-            _brollPromptItems = await IntelligenceService.ClassifyAndGeneratePromptsAsync(
+            // Classification ONLY — no prompt generation
+            _brollPromptItems = await IntelligenceService.ClassifySegmentsOnlyAsync(
                 segments, _resultSession.Topic,
                 config: _imagePromptConfig,
                 onBatchComplete: async batchResults =>
@@ -1114,7 +1130,6 @@
         // OVERRIDE: Force ImageGeneration for Phase 1 & 2 (visual hooking) if enabled in config
         if (_imagePromptConfig.ForceVisualHook)
         {
-            var switchedItems = new List<BrollPromptItem>();
             foreach (var item in _brollPromptItems)
             {
                 if (TryParseTimestamp(item.Timestamp, out var timestamp))
@@ -1122,42 +1137,91 @@
                     var phaseId = PhaseDetectionService.DetectPhase(timestamp);
                     if (phaseId == "opening-hook" || phaseId == "contextualization")
                     {
-                        // Track items that were originally classified as BrollVideo
-                        if (item.MediaType == BrollMediaType.BrollVideo)
-                        {
-                            switchedItems.Add(item);
-                        }
                         item.MediaType = BrollMediaType.ImageGeneration;
                         item.Reasoning = $"Phase {phaseId}: Forced to ImageGeneration for visual hooking";
                     }
                 }
             }
+        }
 
-            // Regenerate prompts for items switched from BrollVideo → ImageGeneration
-            // Their current prompt is a BROLL keyword (e.g. "desert wind blowing sand")
-            // which needs to become a full image generation prompt
-            if (switchedItems.Count > 0)
-            {
-                var semaphore = new SemaphoreSlim(3, 3);
-                var regenTasks = switchedItems.Select(async item =>
+        await SaveBrollPromptsToDisk();
+        await SaveImageConfigToDisk();
+    }
+
+    private async Task RunGenerateImagePrompts()
+    {
+        if (_resultSession == null || _brollPromptItems.Count == 0) return;
+
+        var imageItems = _brollPromptItems.Where(i => i.MediaType == BrollMediaType.ImageGeneration).ToList();
+        if (imageItems.Count == 0) return;
+
+        _isGeneratingImagePrompts = true;
+        _imagePromptTotalCount = imageItems.Count;
+        _imagePromptGeneratedCount = 0;
+        StateHasChanged();
+
+        try
+        {
+            await IntelligenceService.GeneratePromptsForTypeBatchAsync(
+                _brollPromptItems, BrollMediaType.ImageGeneration,
+                _resultSession.Topic, _imagePromptConfig,
+                onProgress: async count =>
                 {
-                    await semaphore.WaitAsync();
-                    try
-                    {
-                        item.Prompt = await IntelligenceService.GeneratePromptForTypeAsync(
-                            item.ScriptText, BrollMediaType.ImageGeneration,
-                            _resultSession.Topic, _imagePromptConfig);
-                    }
-                    finally { semaphore.Release(); }
+                    _imagePromptGeneratedCount = count;
+                    await InvokeAsync(StateHasChanged);
                 });
-                await Task.WhenAll(regenTasks);
-                await InvokeAsync(StateHasChanged);
-            }
+        }
+        catch (Exception ex)
+        {
+            _classifyError = $"Gagal generate image prompts: {ex.Message}";
+        }
+        finally
+        {
+            _isGeneratingImagePrompts = false;
+            StateHasChanged();
+        }
+
+        await SaveBrollPromptsToDisk();
+        await SaveImageConfigToDisk();
+    }
+
+    private async Task RunGenerateKeywords()
+    {
+        if (_resultSession == null || _brollPromptItems.Count == 0) return;
+
+        var brollItems = _brollPromptItems.Where(i => i.MediaType == BrollMediaType.BrollVideo).ToList();
+        if (brollItems.Count == 0) return;
+
+        _isGeneratingKeywords = true;
+        _keywordTotalCount = brollItems.Count;
+        _keywordGeneratedCount = 0;
+        StateHasChanged();
+
+        try
+        {
+            await IntelligenceService.GeneratePromptsForTypeBatchAsync(
+                _brollPromptItems, BrollMediaType.BrollVideo,
+                _resultSession.Topic, _imagePromptConfig,
+                onProgress: async count =>
+                {
+                    _keywordGeneratedCount = count;
+                    await InvokeAsync(StateHasChanged);
+                });
+        }
+        catch (Exception ex)
+        {
+            _classifyError = $"Gagal generate keywords: {ex.Message}";
+        }
+        finally
+        {
+            _isGeneratingKeywords = false;
+            StateHasChanged();
         }
 
         await SaveBrollPromptsToDisk();
 
-        if (_brollPromptItems.Any(i => i.MediaType == BrollMediaType.BrollVideo))
+        // Auto-search for B-Roll videos after keywords are generated
+        if (_brollPromptItems.Any(i => i.MediaType == BrollMediaType.BrollVideo && !string.IsNullOrEmpty(i.Prompt)))
         {
             await SearchBrollForAllSegmentsAsync();
         }
@@ -1166,7 +1230,7 @@
     private async Task HandleReclassifyBroll()
     {
         InvalidateBrollClassification();
-        await RunBrollClassification();
+        await RunClassifyOnly();
     }
 
     private async Task HandleSelectVideo((BrollPromptItem item, VideoAsset video) args)
@@ -1791,6 +1855,54 @@
         {
             _saveError = $"Gagal menyimpan broll prompts: {ex.Message}";
             Console.Error.WriteLine($"Failed to save broll prompts: {ex.Message}");
+        }
+    }
+
+    private async Task SaveImageConfigToDisk()
+    {
+        var brollPath = GetBrollPromptsFilePath();
+        if (brollPath == null) return;
+
+        var configPath = Path.Combine(Path.GetDirectoryName(brollPath)!, "image-config.json");
+        try
+        {
+            var json = System.Text.Json.JsonSerializer.Serialize(_imagePromptConfig, new System.Text.Json.JsonSerializerOptions
+            {
+                WriteIndented = true,
+                Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+            });
+            await File.WriteAllTextAsync(configPath, json);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Failed to save image config: {ex.Message}");
+        }
+    }
+
+    private async Task LoadImageConfigFromDisk()
+    {
+        var brollPath = GetBrollPromptsFilePath();
+        if (brollPath == null) return;
+
+        var configPath = Path.Combine(Path.GetDirectoryName(brollPath)!, "image-config.json");
+        if (!File.Exists(configPath)) return;
+
+        try
+        {
+            var json = await File.ReadAllTextAsync(configPath);
+            var loaded = System.Text.Json.JsonSerializer.Deserialize<ImagePromptConfig>(json, new System.Text.Json.JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true,
+                Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+            });
+            if (loaded != null)
+            {
+                _imagePromptConfig = loaded;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Failed to load image config: {ex.Message}");
         }
     }
 
