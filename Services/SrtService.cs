@@ -7,7 +7,7 @@ namespace BunbunBroll.Services;
 public interface ISrtService
 {
     List<SrtEntry> ParseSrt(string content);
-    List<(string Timestamp, string Text)> MergeToSegments(List<SrtEntry> entries, double maxDurationSeconds = 35.0);
+    List<(string Timestamp, string Text)> MergeToSegments(List<SrtEntry> entries, double maxDurationSeconds = 20.0);
     List<MicroBeatSegment> ParseWithPhaseSplitting(string content, IPhaseDetectionService phaseDetectionService, ITimestampSplitterService splitterService);
 }
 
@@ -76,14 +76,15 @@ public class SrtService : ISrtService
         return result;
     }
 
-    public List<(string Timestamp, string Text)> MergeToSegments(List<SrtEntry> entries, double maxDurationSeconds = 35.0)
+    public List<(string Timestamp, string Text)> MergeToSegments(List<SrtEntry> entries, double maxDurationSeconds = 20.0)
     {
         var result = new List<(string Timestamp, string Text)>();
         if (entries == null || entries.Count == 0) return result;
 
         var currentText = new StringBuilder();
         TimeSpan? blockStart = null;
-        var softLimitSeconds = maxDurationSeconds * 0.7; // Lower soft limit for fallbacks (target ~18s)
+        var softLimitSeconds = maxDurationSeconds * 0.7; // Soft limit for smart splitting
+        const int maxWordCount = 80; // Hard word-count limit (~32s of speech at 2.5 wps)
 
         for (int i = 0; i < entries.Count; i++)
         {
@@ -108,15 +109,20 @@ public class SrtService : ISrtService
                 {
                     var nextEntry = entries[i + 1];
                     var gap = (nextEntry.StartTime - entry.EndTime).TotalSeconds;
-                    if (gap > 0.45) // Pause between speech > 450ms
+                    if (gap > 0.3) // Pause between speech > 300ms
                     {
                         hasSignificantGap = true;
                     }
                 }
 
-                if (potentialDuration > maxDurationSeconds)
+                // Detection 3: Word count safety net
+                var wordCount = currentText.ToString().Split(' ', StringSplitOptions.RemoveEmptyEntries).Length
+                              + trimmedText.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;
+                bool exceedsWordLimit = wordCount >= maxWordCount;
+
+                if (potentialDuration > maxDurationSeconds || exceedsWordLimit)
                 {
-                    // Hard Split: Exceeds absolute max duration
+                    // Hard Split: Exceeds absolute max duration or word count limit
                     result.Add((FormatTimestamp(blockStart.Value), currentText.ToString().Trim()));
                     
                     blockStart = entry.StartTime;
@@ -206,7 +212,7 @@ public class SrtService : ISrtService
             return new List<MicroBeatSegment>();
 
         // Then, merge into segments (using existing logic)
-        var segments = MergeToSegments(entries, maxDurationSeconds: 35.0);
+        var segments = MergeToSegments(entries, maxDurationSeconds: 20.0);
 
         // Finally, split into micro-beats based on phase
         return splitterService.SplitIntoMicroBeats(segments, phaseDetectionService);

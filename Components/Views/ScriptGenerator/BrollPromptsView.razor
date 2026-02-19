@@ -17,7 +17,7 @@
                     <span>~@TotalMinutes menit</span>
                     <span>·</span>
                     <span>@TotalPhases fase</span>
-                    @if (PromptItems.Count > 0)
+                    @if (PromptItems.Count > 0 && !IsClassifying)
                     {
                         <span>·</span>
                         <span>@PromptItems.Count segments</span>
@@ -98,7 +98,7 @@
             </div>
 
             @* Row 2: Video B-Roll Section *@
-            @if (PromptItems.Any(i => i.MediaType == BrollMediaType.BrollVideo))
+            @if (PromptItems.Any(i => i.MediaType == BrollMediaType.BrollVideo) && !IsClassifying)
             {
                 <div class="flex items-center gap-3 p-3 rounded-lg bg-blue-500/5 border border-blue-500/20">
                     <div class="flex items-center gap-2 text-blue-400">
@@ -148,7 +148,7 @@
             }
 
             @* Row 3: Image Generation Section *@
-            @if (PromptItems.Any(i => i.MediaType == BrollMediaType.ImageGeneration))
+            @if (PromptItems.Any(i => i.MediaType == BrollMediaType.ImageGeneration) && !IsClassifying)
             {
                 var missingImageCount = PromptItems.Count(i => 
                     i.MediaType == BrollMediaType.ImageGeneration && 
@@ -284,25 +284,371 @@
     {
         <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-destructive text-sm">@ClassifyError</div>
     }
-    else if (PromptItems.Count == 0)
+    else if (PromptItems.Count == 0 || !PromptItems.Any(i => !string.IsNullOrEmpty(i.Prompt)))
     {
-        @* Empty State — prompt user to generate *@
-        <div class="card p-12 text-center">
-            <div class="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <polygon points="23 7 16 12 23 17 23 7"></polygon>
-                    <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
-                </svg>
+        @* Config Panel — configure before generating *@
+        <div class="card p-6 space-y-5">
+            <div class="flex items-center gap-3 mb-2">
+                <div class="h-10 w-10 rounded-lg bg-gradient-to-br from-purple-500/20 to-blue-500/20 flex items-center justify-center">
+                    <svg class="h-5 w-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold">Konfigurasi Image Prompt</h3>
+                    <p class="text-xs text-muted-foreground">Kontrol penuh art style, lighting, warna, komposisi, dan era sebelum generate</p>
+                </div>
             </div>
-            <h3 class="text-lg font-semibold mb-2">Siap Generate Prompts</h3>
-            <p class="text-sm text-muted-foreground mb-6 max-w-md mx-auto">LLM akan menganalisis setiap segment script dan menentukan apakah perlu <span class="text-blue-400 font-medium">B-Roll video</span> atau <span class="text-purple-400 font-medium">Image Generation</span> prompt.</p>
-            <button class="btn-primary text-sm px-6 py-2.5" @onclick="OnGeneratePrompts">
-                🚀 Generate Prompts
-            </button>
+
+            @* === 1. Art Style Selector === *@
+            <div class="space-y-2">
+                <label class="text-sm font-medium text-foreground flex items-center gap-2">
+                    <svg class="h-4 w-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/></svg>
+                    🎨 Art Style
+                </label>
+                <p class="text-xs text-muted-foreground -mt-1">Tentukan gaya visual utama untuk semua image yang di-generate.</p>
+                <div class="flex flex-wrap gap-2">
+                    @foreach (var opt in _artStyleOptions)
+                    {
+                        var isSelected = PromptConfig.ArtStyle == opt.Value;
+                        <button class="@(isSelected ? "bg-purple-600 text-white border-purple-500 shadow-lg shadow-purple-500/20" : "bg-muted/30 text-muted-foreground border-border hover:bg-muted/50 hover:text-foreground") text-xs px-3 py-1.5 rounded-full border transition-all duration-200 font-medium"
+                                @onclick="() => { PromptConfig.ArtStyle = opt.Value; }">
+                            @opt.Label
+                        </button>
+                    }
+                </div>
+                @if (PromptConfig.ArtStyle == ImageArtStyle.Custom)
+                {
+                    <input type="text" class="w-full bg-muted/20 border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder-muted-foreground/50 focus:border-purple-500/50 focus:outline-none focus:ring-1 focus:ring-purple-500/30 mt-1"
+                           placeholder="Describe your custom art style..."
+                           @bind="PromptConfig.CustomArtStyle"
+                           @bind:event="oninput" />
+                }
+            </div>
+
+            @* === 2. Lighting Selector === *@
+            <div class="space-y-2">
+                <label class="text-sm font-medium text-foreground flex items-center gap-2">
+                    <svg class="h-4 w-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                    💡 Lighting
+                </label>
+                <p class="text-xs text-muted-foreground -mt-1">Pilih mood pencahayaan untuk suasana visual.</p>
+                <div class="flex flex-wrap gap-2">
+                    @foreach (var opt in _lightingOptions)
+                    {
+                        var isSelected = PromptConfig.Lighting == opt.Value;
+                        <button class="@(isSelected ? "bg-yellow-600 text-white border-yellow-500 shadow-lg shadow-yellow-500/20" : "bg-muted/30 text-muted-foreground border-border hover:bg-muted/50 hover:text-foreground") text-xs px-3 py-1.5 rounded-full border transition-all duration-200 font-medium"
+                                @onclick="() => { PromptConfig.Lighting = opt.Value; }">
+                            @opt.Label
+                        </button>
+                    }
+                </div>
+            </div>
+
+            @* === 3. Color Palette Selector === *@
+            <div class="space-y-2">
+                <label class="text-sm font-medium text-foreground flex items-center gap-2">
+                    <svg class="h-4 w-4 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/></svg>
+                    🎨 Color Palette
+                </label>
+                <p class="text-xs text-muted-foreground -mt-1">Tentukan mood warna keseluruhan.</p>
+                <div class="flex flex-wrap gap-2">
+                    @foreach (var opt in _colorPaletteOptions)
+                    {
+                        var isSelected = PromptConfig.ColorPalette == opt.Value;
+                        <button class="@(isSelected ? "bg-pink-600 text-white border-pink-500 shadow-lg shadow-pink-500/20" : "bg-muted/30 text-muted-foreground border-border hover:bg-muted/50 hover:text-foreground") text-xs px-3 py-1.5 rounded-full border transition-all duration-200 font-medium"
+                                @onclick="() => { PromptConfig.ColorPalette = opt.Value; }">
+                            @opt.Label
+                        </button>
+                    }
+                </div>
+            </div>
+
+            @* === 4. Composition Selector === *@
+            <div class="space-y-2">
+                <label class="text-sm font-medium text-foreground flex items-center gap-2">
+                    <svg class="h-4 w-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                    📷 Composition
+                </label>
+                <p class="text-xs text-muted-foreground -mt-1">Sudut kamera dan framing default.</p>
+                <div class="flex flex-wrap gap-2">
+                    @foreach (var opt in _compositionOptions)
+                    {
+                        var isSelected = PromptConfig.Composition == opt.Value;
+                        <button class="@(isSelected ? "bg-cyan-600 text-white border-cyan-500 shadow-lg shadow-cyan-500/20" : "bg-muted/30 text-muted-foreground border-border hover:bg-muted/50 hover:text-foreground") text-xs px-3 py-1.5 rounded-full border transition-all duration-200 font-medium"
+                                @onclick="() => { PromptConfig.Composition = opt.Value; }">
+                            @opt.Label
+                        </button>
+                    }
+                </div>
+            </div>
+
+            <hr class="border-border/50" />
+
+            @* === 5. Era Selector === *@
+            <div class="space-y-2">
+                <label class="text-sm font-medium text-foreground flex items-center gap-2">
+                    <svg class="h-4 w-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    🕰️ Default Era
+                </label>
+                <p class="text-xs text-muted-foreground -mt-1">Bias AI ke era tertentu. Auto = deteksi otomatis per segment.</p>
+                <div class="flex flex-wrap gap-2">
+                    @foreach (var era in _eraOptions)
+                    {
+                        var isSelected = PromptConfig.DefaultEra == era.Value;
+                        <button class="@(isSelected ? "bg-amber-600 text-white border-amber-500 shadow-lg shadow-amber-500/20" : "bg-muted/30 text-muted-foreground border-border hover:bg-muted/50 hover:text-foreground") text-xs px-3 py-1.5 rounded-full border transition-all duration-200 font-medium"
+                                @onclick="() => { PromptConfig.DefaultEra = era.Value; }">
+                            @era.Label
+                        </button>
+                    }
+                </div>
+            </div>
+
+            @* === 6. Custom Instructions === *@
+            <div class="space-y-2">
+                <label class="text-sm font-medium text-foreground flex items-center gap-2">
+                    <svg class="h-4 w-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                    ✏️ Custom Instructions
+                    @if (!string.IsNullOrWhiteSpace(PromptConfig.CustomInstructions))
+                    {
+                        <span class="text-[10px] bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded">active</span>
+                    }
+                </label>
+                <p class="text-xs text-muted-foreground -mt-1">Instruksi tambahan untuk AI, misalnya "Fokus ke pemandangan gurun" atau "Hindari bangunan modern".</p>
+                <textarea class="w-full bg-muted/20 border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder-muted-foreground/50 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/30 resize-y min-h-[60px]"
+                          rows="2"
+                          placeholder="Contoh: Focus on desert and ancient ruins imagery, use warm golden lighting..."
+                          @bind="PromptConfig.CustomInstructions"
+                          @bind:event="oninput"></textarea>
+            </div>
+
+            @* === Visual Hook Toggle === *@
+            <div class="flex items-center justify-between p-3 rounded-lg bg-muted/10 border border-border">
+                <div class="flex items-center gap-3">
+                    <svg class="h-5 w-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                    <div>
+                        <p class="text-sm font-medium">Visual Hook (3 menit pertama)</p>
+                        <p class="text-xs text-muted-foreground">Force Image Generation untuk Phase 1 & 2 agar lebih engaging</p>
+                    </div>
+                </div>
+                <button class="@(PromptConfig.ForceVisualHook ? "bg-orange-500 border-orange-400" : "bg-muted/30 border-border") relative w-11 h-6 rounded-full border transition-all duration-200 focus:outline-none"
+                        @onclick="() => { PromptConfig.ForceVisualHook = !PromptConfig.ForceVisualHook; }">
+                    <span class="@(PromptConfig.ForceVisualHook ? "translate-x-5 bg-white" : "translate-x-0.5 bg-muted-foreground/50") block w-5 h-5 rounded-full transition-transform duration-200 transform"></span>
+                </button>
+            </div>
+
+            @* === Segment Preview (Script Review Before Generating) === *@
+            @if (PromptItems.Count > 0)
+            {
+                <div class="space-y-3">
+                    <button class="w-full flex items-center justify-between p-3 rounded-lg bg-green-500/5 border border-green-500/20 hover:bg-green-500/10 transition-colors"
+                            @onclick="() => _showSegmentPreview = !_showSegmentPreview">
+                        <div class="flex items-center gap-2 text-green-400">
+                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                            <span class="font-medium text-sm">📋 Review Segments</span>
+                            <span class="text-xs bg-green-500/20 text-green-300 px-2 py-0.5 rounded-full">@PromptItems.Count segments</span>
+                            <span class="text-xs text-muted-foreground">· @PromptItems.Sum(i => i.ScriptText.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length) kata total</span>
+                        </div>
+                        <svg class="@(_showSegmentPreview ? "rotate-180" : "") h-4 w-4 text-muted-foreground transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+
+                    @if (_showSegmentPreview)
+                    {
+                        <div class="max-h-[500px] overflow-y-auto rounded-lg border border-border bg-muted/5 divide-y divide-border/50">
+                            @foreach (var (item, idx) in PromptItems.Select((item, idx) => (item, idx)))
+                            {
+                                var words = item.ScriptText.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;
+                                <div class="p-3 hover:bg-muted/10 transition-colors">
+                                    <div class="flex items-center gap-2 mb-1.5">
+                                        <span class="text-[10px] font-mono bg-muted/30 text-muted-foreground px-1.5 py-0.5 rounded">@item.Timestamp</span>
+                                        <span class="text-[10px] font-bold text-foreground/70">#@(idx + 1)</span>
+                                        <span class="text-[10px] text-muted-foreground">@words kata</span>
+                                    </div>
+                                    <p class="text-xs text-foreground/80 leading-relaxed line-clamp-3">@item.ScriptText</p>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+
+            @* === Config Summary === *@
+            @if (PromptConfig.HasCustomConfig)
+            {
+                <div class="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground px-2">
+                    <svg class="h-3.5 w-3.5 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <span>Config:</span>
+                    @if (PromptConfig.ArtStyle != ImageArtStyle.SemiRealisticPainting) { <span class="text-purple-400 font-medium bg-purple-500/10 px-1.5 py-0.5 rounded">@PromptConfig.ArtStyle</span> }
+                    @if (PromptConfig.Lighting != ImageLighting.DramaticHighContrast) { <span class="text-yellow-400 font-medium bg-yellow-500/10 px-1.5 py-0.5 rounded">@PromptConfig.Lighting</span> }
+                    @if (PromptConfig.ColorPalette != ImageColorPalette.VibrantFocalMuted) { <span class="text-pink-400 font-medium bg-pink-500/10 px-1.5 py-0.5 rounded">@PromptConfig.ColorPalette</span> }
+                    @if (PromptConfig.Composition != ImageComposition.Auto) { <span class="text-cyan-400 font-medium bg-cyan-500/10 px-1.5 py-0.5 rounded">@PromptConfig.Composition</span> }
+                    @if (PromptConfig.DefaultEra != VideoEra.None) { <span class="text-amber-400 font-medium bg-amber-500/10 px-1.5 py-0.5 rounded">Era @PromptConfig.DefaultEra</span> }
+                    @if (!string.IsNullOrWhiteSpace(PromptConfig.CustomInstructions)) { <span class="text-blue-400 font-medium bg-blue-500/10 px-1.5 py-0.5 rounded">Instructions</span> }
+                </div>
+            }
+
+            @* === Generate Button === *@
+            <div class="pt-2 flex items-center gap-3">
+                <button class="btn-primary text-sm px-6 py-2.5 flex items-center gap-2" @onclick="OnGeneratePrompts">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                    🚀 Generate Prompts
+                </button>
+                <span class="text-xs text-muted-foreground">
+                    @if (PromptItems.Count > 0)
+                    {
+                        @($"{PromptItems.Count} segments siap diproses")
+                    }
+                    else
+                    {
+                        @("Import SRT atau generate script terlebih dahulu")
+                    }
+                </span>
+            </div>
         </div>
     }
     else
     {
+        @* === Collapsible Config Panel (accessible after classification) === *@
+        <div class="card p-0 overflow-hidden mb-4">
+            <button class="w-full flex items-center justify-between p-4 hover:bg-muted/10 transition-colors"
+                    @onclick="() => _showConfigPanel = !_showConfigPanel">
+                <div class="flex items-center gap-3">
+                    <div class="h-8 w-8 rounded-lg bg-gradient-to-br from-purple-500/20 to-blue-500/20 flex items-center justify-center">
+                        <svg class="h-4 w-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
+                    </div>
+                    <div>
+                        <p class="text-sm font-semibold text-left">⚙️ Image Prompt Config</p>
+                        <div class="flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
+                            @if (PromptConfig.ArtStyle != ImageArtStyle.SemiRealisticPainting) { <span class="text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded">@PromptConfig.ArtStyle</span> }
+                            @if (PromptConfig.Lighting != ImageLighting.DramaticHighContrast) { <span class="text-yellow-400 bg-yellow-500/10 px-1.5 py-0.5 rounded">@PromptConfig.Lighting</span> }
+                            @if (PromptConfig.ColorPalette != ImageColorPalette.VibrantFocalMuted) { <span class="text-pink-400 bg-pink-500/10 px-1.5 py-0.5 rounded">@PromptConfig.ColorPalette</span> }
+                            @if (PromptConfig.DefaultEra != VideoEra.None) { <span class="text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded">Era @PromptConfig.DefaultEra</span> }
+                            @if (PromptConfig.ForceVisualHook) { <span class="text-orange-400 bg-orange-500/10 px-1.5 py-0.5 rounded">Visual Hook ON</span> }
+                        </div>
+                    </div>
+                </div>
+                <svg class="@(_showConfigPanel ? "rotate-180" : "") h-4 w-4 text-muted-foreground transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </button>
+
+            @if (_showConfigPanel)
+            {
+                <div class="border-t border-border p-5 space-y-5">
+                    @* Art Style *@
+                    <div class="space-y-2">
+                        <label class="text-sm font-medium flex items-center gap-2">🎨 Art Style</label>
+                        <div class="flex flex-wrap gap-2">
+                            @foreach (var opt in _artStyleOptions)
+                            {
+                                var isSelected = PromptConfig.ArtStyle == opt.Value;
+                                <button class="@(isSelected ? "bg-purple-600 text-white border-purple-500" : "bg-muted/30 text-muted-foreground border-border hover:bg-muted/50") text-xs px-3 py-1.5 rounded-full border transition-all font-medium"
+                                        @onclick="() => { PromptConfig.ArtStyle = opt.Value; }">
+                                    @opt.Label
+                                </button>
+                            }
+                        </div>
+                        @if (PromptConfig.ArtStyle == ImageArtStyle.Custom)
+                        {
+                            <input type="text" class="w-full bg-muted/20 border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder-muted-foreground/50 focus:border-purple-500/50 focus:outline-none mt-1"
+                                   placeholder="Describe your custom art style..."
+                                   @bind="PromptConfig.CustomArtStyle" @bind:event="oninput" />
+                        }
+                    </div>
+
+                    @* Lighting *@
+                    <div class="space-y-2">
+                        <label class="text-sm font-medium flex items-center gap-2">💡 Lighting</label>
+                        <div class="flex flex-wrap gap-2">
+                            @foreach (var opt in _lightingOptions)
+                            {
+                                var isSelected = PromptConfig.Lighting == opt.Value;
+                                <button class="@(isSelected ? "bg-yellow-600 text-white border-yellow-500" : "bg-muted/30 text-muted-foreground border-border hover:bg-muted/50") text-xs px-3 py-1.5 rounded-full border transition-all font-medium"
+                                        @onclick="() => { PromptConfig.Lighting = opt.Value; }">
+                                    @opt.Label
+                                </button>
+                            }
+                        </div>
+                    </div>
+
+                    @* Color Palette *@
+                    <div class="space-y-2">
+                        <label class="text-sm font-medium flex items-center gap-2">🎨 Color Palette</label>
+                        <div class="flex flex-wrap gap-2">
+                            @foreach (var opt in _colorPaletteOptions)
+                            {
+                                var isSelected = PromptConfig.ColorPalette == opt.Value;
+                                <button class="@(isSelected ? "bg-pink-600 text-white border-pink-500" : "bg-muted/30 text-muted-foreground border-border hover:bg-muted/50") text-xs px-3 py-1.5 rounded-full border transition-all font-medium"
+                                        @onclick="() => { PromptConfig.ColorPalette = opt.Value; }">
+                                    @opt.Label
+                                </button>
+                            }
+                        </div>
+                    </div>
+
+                    @* Composition *@
+                    <div class="space-y-2">
+                        <label class="text-sm font-medium flex items-center gap-2">📷 Composition</label>
+                        <div class="flex flex-wrap gap-2">
+                            @foreach (var opt in _compositionOptions)
+                            {
+                                var isSelected = PromptConfig.Composition == opt.Value;
+                                <button class="@(isSelected ? "bg-cyan-600 text-white border-cyan-500" : "bg-muted/30 text-muted-foreground border-border hover:bg-muted/50") text-xs px-3 py-1.5 rounded-full border transition-all font-medium"
+                                        @onclick="() => { PromptConfig.Composition = opt.Value; }">
+                                    @opt.Label
+                                </button>
+                            }
+                        </div>
+                    </div>
+
+                    <hr class="border-border/50" />
+
+                    @* Era *@
+                    <div class="space-y-2">
+                        <label class="text-sm font-medium flex items-center gap-2">🕰️ Default Era</label>
+                        <div class="flex flex-wrap gap-2">
+                            @foreach (var era in _eraOptions)
+                            {
+                                var isSelected = PromptConfig.DefaultEra == era.Value;
+                                <button class="@(isSelected ? "bg-amber-600 text-white border-amber-500" : "bg-muted/30 text-muted-foreground border-border hover:bg-muted/50") text-xs px-3 py-1.5 rounded-full border transition-all font-medium"
+                                        @onclick="() => { PromptConfig.DefaultEra = era.Value; }">
+                                    @era.Label
+                                </button>
+                            }
+                        </div>
+                    </div>
+
+                    @* Custom Instructions *@
+                    <div class="space-y-2">
+                        <label class="text-sm font-medium flex items-center gap-2">
+                            ✏️ Custom Instructions
+                            @if (!string.IsNullOrWhiteSpace(PromptConfig.CustomInstructions))
+                            {
+                                <span class="text-[10px] bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded">active</span>
+                            }
+                        </label>
+                        <textarea class="w-full bg-muted/20 border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder-muted-foreground/50 focus:border-primary/50 focus:outline-none resize-y min-h-[60px]"
+                                  rows="2"
+                                  placeholder="Contoh: Focus on desert and ancient ruins imagery..."
+                                  @bind="PromptConfig.CustomInstructions" @bind:event="oninput"></textarea>
+                    </div>
+
+                    @* Visual Hook Toggle *@
+                    <div class="flex items-center justify-between p-3 rounded-lg bg-muted/10 border border-border">
+                        <div class="flex items-center gap-3">
+                            <svg class="h-5 w-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                            <div>
+                                <p class="text-sm font-medium">Visual Hook (3 menit pertama)</p>
+                                <p class="text-xs text-muted-foreground">Force Image Generation untuk Phase 1 & 2</p>
+                            </div>
+                        </div>
+                        <button class="@(PromptConfig.ForceVisualHook ? "bg-orange-500 border-orange-400" : "bg-muted/30 border-border") relative w-11 h-6 rounded-full border transition-all duration-200 focus:outline-none"
+                                @onclick="() => { PromptConfig.ForceVisualHook = !PromptConfig.ForceVisualHook; }">
+                            <span class="@(PromptConfig.ForceVisualHook ? "translate-x-5 bg-white" : "translate-x-0.5 bg-muted-foreground/50") block w-5 h-5 rounded-full transition-transform duration-200 transform"></span>
+                        </button>
+                    </div>
+
+                    <p class="text-xs text-muted-foreground italic">💡 Ubah config lalu klik "Re-Analisis Prompt" di atas untuk apply perubahan.</p>
+                </div>
+            }
+        </div>
+
         @* Segment List — Redesigned Cards *@
         <div class="space-y-4">
             @foreach (var item in PromptItems)
@@ -369,6 +715,65 @@
     [Parameter] public Func<string, string> GetAssetUrl { get; set; } = _ => "";
     [Parameter] public Func<string?, string> ResolveLocalPath { get; set; } = _ => "";
     [Parameter] public EventCallback<Microsoft.AspNetCore.Components.Forms.InputFileChangeEventArgs> OnImportSrt { get; set; }
+    [Parameter] public ImagePromptConfig PromptConfig { get; set; } = new();
+
+    private bool _showSegmentPreview = true; // Default open so user sees segments after import
+    private bool _showConfigPanel = false;   // Collapsed by default in post-classification view
+
+    // Option data for pill selectors
+    private static readonly (string Label, ImageArtStyle Value)[] _artStyleOptions = new[]
+    {
+        ("🖌️ Semi-Realistic", ImageArtStyle.SemiRealisticPainting),
+        ("🎨 Oil Painting", ImageArtStyle.OilPainting),
+        ("💧 Watercolor", ImageArtStyle.Watercolor),
+        ("💻 Digital Art", ImageArtStyle.DigitalArt),
+        ("📸 Photorealistic", ImageArtStyle.Photorealistic),
+        ("🎬 Cinematic", ImageArtStyle.Cinematic),
+        ("🌸 Anime", ImageArtStyle.Anime),
+        ("✏️ Sketch", ImageArtStyle.Sketch),
+        ("⚙️ Custom", ImageArtStyle.Custom),
+    };
+
+    private static readonly (string Label, ImageLighting Value)[] _lightingOptions = new[]
+    {
+        ("⚡ Dramatic", ImageLighting.DramaticHighContrast),
+        ("🌅 Golden Hour", ImageLighting.GoldenHour),
+        ("☁️ Soft Ambient", ImageLighting.SoftAmbient),
+        ("🌑 Moody Dark", ImageLighting.MoodyDark),
+        ("✨ Ethereal Glow", ImageLighting.EtherealGlow),
+        ("🔲 Flat", ImageLighting.Flat),
+    };
+
+    private static readonly (string Label, ImageColorPalette Value)[] _colorPaletteOptions = new[]
+    {
+        ("🎯 Vibrant Focal", ImageColorPalette.VibrantFocalMuted),
+        ("🏜️ Warm Earthy", ImageColorPalette.WarmEarthy),
+        ("❄️ Cool Blue", ImageColorPalette.CoolBlue),
+        ("⬛ Monochrome", ImageColorPalette.Monochrome),
+        ("🌅 Golden Desert", ImageColorPalette.GoldenDesert),
+        ("🔮 Mystic Purple", ImageColorPalette.MysticPurple),
+        ("🌿 Natural Green", ImageColorPalette.NaturalGreen),
+    };
+
+    private static readonly (string Label, ImageComposition Value)[] _compositionOptions = new[]
+    {
+        ("🔄 Auto", ImageComposition.Auto),
+        ("🏔️ Wide Shot", ImageComposition.WideShot),
+        ("🔍 Close-Up", ImageComposition.CloseUp),
+        ("🦅 Bird's Eye", ImageComposition.BirdsEye),
+        ("⬆️ Low Angle", ImageComposition.LowAngle),
+        ("🎥 Cinematic Wide", ImageComposition.CinematicWide),
+    };
+
+    private static readonly (string Label, VideoEra Value)[] _eraOptions = new[]
+    {
+        ("🔄 Auto", VideoEra.None),
+        ("🏛️ Ancient", VideoEra.Ancient),
+        ("🔥 Apocalyptic", VideoEra.Apocalyptic),
+        ("🏙️ Modern", VideoEra.Modern),
+        ("✨ Abstract", VideoEra.Abstract),
+        ("🌿 Nature", VideoEra.Nature),
+    };
 
     private void ToggleVignette()
     {

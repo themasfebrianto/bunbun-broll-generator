@@ -185,6 +185,7 @@
             GetAssetUrl="GetAssetUrl"
             ResolveLocalPath="ResolveLocalPath"
             IsImportingSrt="_isImportingSrt"
+            PromptConfig="_imagePromptConfig"
             OnImportSrt="HandleImportSrt" />
     }
 </div>
@@ -272,6 +273,7 @@
 
     // Broll Prompts
     private List<BrollPromptItem> _brollPromptItems = new();
+    private ImagePromptConfig _imagePromptConfig = new();
     private bool _isClassifyingBroll;
     private int _classifyTotalSegments;
     private int _classifyCompletedSegments;
@@ -1007,55 +1009,73 @@
 
     private async Task RunBrollClassification()
     {
-        if (_resultSession == null || _resultSections.Count == 0) return;
+        if (_resultSession == null) return;
 
         _isClassifyingBroll = true;
         _classifyError = null;
         _classifyTotalSegments = 0;
         _classifyCompletedSegments = 0;
-        _brollPromptItems.Clear();
         StateHasChanged();
 
         try
         {
-            var timestampPattern = new System.Text.RegularExpressions.Regex(@"\[(\d{1,3}):(\d{2})\]", System.Text.RegularExpressions.RegexOptions.Compiled);
             var segments = new List<(string Timestamp, string ScriptText)>();
-            var globalOffset = TimeSpan.Zero;
 
-            foreach (var section in _resultSections.OrderBy(s => s.Order))
+            // Check if we already have segments from SRT import (have ScriptText but no Prompt yet)
+            var hasImportedSegments = _brollPromptItems.Count > 0 
+                && _brollPromptItems.All(i => string.IsNullOrEmpty(i.Prompt));
+
+            if (hasImportedSegments)
             {
-                if (string.IsNullOrWhiteSpace(section.Content)) continue;
-                var entries = ParseTimestampedEntries(section.Content, timestampPattern);
+                // Reuse existing imported segments — don't re-parse from _resultSections
+                segments = _brollPromptItems
+                    .Select(i => (i.Timestamp, i.ScriptText))
+                    .ToList();
+            }
+            else
+            {
+                // Parse segments from script result sections (original flow)
+                if (_resultSections.Count == 0) return;
+                _brollPromptItems.Clear();
 
-                if (entries.Count > 0)
+                var timestampPattern = new System.Text.RegularExpressions.Regex(@"\[(\d{1,3}):(\d{2})\]", System.Text.RegularExpressions.RegexOptions.Compiled);
+                var globalOffset = TimeSpan.Zero;
+
+                foreach (var section in _resultSections.OrderBy(s => s.Order))
                 {
-                    var phaseBase = entries[0].Timestamp;
-                    foreach (var entry in entries)
+                    if (string.IsNullOrWhiteSpace(section.Content)) continue;
+                    var entries = ParseTimestampedEntries(section.Content, timestampPattern);
+
+                    if (entries.Count > 0)
                     {
-                        var normalizedTime = entry.Timestamp - phaseBase;
-                        if (normalizedTime < TimeSpan.Zero) normalizedTime = TimeSpan.Zero;
-                        var absoluteTime = globalOffset.Add(normalizedTime);
-                        var cleaned = CleanSubtitleText(entry.Text);
-                        if (string.IsNullOrWhiteSpace(cleaned)) continue;
-                        var mins = (int)absoluteTime.TotalMinutes;
-                        var secs = absoluteTime.Seconds;
-                        segments.Add(($"[{mins:D2}:{secs:D2}]", cleaned));
+                        var phaseBase = entries[0].Timestamp;
+                        foreach (var entry in entries)
+                        {
+                            var normalizedTime = entry.Timestamp - phaseBase;
+                            if (normalizedTime < TimeSpan.Zero) normalizedTime = TimeSpan.Zero;
+                            var absoluteTime = globalOffset.Add(normalizedTime);
+                            var cleaned = CleanSubtitleText(entry.Text);
+                            if (string.IsNullOrWhiteSpace(cleaned)) continue;
+                            var mins = (int)absoluteTime.TotalMinutes;
+                            var secs = absoluteTime.Seconds;
+                            segments.Add(($"[{mins:D2}:{secs:D2}]", cleaned));
+                        }
+                        var lastEntry = entries.Last();
+                        var normalizedLastTime = lastEntry.Timestamp - phaseBase;
+                        if (normalizedLastTime < TimeSpan.Zero) normalizedLastTime = TimeSpan.Zero;
+                        var lastDuration = EstimateDuration(lastEntry.Text);
+                        globalOffset = globalOffset.Add(normalizedLastTime).Add(TimeSpan.FromSeconds(lastDuration));
                     }
-                    var lastEntry = entries.Last();
-                    var normalizedLastTime = lastEntry.Timestamp - phaseBase;
-                    if (normalizedLastTime < TimeSpan.Zero) normalizedLastTime = TimeSpan.Zero;
-                    var lastDuration = EstimateDuration(lastEntry.Text);
-                    globalOffset = globalOffset.Add(normalizedLastTime).Add(TimeSpan.FromSeconds(lastDuration));
-                }
-                else
-                {
-                    var cleaned = CleanSubtitleText(section.Content);
-                    if (!string.IsNullOrWhiteSpace(cleaned))
+                    else
                     {
-                        var mins = (int)globalOffset.TotalMinutes;
-                        var secs = globalOffset.Seconds;
-                        segments.Add(($"[{mins:D2}:{secs:D2}]", cleaned));
-                        globalOffset = globalOffset.Add(TimeSpan.FromSeconds(EstimateDuration(cleaned)));
+                        var cleaned = CleanSubtitleText(section.Content);
+                        if (!string.IsNullOrWhiteSpace(cleaned))
+                        {
+                            var mins = (int)globalOffset.TotalMinutes;
+                            var secs = globalOffset.Seconds;
+                            segments.Add(($"[{mins:D2}:{secs:D2}]", cleaned));
+                            globalOffset = globalOffset.Add(TimeSpan.FromSeconds(EstimateDuration(cleaned)));
+                        }
                     }
                 }
             }
@@ -1073,6 +1093,7 @@
 
             _brollPromptItems = await IntelligenceService.ClassifyAndGeneratePromptsAsync(
                 segments, _resultSession.Topic,
+                config: _imagePromptConfig,
                 onBatchComplete: async batchResults =>
                 {
                     _brollPromptItems = batchResults.OrderBy(r => r.Index).ToList();
@@ -1088,6 +1109,50 @@
         {
             _isClassifyingBroll = false;
             StateHasChanged();
+        }
+
+        // OVERRIDE: Force ImageGeneration for Phase 1 & 2 (visual hooking) if enabled in config
+        if (_imagePromptConfig.ForceVisualHook)
+        {
+            var switchedItems = new List<BrollPromptItem>();
+            foreach (var item in _brollPromptItems)
+            {
+                if (TryParseTimestamp(item.Timestamp, out var timestamp))
+                {
+                    var phaseId = PhaseDetectionService.DetectPhase(timestamp);
+                    if (phaseId == "opening-hook" || phaseId == "contextualization")
+                    {
+                        // Track items that were originally classified as BrollVideo
+                        if (item.MediaType == BrollMediaType.BrollVideo)
+                        {
+                            switchedItems.Add(item);
+                        }
+                        item.MediaType = BrollMediaType.ImageGeneration;
+                        item.Reasoning = $"Phase {phaseId}: Forced to ImageGeneration for visual hooking";
+                    }
+                }
+            }
+
+            // Regenerate prompts for items switched from BrollVideo → ImageGeneration
+            // Their current prompt is a BROLL keyword (e.g. "desert wind blowing sand")
+            // which needs to become a full image generation prompt
+            if (switchedItems.Count > 0)
+            {
+                var semaphore = new SemaphoreSlim(3, 3);
+                var regenTasks = switchedItems.Select(async item =>
+                {
+                    await semaphore.WaitAsync();
+                    try
+                    {
+                        item.Prompt = await IntelligenceService.GeneratePromptForTypeAsync(
+                            item.ScriptText, BrollMediaType.ImageGeneration,
+                            _resultSession.Topic, _imagePromptConfig);
+                    }
+                    finally { semaphore.Release(); }
+                });
+                await Task.WhenAll(regenTasks);
+                await InvokeAsync(StateHasChanged);
+            }
         }
 
         await SaveBrollPromptsToDisk();
@@ -1258,7 +1323,7 @@
         try
         {
             var brollKeywords = await IntelligenceService.GeneratePromptForTypeAsync(
-                item.ScriptText, BrollMediaType.BrollVideo, _resultSession.Topic);
+                item.ScriptText, BrollMediaType.BrollVideo, _resultSession.Topic, config: _imagePromptConfig);
 
             if (!string.IsNullOrWhiteSpace(brollKeywords))
             {
@@ -1377,7 +1442,7 @@
             StateHasChanged();
 
             var imagePrompt = await IntelligenceService.GeneratePromptForTypeAsync(
-                item.ScriptText, BrollMediaType.ImageGeneration, _resultSession.Topic);
+                item.ScriptText, BrollMediaType.ImageGeneration, _resultSession.Topic, config: _imagePromptConfig);
 
             if (!string.IsNullOrWhiteSpace(imagePrompt))
             {
@@ -1968,76 +2033,18 @@
             {
                 Index = i + 1,
                 Timestamp = seg.Timestamp,
+                // Always use chunk text (seg.Text) for display - each micro-beat shows its unique portion
+                // OriginalText was causing all micro-beats from the same SRT segment to show the same full paragraph
                 ScriptText = seg.Text,
-                MediaType = BrollMediaType.BrollVideo 
+                MediaType = BrollMediaType.BrollVideo
             }).ToList();
 
             await SaveBrollPromptsToDisk();
 
+            // Switch to broll-prompts view — user can now configure prompt settings before running classification
             _currentView = "broll-prompts";
+            _isImportingSrt = false;
             StateHasChanged();
-
-            // Run full AI classification
-            _isClassifyingBroll = true;
-            _classifyError = null;
-            _classifyTotalSegments = _brollPromptItems.Count;
-            _classifyCompletedSegments = 0;
-            StateHasChanged();
-
-            try
-            {
-                var segmentsForAi = _brollPromptItems.Select(x => (x.Timestamp, x.ScriptText)).ToList();
-                
-                var generatedItems = await IntelligenceService.ClassifyAndGeneratePromptsAsync(
-                    segmentsForAi, _resultSession.Topic,
-                    onBatchComplete: async batchResults =>
-                    {
-                        _classifyCompletedSegments = batchResults.Count;
-                        await InvokeAsync(StateHasChanged);
-                    });
-
-                if (generatedItems.Count == _brollPromptItems.Count)
-                {
-                    for (int k = 0; k < generatedItems.Count; k++)
-                    {
-                        var gen = generatedItems[k];
-                        var target = _brollPromptItems[k];
-                        target.Prompt = gen.Prompt;
-                        target.MediaType = gen.MediaType;
-                        target.Reasoning = gen.Reasoning;
-                        target.Style = gen.Style;
-                    }
-
-                    // OVERRIDE: Force ImageGeneration for Phase 1 (0-45s) and Phase 2 (45-180s)
-                    // This ensures full image gen in first 3 minutes for visual hooking
-                    foreach (var item in _brollPromptItems)
-                    {
-                        if (TryParseTimestamp(item.Timestamp, out var timestamp))
-                        {
-                            var phaseId = PhaseDetectionService.DetectPhase(timestamp);
-                            if (phaseId == "opening-hook" || phaseId == "contextualization")
-                            {
-                                item.MediaType = BrollMediaType.ImageGeneration;
-                                // Optional: Add reasoning note
-                                item.Reasoning = $"Phase {phaseId}: Forced to ImageGeneration for visual hooking";
-                            }
-                        }
-                    }
-
-                    await SaveBrollPromptsToDisk();
-                }
-            }
-            catch (Exception ex)
-            {
-                _classifyError = $"Gagal generate prompt: {ex.Message}";
-                _errorMessage = _classifyError;
-            }
-            finally
-            {
-                _isClassifyingBroll = false;
-                _isImportingSrt = false;
-                StateHasChanged();
-            }
         }
         catch (Exception ex)
         {
@@ -2047,14 +2054,13 @@
         }
     }
 
-    private List<(string Timestamp, string Text)> ParseSrtToSegments(string srtContent)
+    private List<MicroBeatSegment> ParseSrtToSegments(string srtContent)
     {
         // Use phase-aware splitting for visual hooking in first 3 minutes
         var microBeats = SrtService.ParseWithPhaseSplitting(srtContent, PhaseDetectionService, TimestampSplitterService);
 
-        // Convert MicroBeatSegment back to tuple format for compatibility
-        // TODO: Consider updating BrollPromptItem to include PhaseId, BeatIndex, TotalBeats
-        return microBeats.Select(b => (b.Timestamp, b.Text)).ToList();
+        // Return full MicroBeatSegment objects to preserve PhaseId, OriginalText, etc.
+        return microBeats;
     }
 
     /// <summary>
