@@ -292,13 +292,7 @@ public class PhaseCoordinator
             parts.Add("1. WAJIB sertakan minimal 1 FAKTA UNIK/HISTORIS yang jarang diketahui di setiap fase.");
             parts.Add("2. Gunakan Metafora Visual hanya jika benar-benar perlu untuk menjelaskan konsep abstrak.");
             parts.Add("3. Penutup harus rendah hati (Humility), mengakui keterbatasan manusia di hadapan Tuhan.");
-            parts.Add("");
-            parts.Add("PENUTUP WAJIB (Fase Terakhir):");
-            parts.Add("- Wallahu a'lam bish-shawab");
-            parts.Add("- Semoga kisah ini bermanfaat. Lebih dan kurangnya mohon dimaafkan.");
-            parts.Add("- Yang benar datangnya dari Allah Subhanahu wa ta'ala. Khilaf datangnya dari saya pribadi.");
-            parts.Add("- Sampai ketemu di kisah-kisah seru yang penuh makna selanjutnya.");
-            parts.Add("- Wassalamualaikum warahmatullahi wabarakatuh.");
+            // Note: Closing formula (Wallahu a'lam, etc.) is handled by PromptBuilder for final phase only
         }
 
         // General rules
