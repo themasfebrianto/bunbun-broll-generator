@@ -50,6 +50,7 @@ public interface IIntelligenceService
     Task<List<BrollPromptItem>> ClassifyAndGeneratePromptsAsync(
         List<(string Timestamp, string ScriptText)> segments,
         string topic,
+        ImagePromptConfig? config = null,
         Func<List<BrollPromptItem>, Task>? onBatchComplete = null,
         CancellationToken cancellationToken = default);
 
@@ -61,6 +62,7 @@ public interface IIntelligenceService
         string scriptText,
         BrollMediaType mediaType,
         string topic,
+        ImagePromptConfig? config = null,
         CancellationToken cancellationToken = default);
 }
 
@@ -636,6 +638,7 @@ IMPORTANT: When user specifies a Visual Style, weave those terms into PRIMARY, M
     public async Task<List<BrollPromptItem>> ClassifyAndGeneratePromptsAsync(
         List<(string Timestamp, string ScriptText)> segments,
         string topic,
+        ImagePromptConfig? config = null,
         Func<List<BrollPromptItem>, Task>? onBatchComplete = null,
         CancellationToken cancellationToken = default)
     {
@@ -645,9 +648,22 @@ IMPORTANT: When user specifies a Visual Style, weave those terms into PRIMARY, M
         var stopwatch = Stopwatch.StartNew();
         const int batchSize = 10;
 
+        // Resolve effective style suffix from config or default
+        var effectiveStyleSuffix = config?.EffectiveStyleSuffix ?? Models.ImageVisualStyle.BASE_STYLE_SUFFIX;
+
+        // Build era bias instruction if user specified a default era
+        var eraBiasInstruction = config?.DefaultEra != VideoEra.None && config?.DefaultEra != null
+            ? $"\nDEFAULT ERA CONTEXT (IMPORTANT): Unless a segment clearly belongs to a different era, default to {config.DefaultEra} era visual style. Bias your era prefix selection toward this era.\n"
+            : string.Empty;
+
+        // Build custom instructions section if provided
+        var customInstructionsSection = !string.IsNullOrWhiteSpace(config?.CustomInstructions)
+            ? $"\nUSER CUSTOM INSTRUCTIONS (PRIORITY):\n{config.CustomInstructions}\n"
+            : string.Empty;
+
         // Build the system prompt once (reused across all batches)
         var classifySystemPrompt = $@"You are a visual content classifier for Islamic video essays. Your job is to analyze script segments and decide the best visual approach for each.
-
+{eraBiasInstruction}
 For each segment, classify as:
 1. **BROLL** - Use stock footage (Pexels/Pixabay) with ABSOLUTELY NO HUMAN SUBJECTS when the content depicts:
    - Real-world landscapes, nature, atmospheric shots, cityscapes (empty), urban (architectural), textures
@@ -673,7 +689,7 @@ CHARACTER RULES (ISLAMIC SYAR'I - ONLY for IMAGE_GEN):
 {Models.CharacterRules.PROPHET_RULES}
 
 LOCKED VISUAL STYLE (REQUIRED FOR ALL IMAGE_GEN PROMPTS):
-{Models.ImageVisualStyle.BASE_STYLE_SUFFIX}
+{effectiveStyleSuffix}
 
 BROLL ERA-BASED VISUAL CONTEXT (CRITICAL FOR BROLL ONLY):
 - When the script describes stories of PROPHETS, ANCIENT TIMES, or HISTORICAL ERAS:
@@ -693,8 +709,8 @@ For IMAGE_GEN segments: Generate a detailed Whisk-style prompt following this st
   - Start with one era prefix from the list above
   - Include character descriptions with syar'i dress for females
   - If prophets appear: add 'face replaced by intense white-golden divine light, facial features not visible'
-  - End with style suffix: '{Models.ImageVisualStyle.BASE_STYLE_SUFFIX}'
-
+  - End with style suffix: '{effectiveStyleSuffix}'
+{customInstructionsSection}
 RESPOND WITH JSON ONLY (no markdown):
 [
   {{
@@ -714,97 +730,147 @@ RULES:
 - Never depict prophet faces
 - Avoid sensitive/haram visual triggers";
 
-        // Process in batches
+        // Process in batches with parallel execution
         var totalBatches = (int)Math.Ceiling((double)segments.Count / batchSize);
         _logger.LogInformation("ClassifyBroll: Processing {Count} segments in {Batches} batches for topic '{Topic}'",
             segments.Count, totalBatches, topic);
 
+        // Limit concurrent requests to avoid overwhelming the LLM
+        var semaphore = new SemaphoreSlim(3, 3);
+        var batchTasks = new List<Task>();
+        var resultsLock = new object();
+
         for (int batchIdx = 0; batchIdx < totalBatches; batchIdx++)
         {
+            var batchIdxCapture = batchIdx;
             var batchStart = batchIdx * batchSize;
             var batchSegments = segments.Skip(batchStart).Take(batchSize).ToList();
 
-            _logger.LogDebug("ClassifyBroll: Batch {Batch}/{Total} — segments {Start}-{End}",
-                batchIdx + 1, totalBatches, batchStart, batchStart + batchSegments.Count - 1);
-
-            try
+            var batchTask = Task.Run(async () =>
             {
-                var userPrompt = new System.Text.StringBuilder();
-                userPrompt.AppendLine($"Topic: {topic}");
-                userPrompt.AppendLine();
-                userPrompt.AppendLine("SEGMENTS:");
-                for (int i = 0; i < batchSegments.Count; i++)
+                await semaphore.WaitAsync(cancellationToken);
+                try
                 {
-                    userPrompt.AppendLine($"[{i}] {batchSegments[i].Timestamp} {batchSegments[i].ScriptText}");
-                }
+                    _logger.LogDebug("ClassifyBroll: Batch {Batch}/{Total} — segments {Start}-{End}",
+                        batchIdxCapture + 1, totalBatches, batchStart, batchStart + batchSegments.Count - 1);
 
-                var request = new GeminiChatRequest
-                {
-                    Model = _settings.Model,
-                    Messages = new List<GeminiMessage>
+                    var userPrompt = new System.Text.StringBuilder();
+                    userPrompt.AppendLine($"Topic: {topic}");
+                    userPrompt.AppendLine();
+                    userPrompt.AppendLine("SEGMENTS:");
+                    for (int i = 0; i < batchSegments.Count; i++)
                     {
-                        new() { Role = "system", Content = classifySystemPrompt },
-                        new() { Role = "user", Content = userPrompt.ToString() }
-                    },
-                    Temperature = 0.4,
-                    MaxTokens = Math.Min(batchSegments.Count * 200, 4000)
-                };
+                        userPrompt.AppendLine($"[{i}] {batchSegments[i].Timestamp} {batchSegments[i].ScriptText}");
+                    }
 
-                var response = await _httpClient.PostAsJsonAsync(
-                    "v1/chat/completions",
-                    request,
-                    cancellationToken);
-
-                response.EnsureSuccessStatusCode();
-
-                var geminiResponse = await response.Content.ReadFromJsonAsync<GeminiChatResponse>(
-                    cancellationToken: cancellationToken);
-
-                var rawContent = geminiResponse?.Choices?.FirstOrDefault()?.Message?.Content;
-
-                if (!string.IsNullOrEmpty(rawContent))
-                {
-                    var cleanedJson = CleanJsonResponse(rawContent);
-                    _logger.LogDebug("ClassifyBroll batch {Batch} response: {Content}",
-                        batchIdx + 1, rawContent.Length > 200 ? rawContent[..200] + "..." : rawContent);
-
-                    try
+                    var request = new GeminiChatRequest
                     {
-                        var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                        var parsed = JsonSerializer.Deserialize<List<BrollClassificationResponse>>(cleanedJson, options);
-
-                        if (parsed != null)
+                        Model = _settings.Model,
+                        Messages = new List<GeminiMessage>
                         {
-                            foreach (var item in parsed)
+                            new() { Role = "system", Content = classifySystemPrompt },
+                            new() { Role = "user", Content = userPrompt.ToString() }
+                        },
+                        Temperature = 0.4,
+                        MaxTokens = Math.Min(batchSegments.Count * 200, 4000)
+                    };
+
+                    var response = await _httpClient.PostAsJsonAsync(
+                        "v1/chat/completions",
+                        request,
+                        cancellationToken);
+
+                    response.EnsureSuccessStatusCode();
+
+                    var geminiResponse = await response.Content.ReadFromJsonAsync<GeminiChatResponse>(
+                        cancellationToken: cancellationToken);
+
+                    var rawContent = geminiResponse?.Choices?.FirstOrDefault()?.Message?.Content;
+                    var batchResults = new List<BrollPromptItem>();
+
+                    if (!string.IsNullOrEmpty(rawContent))
+                    {
+                        var cleanedJson = CleanJsonResponse(rawContent);
+                        _logger.LogDebug("ClassifyBroll batch {Batch} response: {Content}",
+                            batchIdxCapture + 1, rawContent.Length > 200 ? rawContent[..200] + "..." : rawContent);
+
+                        try
+                        {
+                            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                            var parsed = JsonSerializer.Deserialize<List<BrollClassificationResponse>>(cleanedJson, options);
+
+                            if (parsed != null)
                             {
-                                var localIdx = item.Index;
-                                if (localIdx >= 0 && localIdx < batchSegments.Count)
+                                foreach (var item in parsed)
                                 {
-                                    var globalIdx = batchStart + localIdx;
-                                    var promptItem = new BrollPromptItem
+                                    var localIdx = item.Index;
+                                    if (localIdx >= 0 && localIdx < batchSegments.Count)
                                     {
-                                        Index = globalIdx,
-                                        Timestamp = segments[globalIdx].Timestamp,
-                                        ScriptText = segments[globalIdx].ScriptText,
-                                        MediaType = item.MediaType?.ToUpperInvariant() == "IMAGE_GEN"
-                                            ? BrollMediaType.ImageGeneration
-                                            : BrollMediaType.BrollVideo,
-                                        Prompt = item.Prompt ?? string.Empty
-                                    };
-                                    
-                                    // Auto-detect era and assign appropriate filter/texture
-                                    EraLibrary.AutoAssignEraStyle(promptItem);
-                                    
-                                    results.Add(promptItem);
+                                        var globalIdx = batchStart + localIdx;
+                                        var promptItem = new BrollPromptItem
+                                        {
+                                            Index = globalIdx,
+                                            Timestamp = segments[globalIdx].Timestamp,
+                                            ScriptText = segments[globalIdx].ScriptText,
+                                            MediaType = item.MediaType?.ToUpperInvariant() == "IMAGE_GEN"
+                                                ? BrollMediaType.ImageGeneration
+                                                : BrollMediaType.BrollVideo,
+                                            Prompt = item.Prompt ?? string.Empty
+                                        };
+
+                                        // Auto-detect era and assign appropriate filter/texture
+                                        EraLibrary.AutoAssignEraStyle(promptItem);
+
+                                        batchResults.Add(promptItem);
+                                    }
                                 }
                             }
                         }
+                        catch (JsonException ex)
+                        {
+                            _logger.LogWarning("ClassifyBroll batch {Batch} JSON parse failed: {Error}", batchIdxCapture + 1, ex.Message);
+
+                            // Add fallback items for this batch
+                            for (int i = 0; i < batchSegments.Count; i++)
+                            {
+                                var globalIdx = batchStart + i;
+                                batchResults.Add(new BrollPromptItem
+                                {
+                                    Index = globalIdx,
+                                    Timestamp = segments[globalIdx].Timestamp,
+                                    ScriptText = segments[globalIdx].ScriptText,
+                                    MediaType = BrollMediaType.BrollVideo,
+                                    Prompt = "atmospheric cinematic footage"
+                                });
+                            }
+                        }
                     }
-                    catch (JsonException ex)
+
+                    // Add batch results to main results
+                    lock (resultsLock)
                     {
-                        _logger.LogWarning("ClassifyBroll batch {Batch} JSON parse failed: {Error}", batchIdx + 1, ex.Message);
-                        
-                        // Add fallback items for this batch so UI still updates
+                        results.AddRange(batchResults);
+                    }
+
+                    // Notify caller with current results so far
+                    if (onBatchComplete != null)
+                    {
+                        List<BrollPromptItem> snapshot;
+                        lock (resultsLock)
+                        {
+                            snapshot = results.OrderBy(r => r.Index).ToList();
+                        }
+                        await onBatchComplete(snapshot);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "ClassifyBroll batch {Batch} failed, segments {Start}-{End} will use fallback",
+                        batchIdxCapture + 1, batchStart, batchStart + batchSegments.Count - 1);
+
+                    // Fallback only for this batch's segments
+                    lock (resultsLock)
+                    {
                         for (int i = 0; i < batchSegments.Count; i++)
                         {
                             var globalIdx = batchStart + i;
@@ -821,37 +887,28 @@ RULES:
                             }
                         }
                     }
-                }
 
-                // Notify caller with current results so far
-                if (onBatchComplete != null) await onBatchComplete(results);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "ClassifyBroll batch {Batch} failed, segments {Start}-{End} will use fallback",
-                    batchIdx + 1, batchStart, batchStart + batchSegments.Count - 1);
-
-                // Fallback only for this batch's segments
-                for (int i = 0; i < batchSegments.Count; i++)
-                {
-                    var globalIdx = batchStart + i;
-                    if (!results.Any(r => r.Index == globalIdx))
+                    // Notify caller with current results (including fallbacks)
+                    if (onBatchComplete != null)
                     {
-                        results.Add(new BrollPromptItem
+                        List<BrollPromptItem> snapshot;
+                        lock (resultsLock)
                         {
-                            Index = globalIdx,
-                            Timestamp = segments[globalIdx].Timestamp,
-                            ScriptText = segments[globalIdx].ScriptText,
-                            MediaType = BrollMediaType.BrollVideo,
-                            Prompt = "atmospheric cinematic footage"
-                        });
+                            snapshot = results.OrderBy(r => r.Index).ToList();
+                        }
+                        await onBatchComplete(snapshot);
                     }
                 }
+                finally
+                {
+                    semaphore.Release();
+                }
+            }, cancellationToken);
 
-                // Notify caller with current results (including fallbacks)
-                if (onBatchComplete != null) await onBatchComplete(results);
-            }
+            batchTasks.Add(batchTask);
         }
+
+        await Task.WhenAll(batchTasks);
 
         // Fill in any missing segments
         for (int i = 0; i < segments.Count; i++)
@@ -885,8 +942,17 @@ RULES:
         string scriptText,
         BrollMediaType mediaType,
         string topic,
+        ImagePromptConfig? config = null,
         CancellationToken cancellationToken = default)
     {
+        var effectiveStyleSuffix = config?.EffectiveStyleSuffix ?? Models.ImageVisualStyle.BASE_STYLE_SUFFIX;
+        var eraBias = config?.DefaultEra != VideoEra.None && config?.DefaultEra != null
+            ? $"\nDEFAULT ERA: Bias toward {config.DefaultEra} era visual style.\n"
+            : string.Empty;
+        var customInstr = !string.IsNullOrWhiteSpace(config?.CustomInstructions)
+            ? $"\nUSER INSTRUCTIONS: {config.CustomInstructions}\n"
+            : string.Empty;
+
         string systemPrompt;
         
         if (mediaType == BrollMediaType.BrollVideo)
@@ -895,14 +961,14 @@ RULES:
 Your task: Generate a concise English search query for STOCK FOOTAGE (B-Roll) based on the script segment.
 
 CONTEXT: {topic}
-
+{eraBias}
 RULES for BROLL:
 - Output ONLY the search query (2-5 words).
 - ABSOLUTELY NO PEOPLE, NO HUMAN BODY PARTS, NO FACES, NO SILHOUETTES.
 - Use NATURE or URBAN imagery depending on context.
 - Avoid human-adjacent terms (walking, praying, hands, shadows).
 - Examples: 'storm clouds timelapse', 'desert sand dunes', 'modern city skyline', 'flowing river', 'ancient ruins'.
-
+{customInstr}
 SCRIPT SEGMENT: ""{scriptText}""
 
 OUTPUT (Just the search query, no quotes):";
@@ -913,15 +979,15 @@ OUTPUT (Just the search query, no quotes):";
 Your task: Generate a detailed, high-quality image generation prompt for Whisk/Imagen.
 
 CONTEXT: {topic}
-
+{eraBias}
 RULES for IMAGE_GEN:
 - Output ONLY the prompt string.
 - Follow this structure: [ERA PREFIX] [Detailed Description]{{LOCKED_STYLE}}
 - ERA PREFIXES: {EraLibrary.GetEraSelectionInstructions()}
 - CHARACTER RULES: {Models.CharacterRules.GENDER_RULES}
 - PROPHET RULES: {Models.CharacterRules.PROPHET_RULES}
-- LOCKED STYLE: {Models.ImageVisualStyle.BASE_STYLE_SUFFIX}
-
+- LOCKED STYLE: {effectiveStyleSuffix}
+{customInstr}
 SCRIPT SEGMENT: ""{scriptText}""
 
 OUTPUT (Just the prompt, no quotes):";

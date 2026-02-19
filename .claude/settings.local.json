@@ -32,7 +32,8 @@
       "mcp__ide__getDiagnostics",
       "Bash(tasklist:*)",
       "Bash(findstr:*)",
-      "Bash(cmd //c \"tasklist | findstr bunbun\")"
+      "Bash(cmd //c \"tasklist | findstr bunbun\")",
+      "Bash(ls:*)"
     ]
   }
 }

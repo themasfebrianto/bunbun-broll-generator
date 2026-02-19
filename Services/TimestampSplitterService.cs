@@ -43,9 +43,14 @@ public class MicroBeatSegment
     public TimeSpan EndTime { get; set; }
 
     /// <summary>
-    /// Script text for this micro-beat
+    /// Script text for this micro-beat (chunk)
     /// </summary>
     public string Text { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Full original segment text (for prompt generation in Phase 1 & 2)
+    /// </summary>
+    public string OriginalText { get; set; } = string.Empty;
 
     /// <summary>
     /// Phase ID this beat belongs to
@@ -108,6 +113,7 @@ public class TimestampSplitterService : ITimestampSplitterService
                     StartTime = startTime,
                     EndTime = startTime.Add(TimeSpan.FromSeconds(segmentDuration)),
                     Text = segment.Text,
+                    OriginalText = segment.Text, // Store full original text
                     PhaseId = phaseId,
                     BeatIndex = 0,
                     TotalBeats = 1
@@ -143,16 +149,17 @@ public class TimestampSplitterService : ITimestampSplitterService
         var totalDuration = beatDuration * splitFactor;
         var currentTime = startTime;
 
-        // Split text into chunks if possible (by sentences)
+        // Split text into chunks (progressive splitting)
         var textChunks = SplitTextIntoChunks(segment.Text, splitFactor);
 
-        for (int i = 0; i < splitFactor; i++)
+        // Use actual chunk count instead of splitFactor
+        var actualBeats = Math.Min(textChunks.Count, splitFactor);
+
+        for (int i = 0; i < actualBeats; i++)
         {
             var beatEndTime = currentTime.Add(TimeSpan.FromSeconds(beatDuration));
-            // Use chunk text if available and not empty, otherwise use full segment text
-            var text = i < textChunks.Count && !string.IsNullOrWhiteSpace(textChunks[i])
-                ? textChunks[i]
-                : segment.Text;
+            // Use chunk text (guaranteed to exist after progressive splitting)
+            var text = i < textChunks.Count ? textChunks[i] : segment.Text;
 
             beats.Add(new MicroBeatSegment
             {
@@ -160,9 +167,10 @@ public class TimestampSplitterService : ITimestampSplitterService
                 StartTime = currentTime,
                 EndTime = beatEndTime,
                 Text = text,
+                OriginalText = segment.Text, // Store full original text for prompt generation
                 PhaseId = phaseConfig.PhaseId,
                 BeatIndex = i,
-                TotalBeats = splitFactor
+                TotalBeats = actualBeats
             });
 
             currentTime = beatEndTime;
@@ -172,57 +180,52 @@ public class TimestampSplitterService : ITimestampSplitterService
     }
 
     /// <summary>
-    /// Split text into chunks for micro-beats, preserving sentence boundaries where possible
+    /// Split text into chunks for micro-beats using progressive splitting.
+    /// Each beat gets a different portion of the text (no duplicates).
+    /// Word-aware: never cuts words in half.
     /// </summary>
     private List<string> SplitTextIntoChunks(string text, int targetChunks)
     {
         if (string.IsNullOrWhiteSpace(text))
-            return new List<string> { "" };
-
-        // Try to split by sentences first
-        var sentences = System.Text.RegularExpressions.Regex.Split(text, @"(?<=[.!?…])\s+")
-            .Where(s => !string.IsNullOrWhiteSpace(s))
-            .ToList();
-
-        if (sentences.Count <= 1)
-        {
-            // Single sentence - return as single chunk
             return new List<string> { text };
-        }
 
-        // If we have more sentences than target chunks, group them
-        if (sentences.Count > targetChunks)
+        // For short text, don't split - return as is
+        if (text.Length < 50)
+            return new List<string> { text };
+
+        var result = new List<string>();
+        var totalLength = text.Length;
+        var chunkSize = (int)Math.Ceiling((double)totalLength / targetChunks);
+        var currentPosition = 0;
+
+        while (currentPosition < totalLength && result.Count < targetChunks)
         {
-            var chunks = new List<string>();
-            var sentencesPerChunk = (int)Math.Ceiling((double)sentences.Count / targetChunks);
+            var end = Math.Min(currentPosition + chunkSize, totalLength);
 
-            for (int i = 0; i < sentences.Count; i += sentencesPerChunk)
+            // If not at the end and not at a word boundary, find the last space
+            if (end < totalLength && !char.IsWhiteSpace(text[end]))
             {
-                var chunkSize = Math.Min(sentencesPerChunk, sentences.Count - i);
-                var chunk = string.Join(" ", sentences.Skip(i).Take(chunkSize));
-                chunks.Add(chunk);
+                var lastSpace = text.LastIndexOf(' ', end, Math.Min(end - currentPosition, chunkSize));
+                if (lastSpace > currentPosition)
+                {
+                    end = lastSpace;
+                }
             }
 
-            return chunks;
+            var chunk = text.Substring(currentPosition, end - currentPosition).Trim();
+            if (!string.IsNullOrEmpty(chunk))
+            {
+                result.Add(chunk);
+            }
+
+            // Move past the chunk and any whitespace
+            currentPosition = end;
+            while (currentPosition < totalLength && char.IsWhiteSpace(text[currentPosition]))
+            {
+                currentPosition++;
+            }
         }
 
-        // We have fewer or equal sentences to target chunks - distribute them
-        var result = new List<string>();
-        var sentencesIndex = 0;
-
-        for (int i = 0; i < targetChunks && sentencesIndex < sentences.Count; i++)
-        {
-            // Distribute sentences evenly across chunks
-            var remainingChunks = targetChunks - i;
-            var remainingSentences = sentences.Count - sentencesIndex;
-            var sentencesForThisChunk = (int)Math.Ceiling((double)remainingSentences / remainingChunks);
-
-            var chunk = string.Join(" ", sentences.Skip(sentencesIndex).Take(sentencesForThisChunk));
-            result.Add(chunk);
-            sentencesIndex += sentencesForThisChunk;
-        }
-
-        // Don't fill remaining chunks - let CreateMicroBeats use full text for them
         return result;
     }
 
