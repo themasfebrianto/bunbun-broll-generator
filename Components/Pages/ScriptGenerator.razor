@@ -14,6 +14,8 @@
 @inject IJSRuntime JS
 @inject BackgroundGenerationService BgService
 @inject ISrtService SrtService
+@inject IPhaseDetectionService PhaseDetectionService
+@inject ITimestampSplitterService TimestampSplitterService
 @inject BunbunBroll.Services.ToastService ToastService
 @inject GenerationEventBus EventBus
 @inject IIntelligenceService IntelligenceService
@@ -2005,7 +2007,23 @@
                         target.Reasoning = gen.Reasoning;
                         target.Style = gen.Style;
                     }
-                    
+
+                    // OVERRIDE: Force ImageGeneration for Phase 1 (0-45s) and Phase 2 (45-180s)
+                    // This ensures full image gen in first 3 minutes for visual hooking
+                    foreach (var item in _brollPromptItems)
+                    {
+                        if (TryParseTimestamp(item.Timestamp, out var timestamp))
+                        {
+                            var phaseId = PhaseDetectionService.DetectPhase(timestamp);
+                            if (phaseId == "opening-hook" || phaseId == "contextualization")
+                            {
+                                item.MediaType = BrollMediaType.ImageGeneration;
+                                // Optional: Add reasoning note
+                                item.Reasoning = $"Phase {phaseId}: Forced to ImageGeneration for visual hooking";
+                            }
+                        }
+                    }
+
                     await SaveBrollPromptsToDisk();
                 }
             }
@@ -2031,8 +2049,55 @@
 
     private List<(string Timestamp, string Text)> ParseSrtToSegments(string srtContent)
     {
-        var entries = SrtService.ParseSrt(srtContent);
-        return SrtService.MergeToSegments(entries, 25.0);
+        // Use phase-aware splitting for visual hooking in first 3 minutes
+        var microBeats = SrtService.ParseWithPhaseSplitting(srtContent, PhaseDetectionService, TimestampSplitterService);
+
+        // Convert MicroBeatSegment back to tuple format for compatibility
+        // TODO: Consider updating BrollPromptItem to include PhaseId, BeatIndex, TotalBeats
+        return microBeats.Select(b => (b.Timestamp, b.Text)).ToList();
+    }
+
+    /// <summary>
+    /// Parse timestamp string [MM:SS.mmm] into TimeSpan
+    /// Used for phase detection during SRT import
+    /// </summary>
+    private bool TryParseTimestamp(string timestamp, out TimeSpan result)
+    {
+        result = TimeSpan.Zero;
+
+        if (string.IsNullOrWhiteSpace(timestamp))
+            return false;
+
+        // Remove brackets and parse
+        var clean = timestamp.Trim().Trim('[', ']');
+
+        // Format: [MM:SS.mmm] or [HH:MM:SS.mmm]
+        var parts = clean.Split(':');
+        if (parts.Length == 2)
+        {
+            // MM:SS.mmm format
+            if (int.TryParse(parts[0], out var minutes) &&
+                double.TryParse(parts[1], System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out var seconds))
+            {
+                result = TimeSpan.FromMinutes(minutes) + TimeSpan.FromSeconds(seconds);
+                return true;
+            }
+        }
+        else if (parts.Length == 3)
+        {
+            // HH:MM:SS.mmm format
+            if (int.TryParse(parts[0], out var hours) &&
+                int.TryParse(parts[1], out var minutes) &&
+                double.TryParse(parts[2], System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out var seconds))
+            {
+                result = TimeSpan.FromHours(hours) + TimeSpan.FromMinutes(minutes) + TimeSpan.FromSeconds(seconds);
+                return true;
+            }
+        }
+
+        return false;
     }
 
   

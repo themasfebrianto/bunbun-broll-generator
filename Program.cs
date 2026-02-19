@@ -116,6 +116,10 @@ builder.Services.AddHttpClient<PixabayAssetBroker>((sp, client) =>
 // Register Halal Video Filter (singleton so toggle state persists across requests)
 builder.Services.AddSingleton<IHalalVideoFilter, HalalVideoFilter>();
 
+// Register Visual Hooking services for phase-aware timestamp splitting
+builder.Services.AddSingleton<IPhaseDetectionService, PhaseDetectionService>();
+builder.Services.AddScoped<ITimestampSplitterService, TimestampSplitterService>();
+
 // Register Composite Asset Broker (combines Pexels + Pixabay + Halal Filter)
 builder.Services.AddScoped<IAssetBroker, CompositeAssetBroker>();
 
