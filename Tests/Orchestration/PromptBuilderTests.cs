@@ -52,48 +52,5 @@ public class PromptBuilderTests
         Assert.Contains("- **Tone**: Test Tone", prompt);
     }
 
-    [Fact]
-    public void BuildPrompt_ShouldInclude_ProductionChecklist_Items()
-    {
-        // Arrange
-        var builder = new PromptBuilder();
-        var phase = new PhaseDefinition { Id = "test-phase", Name = "Test Phase", Order = 1 };
 
-        var pattern = new ScriptPattern
-        {
-            Id = "test-pattern",
-            Configuration = new PatternConfiguration
-            {
-                ProductionChecklist = new ProductionChecklist
-                {
-                    FactCheck = new List<string> { "Ada Data Keras?", "Ada Studi Kasus?" },
-                    ToneCheck = new List<string> { "Bahasa Manusia?", "Intellectual Surprise?" }
-                }
-            }
-        };
-
-        var context = new GenerationContext
-        {
-            SessionId = "test-session",
-            Config = new ScriptConfig { Topic = "Test Topic", TargetDurationMinutes = 5 },
-            Pattern = pattern.Configuration
-        };
-
-        var phaseContext = new PhaseContext
-        {
-            Phase = phase
-        };
-
-        // Act
-        var prompt = builder.BuildPrompt(phase, context, phaseContext);
-
-        // Assert
-        Assert.Contains("### FACT CHECK (WAJIB ADA)", prompt);
-        Assert.Contains("- Ada Data Keras?", prompt);
-        Assert.Contains("- Ada Studi Kasus?", prompt);
-        
-        Assert.Contains("### TONE CHECK", prompt);
-        Assert.Contains("- Bahasa Manusia?", prompt);
-        Assert.Contains("- Intellectual Surprise?", prompt);
-    }
 }

@@ -15,6 +15,8 @@
     <Content Include="wwwroot\assets\textures\**" CopyToOutputDirectory="PreserveNewest" />
     <!-- Include other wwwroot content -->
     <Content Include="wwwroot\**" Exclude="wwwroot\assets\textures\**" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Ensure patterns are copied to output for tests -->
+    <Content Include="patterns\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

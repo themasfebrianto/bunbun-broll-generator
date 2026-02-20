@@ -11,7 +11,7 @@ public class PhaseBeatTemplateBuilderTests
     public void BuildTemplatesFromPattern_ShouldCreateTemplateForEachPhase()
     {
         // Arrange
-        var patternJson = File.ReadAllText("patterns/jazirah-ilmu.json");
+        var patternJson = File.ReadAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "patterns", "jazirah-ilmu.json"));
         var pattern = JsonSerializer.Deserialize<PatternConfiguration>(patternJson, new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = true

@@ -87,7 +87,8 @@ public interface IIntelligenceService
         BrollMediaType mediaType,
         string topic,
         ImagePromptConfig? config = null,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        int segmentIndex = 0);
 
     /// <summary>
     /// Extract global storytelling context from the full script.
@@ -1299,7 +1300,7 @@ RULES:
             try
             {
                 var generatedPrompt = await GeneratePromptForTypeAsync(
-                    item.ScriptText, targetType, topic, config, cancellationToken);
+                    item.ScriptText, targetType, topic, config, cancellationToken, item.Index);
                     
                 item.Prompt = generatedPrompt ?? (targetType == BrollMediaType.BrollVideo ? "cinematic footage" : "islamic historical scene");
 
@@ -1324,14 +1325,33 @@ RULES:
         BrollMediaType mediaType,
         string topic,
         ImagePromptConfig? config = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        int segmentIndex = 0)
     {
-        var effectiveStyleSuffix = config?.EffectiveStyleSuffix ?? Models.ImageVisualStyle.BASE_STYLE_SUFFIX;
-        var eraBias = config?.DefaultEra != VideoEra.None && config?.DefaultEra != null
-            ? $"\nDEFAULT ERA: Bias toward {config.DefaultEra} era visual style.\n"
+        var activeConfig = config ?? new ImagePromptConfig();
+        
+        // Force angle rotation if Auto
+        if (mediaType == BrollMediaType.ImageGeneration && activeConfig.Composition == ImageComposition.Auto)
+        {
+            activeConfig = new ImagePromptConfig
+            {
+                ArtStyle = activeConfig.ArtStyle,
+                CustomArtStyle = activeConfig.CustomArtStyle,
+                Lighting = activeConfig.Lighting,
+                ColorPalette = activeConfig.ColorPalette,
+                Composition = GetDynamicComposition(segmentIndex),
+                DefaultEra = activeConfig.DefaultEra,
+                CustomInstructions = activeConfig.CustomInstructions,
+                ForceVisualHook = activeConfig.ForceVisualHook
+            };
+        }
+
+        var effectiveStyleSuffix = activeConfig.EffectiveStyleSuffix;
+        var eraBias = activeConfig.DefaultEra != VideoEra.None
+            ? $"\nDEFAULT ERA: Bias toward {activeConfig.DefaultEra} era visual style.\n"
             : string.Empty;
-        var customInstr = !string.IsNullOrWhiteSpace(config?.CustomInstructions)
-            ? $"\nUSER INSTRUCTIONS: {config.CustomInstructions}\n"
+        var customInstr = !string.IsNullOrWhiteSpace(activeConfig.CustomInstructions)
+            ? $"\nUSER INSTRUCTIONS: {activeConfig.CustomInstructions}\n"
             : string.Empty;
 
         string systemPrompt;
@@ -1584,9 +1604,17 @@ OUTPUT (Just the prompt, no quotes):";
                 if (config.ColorPalette == ImageColorPalette.Auto && mood.SuggestedPalette.HasValue)
                     sb.AppendLine($"SUGGESTED PALETTE: {ImageStyleMappings.GetColorPaletteSuffix(mood.SuggestedPalette.Value)}");
 
-                if (config.Composition == ImageComposition.Auto && mood.SuggestedAngle.HasValue)
-                    sb.AppendLine($"SUGGESTED ANGLE: {ImageStyleMappings.GetCompositionSuffix(mood.SuggestedAngle.Value)}");
+                if (config.Composition == ImageComposition.Auto)
+                {
+                    var forcedAngle = GetDynamicComposition(currentItem.Index);
+                    sb.AppendLine($"SUGGESTED ANGLE: {ImageStyleMappings.GetCompositionSuffix(forcedAngle)}");
+                }
+                else if (config.Composition != ImageComposition.Auto)
+                {
+                    sb.AppendLine($"SUGGESTED ANGLE: {ImageStyleMappings.GetCompositionSuffix(config.Composition)}");
+                }
 
+                // If they had a specific reason for angle/lighting, we show it
                 if (!string.IsNullOrEmpty(mood.VisualRationale))
                     sb.AppendLine($"RATIONALE: {mood.VisualRationale}");
             }
@@ -1656,6 +1684,19 @@ OUTPUT (Just the prompt, no quotes):");
         return sb.ToString();
     }
 
+    private ImageComposition GetDynamicComposition(int index)
+    {
+        var sequence = new[] 
+        {
+            ImageComposition.CinematicWide,
+            ImageComposition.CloseUp,
+            ImageComposition.LowAngle,
+            ImageComposition.WideShot,
+            ImageComposition.BirdsEye,
+            ImageComposition.CloseUp
+        };
+        return sequence[index % sequence.Length];
+    }
 }
 
 // Request/Response models for OpenAI-compatible API

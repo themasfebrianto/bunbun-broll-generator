@@ -33,6 +33,7 @@ public class ArtisticEffectTests : IDisposable
 
         services.AddSingleton<IConfiguration>(config);
         services.AddLogging(builder => builder.AddConsole());
+        services.AddSingleton<VideoStyleSettings>();
         services.AddSingleton<KenBurnsService>();
         services.AddSingleton<ShortVideoComposer>();
 
