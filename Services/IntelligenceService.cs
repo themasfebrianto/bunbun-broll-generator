@@ -48,7 +48,7 @@ public interface IIntelligenceService
     /// and generate appropriate prompts for each.
     /// </summary>
     Task<List<BrollPromptItem>> ClassifyAndGeneratePromptsAsync(
-        List<(string Timestamp, string ScriptText)> segments,
+        List<(string Timestamp, string ScriptText, TextOverlay? Overlay)> segments,
         string topic,
         ImagePromptConfig? config = null,
         Func<List<BrollPromptItem>, Task>? onBatchComplete = null,
@@ -59,7 +59,7 @@ public interface IIntelligenceService
     /// Returns items with MediaType set but Prompt empty.
     /// </summary>
     Task<List<BrollPromptItem>> ClassifySegmentsOnlyAsync(
-        List<(string Timestamp, string ScriptText)> segments,
+        List<(string Timestamp, string ScriptText, TextOverlay? Overlay)> segments,
         string topic,
         ImagePromptConfig? config = null,
         Func<List<BrollPromptItem>, Task>? onBatchComplete = null,
@@ -329,7 +329,7 @@ public partial class IntelligenceService : IIntelligenceService
     /// </summary>
     private static void FillMissingSegments(
         List<BrollPromptItem> results,
-        List<(string Timestamp, string ScriptText)> segments,
+        List<(string Timestamp, string ScriptText, TextOverlay? Overlay)> segments,
         string defaultPrompt = "")
     {
         for (int i = 0; i < segments.Count; i++)
@@ -373,26 +373,6 @@ COMPOSITION RULES (CRITICAL - MUST FOLLOW):
 - FULL BLEED: The image must fill the entire frame edge-to-edge. NO black bars, NO letterboxing, NO borders, NO cinematic bars at top/bottom or sides. The scene extends to all edges of the canvas.
 - NO TEXT: The image must contain ZERO text, letters, words, numbers, captions, titles, watermarks, or any written content. Pure visual scene only.
 - VISUAL VARIETY (CRITICAL): NEVER repeat the same primary subject as adjacent segments. Cycle through different visual categories: wide landscape/environment, architectural detail, object close-up, atmospheric/sky, interior space, natural element. If the previous segment showed an object (e.g. clay jar), this segment MUST show something different (e.g. wide cave interior, desert landscape, dramatic sky). Vary focal distance: alternate between wide shots, medium shots, and close-ups across consecutive segments.";
-
-    private const string TEXT_OVERLAY_RULES = @"
-TEXT OVERLAY DETECTION (SELECTIVE - USE SPARINGLY):
-Only add textOverlay for HIGH-IMPACT moments. Segments with text overlays MUST use BROLL as background.
-
-Overlay types (USE SPARINGLY — max ~20% of total segments):
-- QURAN VERSES: ONLY explicit Quranic ayat quotations → type: ""QuranVerse"", include arabic text + translation + surah reference
-- HADITH: ONLY explicit Prophet's sayings with known source → type: ""Hadith"", include arabic + translation + source
-- RHETORICAL QUESTIONS: ONLY powerful, pivotal questions that define the video's thesis → type: ""RhetoricalQuestion""
-- KEY DECLARATIONS: ONLY short, punchy declarations (max 8 words) that are a direct claim or thesis statement — NOT definitions, descriptions, or explanations. Example YES: ""Imam Mahdi akan muncul di akhir zaman"". Example NO: ""Gelar metaforis bagi raja yang adil..."" (that's a definition, not a declaration).
-
-SPACING RULES (CRITICAL):
-- NEVER place textOverlay on 2 consecutive segments. Minimum 2-3 segments gap between overlays.
-- If two potential overlays are close, pick ONLY the stronger one.
-
-EXCLUSIONS — NEVER add textOverlay for:
-- Closing/farewell phrases (""Wallahu a'lam bish shawab"", ""Wassalamu'alaikum"", etc.)
-- Opening greetings (""Assalamu'alaikum"", ""Bismillah"", etc.) unless it's a pivotal Quran verse
-- General narration, transitions, storytelling, context, explanations
-- Statements that are interesting but not scripture/hadith/pivotal thesis questions";
 
     private const string BROLL_NO_HUMAN_RULES = @"ABSOLUTE RULE: NO PEOPLE, NO HUMAN BODY PARTS, NO FACES, NO SILHOUETTES.
 - Use NATURE or URBAN imagery depending on context.

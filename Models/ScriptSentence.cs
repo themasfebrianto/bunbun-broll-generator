@@ -11,6 +11,10 @@ public class ScriptSentence
     public int SegmentId { get; set; }
     public string Text { get; set; } = string.Empty;
     
+    // Text Overlay
+    public TextOverlay? TextOverlay { get; set; }
+    public bool HasTextOverlay => TextOverlay != null;
+    
     // Duration estimation (150 words/minute = 0.4 seconds per word)
     public int WordCount => Text.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;
     public double EstimatedDurationSeconds => Math.Max(3, WordCount * 0.4); // Minimum 3 seconds

@@ -19,7 +19,7 @@ public partial class IntelligenceService
     /// Handles: batch slicing, semaphore throttling, user prompt building, JSON parse, text overlay, fallback, notification.
     /// </summary>
     private async Task<List<BrollPromptItem>> ClassifySegmentsBatchCoreAsync(
-        List<(string Timestamp, string ScriptText)> segments,
+        List<(string Timestamp, string ScriptText, TextOverlay? Overlay)> segments,
         string systemPrompt,
         int batchSize,
         bool includePrompts,
@@ -58,9 +58,36 @@ public partial class IntelligenceService
                     var userPrompt = new System.Text.StringBuilder();
                     userPrompt.AppendLine($"Topic: {segments[0].ScriptText.Split(' ').FirstOrDefault() ?? "Islamic essay"}");
                     userPrompt.AppendLine("\nSEGMENTS:");
+                    var batchResults = new List<BrollPromptItem>();
+                    var segmentsSentToLlm = 0;
+
                     for (int i = 0; i < batchSegments.Count; i++)
                     {
+                        if (batchSegments[i].Overlay != null)
+                        {
+                            var promptItem = new BrollPromptItem
+                            {
+                                Index = batchStart + i,
+                                Timestamp = batchSegments[i].Timestamp,
+                                ScriptText = batchSegments[i].ScriptText,
+                                MediaType = BrollMediaType.BrollVideo,
+                                Prompt = string.Empty,
+                                TextOverlay = batchSegments[i].Overlay
+                            };
+                            batchResults.Add(promptItem);
+                            continue; // Skip LLM
+                        }
+
                         userPrompt.AppendLine($"[{i}] {batchSegments[i].Timestamp} {batchSegments[i].ScriptText}");
+                        segmentsSentToLlm++;
+                    }
+
+                    if (segmentsSentToLlm == 0)
+                    {
+                        // All segments in this batch already had overlays!
+                        lock (resultsLock) { results.AddRange(batchResults); }
+                        await NotifyBatchComplete(onBatchComplete, results, resultsLock);
+                        return;
                     }
 
                     var maxTokens = includePrompts
@@ -72,8 +99,6 @@ public partial class IntelligenceService
                         temperature: includePrompts ? 0.4 : 0.3,
                         maxTokens: maxTokens,
                         cancellationToken: cancellationToken);
-
-                    var batchResults = new List<BrollPromptItem>();
 
                     if (!string.IsNullOrEmpty(rawContent))
                     {
@@ -104,14 +129,9 @@ public partial class IntelligenceService
                                             Prompt = includePrompts ? (item.Prompt ?? string.Empty) : string.Empty
                                         };
 
-                                        // Parse text overlay if present
-                                        var overlay = ParseTextOverlay(item.TextOverlay, globalIdx);
-                                        if (overlay != null)
-                                        {
-                                            promptItem.TextOverlay = overlay;
-                                            // Auto-enforce: text overlays get B-roll backgrounds
-                                            promptItem.MediaType = BrollMediaType.BrollVideo;
-                                        }
+                                        // Optionally, the LLM might hallucinate overlays if it's acting up.
+                                        // We'll ignore the LLM's overlay data now since we already pre-parsed it 
+                                        // or bypassed it.
 
                                         // Auto-detect era (only when prompts are generated)
                                         if (includePrompts)
@@ -192,7 +212,7 @@ public partial class IntelligenceService
     // =============================================
 
     public async Task<List<BrollPromptItem>> ClassifyAndGeneratePromptsAsync(
-        List<(string Timestamp, string ScriptText)> segments,
+        List<(string Timestamp, string ScriptText, TextOverlay? Overlay)> segments,
         string topic,
         ImagePromptConfig? config = null,
         Func<List<BrollPromptItem>, Task>? onBatchComplete = null,
@@ -212,7 +232,7 @@ public partial class IntelligenceService
     // =============================================
 
     public async Task<List<BrollPromptItem>> ClassifySegmentsOnlyAsync(
-        List<(string Timestamp, string ScriptText)> segments,
+        List<(string Timestamp, string ScriptText, TextOverlay? Overlay)> segments,
         string topic,
         ImagePromptConfig? config = null,
         Func<List<BrollPromptItem>, Task>? onBatchComplete = null,
@@ -286,20 +306,13 @@ For IMAGE_GEN segments: Generate a detailed Whisk-style prompt following this st
   - If prophets appear: add 'face replaced by intense white-golden divine light, facial features not visible'
   - End with style suffix: '{effectiveStyleSuffix}'
 {customInstructionsSection}
-{TEXT_OVERLAY_RULES}
 
 RESPOND WITH JSON ONLY (no markdown):
 [
   {{
     ""index"": 0,
     ""mediaType"": ""BROLL"" or ""IMAGE_GEN"",
-    ""prompt"": ""the generated prompt"",
-    ""textOverlay"": {{
-      ""type"": ""QuranVerse"",
-      ""text"": ""In the name of Allah"",
-      ""arabic"": ""بِسْمِ اللَّهِ"",
-      ""reference"": ""Surah Al-Fatiha 1:1""
-    }}
+    ""prompt"": ""the generated prompt""
   }}
 ]
 Note: textOverlay is null/omitted for MOST segments. Only add for truly impactful moments.
@@ -324,26 +337,17 @@ RULES:
 BROLL - Stock footage (no humans): landscapes, nature, textures, cityscapes, atmospheric shots
 IMAGE_GEN - AI image generation: historical scenes, prophets, supernatural events, specific Islamic historical contexts, abstract spiritual concepts
 
-{TEXT_OVERLAY_RULES.Replace("~20%", "~25%")}
-
 RESPOND WITH JSON ONLY (no markdown):
 [
   {{
     ""index"": 0,
-    ""mediaType"": ""BROLL"" or ""IMAGE_GEN"",
-    ""textOverlay"": {{
-      ""type"": ""QuranVerse"",
-      ""text"": ""In the name of Allah"",
-      ""arabic"": ""بِسْمِ اللَّهِ"",
-      ""reference"": ""Surah Al-Fatiha 1:1""
-    }}
+    ""mediaType"": ""BROLL"" or ""IMAGE_GEN""
   }}
 ]
-Note: textOverlay is null/omitted for MOST segments. Only add for truly impactful moments.
 
 RULES:
-- Return index, mediaType, and textOverlay (if applicable)
-- Do NOT generate image/search prompts — just classify and detect overlays";
+- Return index and mediaType
+- Do NOT generate image/search prompts";
     }
 
     // =============================================

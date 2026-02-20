@@ -53,32 +53,8 @@ public class ScriptProcessor : IScriptProcessor
             if (string.IsNullOrWhiteSpace(paragraph))
                 continue;
                 
-            // Check if paragraph starts with a title pattern (e.g., "Scene 1:", "Adegan 1:", etc.)
-            var (title, content) = ExtractTitleIfPresent(paragraph);
-            
-            // Step 2: Split paragraph into sentences
-            var sentences = SplitIntoSentences(content);
-            
-            if (sentences.Count == 0)
-                continue;
-            
-            // Step 3: Check if we need to split this paragraph into multiple segments
-            var wordCount = sentences.Sum(s => s.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length);
-            
-            if (wordCount > MaxWordsPerSegment)
-            {
-                // Split large paragraph into multiple segments
-                var subSegments = SplitLargeParagraph(sentences, title, segmentId, ref globalSentenceId);
-                segments.AddRange(subSegments);
-                segmentId += subSegments.Count;
-            }
-            else
-            {
-                // Create single segment
-                var segment = CreateSegment(segmentId, title, content, sentences, ref globalSentenceId);
-                segments.Add(segment);
-                segmentId++;
-            }
+            var paragraphSegments = ProcessParagraph(paragraph, ref segmentId, ref globalSentenceId);
+            segments.AddRange(paragraphSegments);
         }
 
         var totalSentences = segments.Sum(s => s.Sentences.Count);
@@ -90,6 +66,124 @@ public class ScriptProcessor : IScriptProcessor
             segments.Count, totalSentences, totalWords, totalDuration);
             
         return segments;
+    }
+    
+    private List<ScriptSegment> ProcessParagraph(string paragraph, ref int segmentId, ref int globalSentenceId)
+    {
+        var segments = new List<ScriptSegment>();
+        
+        // 1. Extract Overlay Tags
+        var overlay = ExtractTextOverlay(ref paragraph);
+
+        // 2. Extract Title
+        var (title, content) = ExtractTitleIfPresent(paragraph);
+
+        // 3. Split into sentences (which now contain just the naration)
+        var sentences = SplitIntoSentences(content);
+        
+        if (sentences.Count == 0)
+            return segments;
+
+        // Clean up sentences
+        for (int i = 0; i < sentences.Count; i++)
+        {
+            sentences[i] = sentences[i].Replace("[ARABIC]", "").Replace("[REF]", "");
+        }
+        
+        // 4. Create segment(s)
+        var wordCount = sentences.Sum(s => s.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length);
+        
+        if (wordCount > MaxWordsPerSegment)
+        {
+            var subSegments = SplitLargeParagraph(sentences, title, segmentId, ref globalSentenceId);
+            
+            // Assign overlay only to the first segment
+            if (overlay != null && subSegments.Count > 0 && subSegments[0].Sentences.Count > 0)
+            {
+                subSegments[0].Sentences[0].TextOverlay = overlay;
+            }
+            
+            segments.AddRange(subSegments);
+            segmentId += subSegments.Count;
+        }
+        else
+        {
+            var segment = CreateSegment(segmentId, title, content, sentences, ref globalSentenceId);
+            
+            // Assign overlay to the first sentence in the segment
+            if (overlay != null && segment.Sentences.Count > 0)
+            {
+                segment.Sentences[0].TextOverlay = overlay;
+                // If the TextOverlay text is empty (LLM didn't provide it inside the tag), fallback to the sentence text
+                if (string.IsNullOrWhiteSpace(overlay.Text))
+                {
+                    overlay.Text = segment.Sentences[0].Text;
+                }
+            }
+            
+            segments.Add(segment);
+            segmentId++;
+        }
+
+        return segments;
+    }
+
+    private TextOverlay? ExtractTextOverlay(ref string text)
+    {
+        TextOverlay? overlay = null;
+        var lines = text.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(l => l.Trim()).ToList();
+        
+        string? typeStr = null;
+        string? arabic = null;
+        string? reference = null;
+
+        var cleanLines = new List<string>();
+
+        foreach (var line in lines)
+        {
+            if (line.StartsWith("[OVERLAY:", StringComparison.OrdinalIgnoreCase))
+            {
+                var endIdx = line.IndexOf(']');
+                if (endIdx > 9)
+                {
+                    typeStr = line.Substring(9, endIdx - 9);
+                }
+                // Skip adding to cleanLines
+            }
+            else if (line.StartsWith("[ARABIC]", StringComparison.OrdinalIgnoreCase))
+            {
+                arabic = line.Substring(8).Trim();
+            }
+            else if (line.StartsWith("[REF]", StringComparison.OrdinalIgnoreCase))
+            {
+                reference = line.Substring(5).Trim();
+            }
+            else
+            {
+                cleanLines.Add(line);
+            }
+        }
+
+        text = string.Join("\n", cleanLines);
+
+        if (!string.IsNullOrEmpty(typeStr) && Enum.TryParse<TextOverlayType>(typeStr, true, out var parsedType))
+        {
+            overlay = new TextOverlay
+            {
+                Type = parsedType,
+                ArabicText = arabic,
+                Reference = reference,
+                Style = parsedType switch
+                {
+                    TextOverlayType.QuranVerse => TextStyle.Quran,
+                    TextOverlayType.Hadith => TextStyle.Hadith,
+                    TextOverlayType.RhetoricalQuestion => TextStyle.Question,
+                    _ => TextStyle.Default
+                }
+            };
+        }
+
+        return overlay;
     }
 
     private List<string> SplitIntoParagraphs(string text)

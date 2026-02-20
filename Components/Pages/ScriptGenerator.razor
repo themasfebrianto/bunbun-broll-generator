@@ -1077,7 +1077,7 @@
 
         try
         {
-            var segments = new List<(string Timestamp, string ScriptText)>();
+            var segments = new List<(string Timestamp, string ScriptText, TextOverlay? Overlay)>();
 
             // Reuse existing segments if we have any — don't re-parse from _resultSections
             // which produces fewer segments than the original SRT import
@@ -1085,7 +1085,7 @@
             {
                 // Reuse existing segments — preserve SRT-imported segment count
                 segments = _brollPromptItems
-                    .Select(i => (i.Timestamp, i.ScriptText))
+                    .Select(i => (i.Timestamp, i.ScriptText, i.TextOverlay))
                     .ToList();
             }
             else
@@ -1114,7 +1114,7 @@
                             if (string.IsNullOrWhiteSpace(cleaned)) continue;
                             var mins = (int)absoluteTime.TotalMinutes;
                             var secs = absoluteTime.Seconds;
-                            segments.Add(($"[{mins:D2}:{secs:D2}]", cleaned));
+                            segments.Add(($"[{mins:D2}:{secs:D2}]", cleaned, null));
                         }
                         var lastEntry = entries.Last();
                         var normalizedLastTime = lastEntry.Timestamp - phaseBase;
@@ -1129,7 +1129,7 @@
                         {
                             var mins = (int)globalOffset.TotalMinutes;
                             var secs = globalOffset.Seconds;
-                            segments.Add(($"[{mins:D2}:{secs:D2}]", cleaned));
+                            segments.Add(($"[{mins:D2}:{secs:D2}]", cleaned, null));
                             globalOffset = globalOffset.Add(TimeSpan.FromSeconds(EstimateDuration(cleaned)));
                         }
                     }
@@ -1464,7 +1464,7 @@
         try
         {
             var singleResult = await IntelligenceService.ClassifyAndGeneratePromptsAsync(
-                new List<(string, string)> { (item.Timestamp, item.ScriptText) },
+                new List<(string, string, TextOverlay?)> { (item.Timestamp, item.ScriptText, item.TextOverlay) },
                 _resultSession.Topic);
 
             if (singleResult.Count > 0)
@@ -1625,7 +1625,7 @@
 
         try
         {
-            var segments = brollItems.Select(i => (i.Timestamp, i.ScriptText)).ToList();
+            var segments = brollItems.Select(i => (i.Timestamp, i.ScriptText, i.TextOverlay)).ToList();
 
             var results = await IntelligenceService.ClassifyAndGeneratePromptsAsync(
                 segments, _resultSession.Topic,
@@ -2067,7 +2067,8 @@
                 WhiskStatus = i.WhiskStatus, WhiskImagePath = i.WhiskImagePath, WhiskError = i.WhiskError,
                 SelectedVideoUrl = i.SelectedVideoUrl, KenBurnsMotion = i.KenBurnsMotion,
                 WhiskVideoStatus = i.WhiskVideoStatus, WhiskVideoPath = i.WhiskVideoPath, WhiskVideoError = i.WhiskVideoError,
-                Style = i.Style, Filter = i.Filter, Texture = i.Texture, FilteredVideoPath = i.FilteredVideoPath
+                Style = i.Style, Filter = i.Filter, Texture = i.Texture, FilteredVideoPath = i.FilteredVideoPath,
+                TextOverlay = i.TextOverlay
             }).ToList();
 
             var json = System.Text.Json.JsonSerializer.Serialize(saveData, new System.Text.Json.JsonSerializerOptions
@@ -2157,7 +2158,8 @@
                     KenBurnsMotion = (s.MediaType == BrollMediaType.ImageGeneration && s.KenBurnsMotion == KenBurnsMotionType.None)
                         ? BrollPromptItem.GetRandomMotion() : s.KenBurnsMotion,
                     WhiskVideoStatus = s.WhiskVideoStatus, WhiskVideoPath = s.WhiskVideoPath, WhiskVideoError = s.WhiskVideoError,
-                    Style = s.Style, Filter = s.Filter, Texture = s.Texture, FilteredVideoPath = s.FilteredVideoPath
+                    Style = s.Style, Filter = s.Filter, Texture = s.Texture, FilteredVideoPath = s.FilteredVideoPath,
+                    TextOverlay = s.TextOverlay
                 }).ToList();
 
                 // Sanitize paths on load
@@ -2801,5 +2803,6 @@
         public VideoFilter Filter { get; set; }
         public VideoTexture Texture { get; set; }
         public string? FilteredVideoPath { get; set; }
+        public TextOverlay? TextOverlay { get; set; }
     }
 }
