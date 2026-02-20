@@ -127,136 +127,15 @@ public interface IIntelligenceService
         CancellationToken cancellationToken = default);
 }
 
-public class IntelligenceService : IIntelligenceService
+/// <summary>
+/// Intelligence Service — Core infrastructure (constructor, shared LLM call, helpers, constants).
+/// Partial class: see also Classification, Keywords, PromptGeneration, ContextAware files.
+/// </summary>
+public partial class IntelligenceService : IIntelligenceService
 {
     private readonly HttpClient _httpClient;
     private readonly ILogger<IntelligenceService> _logger;
     private readonly GeminiSettings _settings;
-
-    private const string SystemPrompt = @"B-Roll keyword extractor for cinematic footage with NO HUMAN SUBJECTS. Convert script to English stock footage keywords.
-
-OUTPUT (JSON only, no markdown):
-{
-  ""primaryKeywords"": [""2-3 word visual match"", ""subject + setting""],
-  ""moodKeywords"": [""emotion + visual""],
-  ""contextualKeywords"": [""setting + time""],
-  ""actionKeywords"": [""movement""],
-  ""fallbackKeywords"": [""clouds timelapse"", ""mountain sunrise""],
-  ""suggestedCategory"": ""Nature|Abstract|Urban"",
-  ""detectedMood"": ""melancholic|anxious|hopeful|calm|energetic""
-}
-
-RULES:
-- Translate ALL to English
-- 2-3 words per keyword (not single words)
-- ABSOLUTE RULE: NO PEOPLE, NO HUMAN FACES, NO HUMAN BODY PARTS, NO SILHOUETTES, NO HUMAN ACTIVITY, NO PERSON, NO HANDS, NO FEET, NO CROWDS, NO EYES.
-- NO HUMAN-CENTRIC LABOR: No hands planting, no hands typing, no feet walking, no manual work being performed by people.
-- ALSO AVOID HUMAN-ADJACENT TERMS that return human footage from stock sites: mirror, reflection, shadow, window, doorway, selfie, walking, standing, sitting, running, praying, crying, laughing, embrace, handshake, footsteps, footprint, tools, phone, computer, keyboard.
-  Instead use nature/urban metaphors: 'broken mirror' -> 'cracked earth texture', 'reflection' -> 'water surface reflection', 'shadow' -> 'dark clouds moving', 'walking' -> 'path through forest', 'manual labor' -> 'nature's cycle', 'planting' -> 'green seedling macro timelapse'
-- Avoid religious/sensitive triggers
-- fallbackKeywords: always include safe universals like ""ocean waves"", ""sunset clouds"", ""mountain landscape""
-
-ERA-BASED VISUAL CONTEXT (CRITICAL):
-- When the script describes stories of PROPHETS, ANCIENT TIMES, or HISTORICAL ERAS:
-  Use NATURE-BASED visuals ONLY: desert landscape, sand dunes, ancient ruins without people, mountain range, vast sky, barren land, rocky terrain, oasis, starry desert night, forest canopy, calm sea, sunrise horizon, windswept plains
-- When the script shifts to MODERN TIMES or CONTEMPORARY topics:
-  Use URBAN visuals: cityscape, modern buildings, skyline, highway, infrastructure, modern architecture, glass tower, urban street empty, traffic lights, bridge structure, aerial city view
-- NEVER include any human presence regardless of era
-
-VISUAL STYLE GUIDELINES (apply to ALL keyword layers when style is specified):
-- Cinematic: Use keywords like ""cinematic lighting"", ""film grain"", ""dramatic shadows"", ""slow motion"", ""wide shot"", ""depth of field"", ""golden hour"", ""lens flare"", ""movie scene""
-- Moody: Use keywords like ""dark atmosphere"", ""low key lighting"", ""shadows"", ""moody colors"", ""dim lighting"", ""dramatic contrast"", ""night scene"", ""film noir""
-- Bright: Use keywords like ""bright lighting"", ""vibrant colors"", ""sunny day"", ""high key"", ""natural light"", ""clean background"", ""cheerful"", ""daylight""
-- Auto: No specific style modifiers, let content dictate
-
-EMOTIONAL MOOD DETECTION (separate from visual style):
-melancholic=rain window, anxious=storm clouds, hopeful=sunrise, calm=placid lake, energetic=crashing waves
-
-IMPORTANT: When user specifies a Visual Style, weave those terms into PRIMARY, MOOD, and CONTEXTUAL keywords. Use high-end cinematic terms. Match era context (nature for ancient, urban for modern).";
-
-    private const string GlobalContextExtractionPrompt = @"
-You are a visual narrative analyzer for Islamic video essays.
-Analyze the ENTIRE script and extract GLOBAL storytelling context.
-
-TASK: Extract persistent elements that span across ALL segments.
-
-OUTPUT (JSON only, no markdown):
-{
-  ""primaryLocations"": [""Qumran limestone caves"", ""Judean Desert"", ""ancient Jerusalem""],
-  ""identifiedCharacters"": [
-    {""name"": ""Essene ascetic community"", ""description"": ""male monks in simple robes""},
-    {""name"": ""Prophet Isa"", ""description"": ""face hidden by divine light""}
-  ],
-  ""eraTimeline"": [
-    {""startSegment"": 0, ""endSegment"": 45, ""era"": ""Late Ancient Roman Empire"", ""description"": ""civilization decline""},
-    {""startSegment"": 18, ""endSegment"": 20, ""era"": ""21st Century Modern"", ""description"": ""scientific analysis""},
-    {""startSegment"": 40, ""era"": ""Islamic End Times"", ""description"": ""apocalyptic atmosphere""}
-  ],
-  ""moodBeats"": [
-    {
-      ""startSegment"": 0,
-      ""endSegment"": 25,
-      ""mood"": ""mysterious"",
-      ""description"": ""contemplative discovery, ancient secrets, quiet wonder"",
-      ""visualKeywords"": [""candlelight"", ""dust particles"", ""shadows""],
-      ""suggestedLighting"": ""SoftAmbient"",
-      ""suggestedPalette"": ""WarmEarthy"",
-      ""suggestedAngle"": ""CloseUp"",
-      ""visualRationale"": ""Intimate cave scenes with candlelight work best with close-up framing and soft warm lighting""
-    },
-    {
-      ""startSegment"": 25,
-      ""endSegment"": 50,
-      ""mood"": ""tense"",
-      ""description"": ""apocalyptic anticipation, war preparations, divine reckoning"",
-      ""visualKeywords"": [""storm clouds"", ""dramatic lighting"", ""darkness""],
-      ""suggestedLighting"": ""MoodyDark"",
-      ""suggestedPalette"": ""Monochrome"",
-      ""suggestedAngle"": ""WideShot"",
-      ""visualRationale"": ""Epic war scenes require wide framing and dark dramatic lighting""
-    }
-  ],
-  ""recurringVisuals"": [""clay jars"", ""parchment scrolls"", ""cave interiors"", ""divine light rays""],
-  ""colorProgression"": ""Start with warm earthy tones (caves, scrolls), transition to dark dramatic (war), end with golden divine (climax)""
-}
-
-MOOD DETECTION RULES:
-- Analyze EMOTIONAL ARC across the entire script, not just individual segments
-- Look for tone shifts: mystery → tension → revelation → hope
-- Consider Islamic storytelling structure: problem → struggle → divine solution
-- Mood changes should align with NARRATIVE BEATS, not random
-- Typically 4-6 mood beats for a 15-20 minute video
-- Each mood should span 5-15+ segments (not every segment!)
-
-VISUAL DECISION RULES (for suggestedLighting, suggestedPalette, suggestedAngle):
-- LIGHTING: Match mood energy
-  * Mysterious/contemplative → SoftAmbient or EtherealGlow
-  * Tense/apocalyptic → MoodyDark or DramaticHighContrast
-  * Hopeful/inspiring → GoldenHour
-  * Epic/powerful → DramaticHighContrast
-
-- PALETTE: Support emotional tone
-  * Ancient/historical → WarmEarthy or GoldenDesert
-  * Modern/tech → CoolBlue or VibrantFocalMuted
-  * End times → Monochrome or MysticPurple
-  * Nature → NaturalGreen
-
-- ANGLE: Match subject scale
-  * Intimate personal moments → CloseUp
-  * Landscapes/environments → WideShot or CinematicWide
-  * Powerful figures → LowAngle
-  * Overview/expository → BirdsEye
-
-ERA SELECTION (use these exact era names):
-- Lost ancient civilization ruins era (for ancient times, mystery)
-- Late Ancient Roman Empire era (for decline, fall of civilization)
-- 6th century BC Ancient Babylon era (for ancient kings, mystery)
-- 6th century Pre-Islamic Arabia era (for jahiliyya, ancient Arabian)
-- 21st century modern urban era (for contemporary, technology)
-- Islamic End Times era (for apocalypse, judgment day)
-- Metaphysical void era (for abstract, existential reflection)
-- Cosmic end-of-world era (for finality, cosmic scale)
-";
 
     public IntelligenceService(
         HttpClient httpClient, 
@@ -268,149 +147,52 @@ ERA SELECTION (use these exact era names):
         _settings = settings.Value;
     }
 
-    public async Task<KeywordResult> ExtractKeywordsAsync(string text, string? mood = null, CancellationToken cancellationToken = default)
-    {
-        var stopwatch = Stopwatch.StartNew();
-        var result = new KeywordResult();
-
-        try
-        {
-            var userPrompt = mood != null 
-                ? $"Mood/Style: {mood}\n\nSegment: {text}" 
-                : $"Segment: {text}";
-
-            var request = new GeminiChatRequest
-            {
-                Model = _settings.Model,
-                Messages = new List<GeminiMessage>
-                {
-                    new() { Role = "system", Content = SystemPrompt },
-                    new() { Role = "user", Content = userPrompt }
-                },
-                Temperature = 0.3,
-                MaxTokens = 300 // Optimized for balanced mode
-            };
-
-            _logger.LogDebug("Sending request to Gemini: {Text}", text);
-
-            var response = await _httpClient.PostAsJsonAsync(
-                "v1/chat/completions", 
-                request, 
-                cancellationToken);
-
-            response.EnsureSuccessStatusCode();
-
-            var geminiResponse = await response.Content.ReadFromJsonAsync<GeminiChatResponse>(cancellationToken: cancellationToken);
-            
-            var rawContent = geminiResponse?.Choices?.FirstOrDefault()?.Message?.Content;
-            result.RawResponse = rawContent;
-            result.TokensUsed = geminiResponse?.Usage?.TotalTokens ?? 0;
-
-            if (!string.IsNullOrEmpty(rawContent))
-            {
-                var cleanedJson = CleanJsonResponse(rawContent);
-                
-                _logger.LogDebug("Raw AI response: {Raw}", rawContent);
-                _logger.LogDebug("Cleaned JSON: {Cleaned}", cleanedJson);
-                
-                // Try parsing as new layered format first
-                result.KeywordSet = ParseKeywordResponse(cleanedJson);
-                result.Success = result.KeywordSet.TotalCount > 0;
-                
-                // If layered parsing failed, try legacy flat array format
-                if (!result.Success)
-                {
-                    try
-                    {
-                        var keywords = JsonSerializer.Deserialize<List<string>>(cleanedJson);
-                        if (keywords != null && keywords.Count > 0)
-                        {
-                            result.KeywordSet = KeywordSet.FromFlat(keywords);
-                            result.Success = true;
-                        }
-                    }
-                    catch (JsonException)
-                    {
-                        // Try text extraction as last resort
-                        var extractedKeywords = ExtractKeywordsFromText(rawContent);
-                        result.KeywordSet = KeywordSet.FromFlat(extractedKeywords);
-                        result.Success = result.KeywordSet.TotalCount > 0;
-                    }
-                }
-            }
-
-            _logger.LogInformation(
-                "Extracted {Count} keywords (P:{Primary} M:{Mood} C:{Context} A:{Action} F:{Fallback}) for segment in {Ms}ms. Category: {Category}, Mood: {DetectedMood}. STYLE: {Style}",
-                result.KeywordSet.TotalCount,
-                result.KeywordSet.Primary.Count,
-                result.KeywordSet.Mood.Count,
-                result.KeywordSet.Contextual.Count,
-                result.KeywordSet.Action.Count,
-                result.KeywordSet.Fallback.Count,
-                stopwatch.ElapsedMilliseconds,
-                result.SuggestedCategory ?? "N/A",
-                result.DetectedMood ?? "N/A",
-                mood ?? "Auto");
-
-            // Log actual keywords for debugging
-            _logger.LogDebug("PRIMARY: {Keywords}", string.Join(", ", result.KeywordSet.Primary));
-            _logger.LogDebug("MOOD: {Keywords}", string.Join(", ", result.KeywordSet.Mood));
-            _logger.LogDebug("CONTEXTUAL: {Keywords}", string.Join(", ", result.KeywordSet.Contextual));
-        }
-        catch (HttpRequestException ex)
-        {
-            _logger.LogError(ex, "Failed to connect to Gemini server");
-            result.Error = "Failed to connect to local Gemini server. Is it running?";
-        }
-        catch (TaskCanceledException)
-        {
-            _logger.LogWarning("Gemini request timed out");
-            result.Error = "Request timed out. Check local server status.";
-        }
-        catch (JsonException ex)
-        {
-            _logger.LogError(ex, "Failed to parse Gemini response: {Raw}", result.RawResponse);
-            result.Error = "Invalid response format from AI";
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Unexpected error during keyword extraction");
-            result.Error = ex.Message;
-        }
-        finally
-        {
-            result.ProcessingTime = stopwatch.Elapsed;
-        }
-
-        return result;
-    }
+    // =============================================
+    // SHARED: Unified LLM call
+    // =============================================
 
     /// <summary>
-    /// Parse the AI response into a layered KeywordSet.
+    /// Unified LLM chat call — builds request, sends, parses response, returns content string.
+    /// All methods should use this instead of duplicating HTTP + parse logic.
     /// </summary>
-    private KeywordSet ParseKeywordResponse(string json)
+    private async Task<(string? Content, int TokensUsed)> SendChatAsync(
+        string systemPrompt,
+        string userPrompt,
+        double temperature = 0.3,
+        int maxTokens = 300,
+        CancellationToken cancellationToken = default)
     {
-        try
+        var request = new GeminiChatRequest
         {
-            var options = new JsonSerializerOptions 
-            { 
-                PropertyNameCaseInsensitive = true 
-            };
-            
-            var response = JsonSerializer.Deserialize<KeywordExtractionResponse>(json, options);
-            
-            if (response != null)
+            Model = _settings.Model,
+            Messages = new List<GeminiMessage>
             {
-                return response.ToKeywordSet();
-            }
-        }
-        catch (JsonException ex)
-        {
-            _logger.LogDebug("Layered keyword parsing failed: {Error}", ex.Message);
-        }
-        
-        return KeywordSet.Empty;
+                new() { Role = "system", Content = systemPrompt },
+                new() { Role = "user", Content = userPrompt }
+            },
+            Temperature = temperature,
+            MaxTokens = maxTokens
+        };
+
+        var response = await _httpClient.PostAsJsonAsync(
+            "v1/chat/completions",
+            request,
+            cancellationToken);
+
+        response.EnsureSuccessStatusCode();
+
+        var geminiResponse = await response.Content.ReadFromJsonAsync<GeminiChatResponse>(
+            cancellationToken: cancellationToken);
+
+        var content = geminiResponse?.Choices?.FirstOrDefault()?.Message?.Content;
+        var tokens = geminiResponse?.Usage?.TotalTokens ?? 0;
+
+        return (content, tokens);
     }
+
+    // =============================================
+    // SHARED: JSON cleaning
+    // =============================================
 
     private static string CleanJsonResponse(string raw)
     {
@@ -449,414 +231,150 @@ ERA SELECTION (use these exact era names):
         return raw;
     }
 
-    /// <summary>
-    /// Fallback keyword extraction when AI doesn't return valid JSON.
-    /// Tries to extract quoted strings or comma-separated values.
-    /// </summary>
-    private static List<string> ExtractKeywordsFromText(string text)
-    {
-        var keywords = new List<string>();
-        
-        // Try to find quoted strings
-        var quoteMatches = System.Text.RegularExpressions.Regex.Matches(text, "\"([^\"]+)\"");
-        foreach (System.Text.RegularExpressions.Match match in quoteMatches)
-        {
-            var keyword = match.Groups[1].Value.Trim();
-            if (!string.IsNullOrWhiteSpace(keyword) && keyword.Length > 2 && keyword.Length < 50)
-            {
-                keywords.Add(keyword);
-            }
-        }
-
-        // If we found some, return them
-        if (keywords.Count > 0)
-            return keywords.Take(6).ToList();
-
-        // Otherwise try comma-separated extraction
-        var parts = text.Split(new[] { ',', '\n', ';' }, StringSplitOptions.RemoveEmptyEntries);
-        foreach (var part in parts)
-        {
-            var cleaned = part.Trim().Trim('[', ']', '"', '\'');
-            if (!string.IsNullOrWhiteSpace(cleaned) && cleaned.Length > 2 && cleaned.Length < 50)
-            {
-                keywords.Add(cleaned);
-            }
-        }
-
-        return keywords.Take(6).ToList();
-    }
+    // =============================================
+    // SHARED: Text overlay parsing
+    // =============================================
 
     /// <summary>
-    /// Extract keywords for multiple sentences in a single AI call.
-    /// This is MUCH faster than calling ExtractKeywordsAsync for each sentence.
+    /// Parse a TextOverlayDto from LLM response into a Models.TextOverlay.
+    /// Returns null if dto is null or has no text. Auto-logs on parse failure.
     /// </summary>
-    public async Task<Dictionary<int, List<string>>> ExtractKeywordsBatchAsync(
-        IEnumerable<(int Id, string Text)> sentences, 
-        string? mood = null, 
-        CancellationToken cancellationToken = default)
+    private Models.TextOverlay? ParseTextOverlay(TextOverlayDto? dto, int globalIdx)
     {
-        var sentenceList = sentences.ToList();
-        var results = new Dictionary<int, List<string>>();
-        
-        if (sentenceList.Count == 0)
-            return results;
-
-        var stopwatch = Stopwatch.StartNew();
+        if (dto == null || string.IsNullOrEmpty(dto.Text))
+            return null;
 
         try
         {
-            // Build batch prompt
-            var batchPrompt = new System.Text.StringBuilder();
-            if (mood != null)
+            var overlayType = dto.Type?.ToLowerInvariant()?.Replace("_", "") switch
             {
-                batchPrompt.AppendLine($"Mood/Style for ALL sentences: {mood}");
-                batchPrompt.AppendLine();
-            }
-            
-            batchPrompt.AppendLine("Extract B-Roll keywords for each sentence below. Return as JSON object with sentence IDs as keys and keyword arrays as values.");
-            batchPrompt.AppendLine("Example output: {\"1\": [\"keyword1\", \"keyword2\"], \"2\": [\"keyword3\", \"keyword4\"]}");
-            batchPrompt.AppendLine();
-            batchPrompt.AppendLine("SENTENCES:");
-            
-            foreach (var (id, text) in sentenceList)
-            {
-                batchPrompt.AppendLine($"[{id}]: {text}");
-            }
-
-            var request = new GeminiChatRequest
-            {
-                Model = _settings.Model,
-                Messages = new List<GeminiMessage>
-                {
-                    new() { Role = "system", Content = SystemPrompt },
-                    new() { Role = "user", Content = batchPrompt.ToString() }
-                },
-                Temperature = 0.3,
-                MaxTokens = Math.Min(sentenceList.Count * 100, 4000) // Scale tokens with batch size (up to 40 sentences)
+                "quranverse" => Models.TextOverlayType.QuranVerse,
+                "hadith" => Models.TextOverlayType.Hadith,
+                "rhetoricalquestion" => Models.TextOverlayType.RhetoricalQuestion,
+                "keyphrase" => Models.TextOverlayType.KeyPhrase,
+                _ => Models.TextOverlayType.KeyPhrase
             };
 
-            _logger.LogDebug("Batch extracting keywords for {Count} sentences", sentenceList.Count);
-
-            var response = await _httpClient.PostAsJsonAsync(
-                "v1/chat/completions", 
-                request, 
-                cancellationToken);
-
-            response.EnsureSuccessStatusCode();
-
-            var geminiResponse = await response.Content.ReadFromJsonAsync<GeminiChatResponse>(cancellationToken: cancellationToken);
-            var rawContent = geminiResponse?.Choices?.FirstOrDefault()?.Message?.Content;
-
-            if (!string.IsNullOrEmpty(rawContent))
+            var overlay = new Models.TextOverlay
             {
-                var cleanedJson = CleanJsonResponse(rawContent);
-                
-                try
+                Type = overlayType,
+                Text = dto.Text,
+                ArabicText = dto.Arabic,
+                Reference = dto.Reference,
+                Style = overlayType switch
                 {
-                    // Try to parse as {id: [keywords]} format
-                    var parsed = JsonSerializer.Deserialize<Dictionary<string, List<string>>>(cleanedJson);
-                    if (parsed != null)
-                    {
-                        foreach (var (key, keywords) in parsed)
-                        {
-                            if (int.TryParse(key, out var id))
-                            {
-                                results[id] = keywords;
-                            }
-                        }
-                    }
+                    Models.TextOverlayType.QuranVerse => Models.TextStyle.Quran,
+                    Models.TextOverlayType.Hadith => Models.TextStyle.Hadith,
+                    Models.TextOverlayType.RhetoricalQuestion => Models.TextStyle.Question,
+                    _ => Models.TextStyle.Default
                 }
-                catch (JsonException)
-                {
-                    _logger.LogWarning("Batch parse failed, falling back to individual extraction");
-                    // If batch parsing fails, return empty and let caller fall back
-                }
-            }
+            };
 
-            _logger.LogInformation("Batch extracted keywords for {Success}/{Total} sentences in {Ms}ms", 
-                results.Count, sentenceList.Count, stopwatch.ElapsedMilliseconds);
+            _logger.LogDebug("Text overlay detected for segment {Index}: {Type} — {Text}",
+                globalIdx, overlayType, dto.Text);
+
+            return overlay;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Batch keyword extraction failed for {Count} sentences", sentenceList.Count);
-        }
-
-        // Fill in any missing results with empty lists
-        foreach (var (id, _) in sentenceList)
-        {
-            if (!results.ContainsKey(id))
-            {
-                results[id] = new List<string>();
-            }
-        }
-
-        return results;
-    }
-
-    /// <summary>
-    /// Extract layered keyword sets for multiple sentences in a single AI call.
-    /// Returns KeywordSet with Primary, Mood, Contextual, Action, and Fallback layers.
-    /// </summary>
-    public async Task<Dictionary<int, KeywordSet>> ExtractKeywordSetBatchAsync(
-        IEnumerable<(int Id, string Text)> sentences,
-        string? mood = null,
-        CancellationToken cancellationToken = default)
-    {
-        var sentenceList = sentences.ToList();
-        var results = new Dictionary<int, KeywordSet>();
-
-        if (sentenceList.Count == 0)
-            return results;
-
-        var stopwatch = Stopwatch.StartNew();
-
-        try
-        {
-            // Build batch prompt for layered extraction
-            var batchPrompt = new System.Text.StringBuilder();
-            if (mood != null)
-            {
-                batchPrompt.AppendLine($"Mood/Style for ALL sentences: {mood}");
-                batchPrompt.AppendLine();
-            }
-
-            batchPrompt.AppendLine("Extract B-Roll keywords for each sentence below.");
-            batchPrompt.AppendLine("Return as JSON object where each key is the sentence ID.");
-            batchPrompt.AppendLine("Each value should have: primaryKeywords, moodKeywords, contextualKeywords, actionKeywords, fallbackKeywords arrays.");
-            batchPrompt.AppendLine("Also include suggestedCategory and detectedMood strings.");
-            batchPrompt.AppendLine();
-            batchPrompt.AppendLine("SENTENCES:");
-
-            foreach (var (id, text) in sentenceList)
-            {
-                batchPrompt.AppendLine($"[{id}]: {text}");
-            }
-
-            var request = new GeminiChatRequest
-            {
-                Model = _settings.Model,
-                Messages = new List<GeminiMessage>
-                {
-                    new() { Role = "system", Content = SystemPrompt },
-                    new() { Role = "user", Content = batchPrompt.ToString() }
-                },
-                Temperature = 0.3,
-                MaxTokens = Math.Min(sentenceList.Count * 200, 6000) // Optimized for balanced mode
-            };
-
-            _logger.LogDebug("Batch extracting layered keywords for {Count} sentences", sentenceList.Count);
-
-            var response = await _httpClient.PostAsJsonAsync(
-                "v1/chat/completions",
-                request,
-                cancellationToken);
-
-            response.EnsureSuccessStatusCode();
-
-            var geminiResponse = await response.Content.ReadFromJsonAsync<GeminiChatResponse>(cancellationToken: cancellationToken);
-            var rawContent = geminiResponse?.Choices?.FirstOrDefault()?.Message?.Content;
-
-            if (!string.IsNullOrEmpty(rawContent))
-            {
-                _logger.LogDebug("Raw AI response for batch: {Content}", rawContent.Length > 200 ? rawContent[..200] + "..." : rawContent);
-                var cleanedJson = CleanJsonResponse(rawContent);
-                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-
-                try
-                {
-                    var parsed = JsonSerializer.Deserialize<Dictionary<string, KeywordExtractionResponse>>(cleanedJson, options);
-                    if (parsed != null)
-                    {
-                        foreach (var (key, keywordResponse) in parsed)
-                        {
-                            if (int.TryParse(key, out var id) && keywordResponse != null)
-                            {
-                                results[id] = keywordResponse.ToKeywordSet();
-                            }
-                        }
-                    }
-                }
-                catch (JsonException)
-                {
-                    _logger.LogWarning("Layered batch parse failed, trying flat format");
-                    try
-                    {
-                        var flatParsed = JsonSerializer.Deserialize<Dictionary<string, List<string>>>(cleanedJson);
-                        if (flatParsed != null)
-                        {
-                            foreach (var (key, keywords) in flatParsed)
-                            {
-                                if (int.TryParse(key, out var id) && keywords != null)
-                                {
-                                    results[id] = KeywordSet.FromFlat(keywords);
-                                }
-                            }
-                        }
-                    }
-                    catch (JsonException ex2)
-                    {
-                        _logger.LogWarning("Both batch parse attempts failed: {Error}", ex2.Message);
-                    }
-                }
-            }
-            else
-            {
-                _logger.LogWarning("AI returned empty response for batch extraction");
-            }
-
-            _logger.LogInformation("Batch extracted layered keywords for {Success}/{Total} sentences in {Ms}ms",
-                results.Count, sentenceList.Count, stopwatch.ElapsedMilliseconds);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Batch layered keyword extraction failed for {Count} sentences", sentenceList.Count);
-        }
-
-        // Fill in any missing results with empty KeywordSets
-        foreach (var (id, _) in sentenceList)
-        {
-            if (!results.ContainsKey(id))
-            {
-                results[id] = KeywordSet.Empty;
-            }
-        }
-
-        return results;
-    }
-
-    /// <summary>
-    /// General-purpose content generation via LLM.
-    /// </summary>
-    public async Task<string?> GenerateContentAsync(
-        string systemPrompt, 
-        string userPrompt, 
-        int maxTokens = 4000, 
-        double temperature = 0.7, 
-        CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            var request = new GeminiChatRequest
-            {
-                Model = _settings.Model,
-                Messages = new List<GeminiMessage>
-                {
-                    new() { Role = "system", Content = systemPrompt },
-                    new() { Role = "user", Content = userPrompt }
-                },
-                Temperature = temperature,
-                MaxTokens = maxTokens
-            };
-
-            _logger.LogDebug("GenerateContent: Sending request ({MaxTokens} max tokens)", maxTokens);
-
-            var response = await _httpClient.PostAsJsonAsync(
-                "v1/chat/completions",
-                request,
-                cancellationToken);
-
-            response.EnsureSuccessStatusCode();
-
-            var geminiResponse = await response.Content.ReadFromJsonAsync<GeminiChatResponse>(
-                cancellationToken: cancellationToken);
-
-            var content = geminiResponse?.Choices?.FirstOrDefault()?.Message?.Content;
-            
-            _logger.LogInformation("GenerateContent: Received {Length} chars, {Tokens} tokens",
-                content?.Length ?? 0,
-                geminiResponse?.Usage?.TotalTokens ?? 0);
-
-            return content;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "GenerateContent failed");
+            _logger.LogWarning(ex, "Failed to parse text overlay for segment {Index}", globalIdx);
             return null;
         }
     }
 
+    // =============================================
+    // SHARED: Fallback item creation
+    // =============================================
+
     /// <summary>
-    /// Classify script segments as B-Roll video or AI Image Generation (Whisk),
-    /// and generate appropriate prompts for each.
-    /// Processes in batches of 10 segments to avoid LLM timeouts.
+    /// Create a fallback BrollPromptItem with default BrollVideo type.
     /// </summary>
-    public async Task<List<BrollPromptItem>> ClassifyAndGeneratePromptsAsync(
-        List<(string Timestamp, string ScriptText)> segments,
-        string topic,
-        ImagePromptConfig? config = null,
-        Func<List<BrollPromptItem>, Task>? onBatchComplete = null,
-        CancellationToken cancellationToken = default)
+    private static BrollPromptItem CreateFallbackItem(
+        int index, string timestamp, string scriptText, string defaultPrompt = "")
     {
-        var results = new List<BrollPromptItem>();
-        if (segments.Count == 0) return results;
+        return new BrollPromptItem
+        {
+            Index = index,
+            Timestamp = timestamp,
+            ScriptText = scriptText,
+            MediaType = BrollMediaType.BrollVideo,
+            Prompt = defaultPrompt
+        };
+    }
 
-        var stopwatch = Stopwatch.StartNew();
-        const int batchSize = 10;
+    // =============================================
+    // SHARED: Batch processing helpers
+    // =============================================
 
-        // Resolve effective style suffix from config or default
-        var effectiveStyleSuffix = config?.EffectiveStyleSuffix ?? Models.ImageVisualStyle.BASE_STYLE_SUFFIX;
+    /// <summary>
+    /// Notify batch callback with a thread-safe snapshot of results.
+    /// </summary>
+    private static async Task NotifyBatchComplete(
+        Func<List<BrollPromptItem>, Task>? onBatchComplete,
+        List<BrollPromptItem> results,
+        object resultsLock)
+    {
+        if (onBatchComplete == null) return;
 
-        // Build era bias instruction if user specified a default era
-        var eraBiasInstruction = config?.DefaultEra != VideoEra.None && config?.DefaultEra != null
-            ? $"\nDEFAULT ERA CONTEXT (IMPORTANT): Unless a segment clearly belongs to a different era, default to {config.DefaultEra} era visual style. Bias your era prefix selection toward this era.\n"
-            : string.Empty;
+        List<BrollPromptItem> snapshot;
+        lock (resultsLock)
+        {
+            snapshot = results.OrderBy(r => r.Index).ToList();
+        }
+        await onBatchComplete(snapshot);
+    }
 
-        // Build custom instructions section if provided
-        var customInstructionsSection = !string.IsNullOrWhiteSpace(config?.CustomInstructions)
-            ? $"\nUSER CUSTOM INSTRUCTIONS (PRIORITY):\n{config.CustomInstructions}\n"
-            : string.Empty;
+    /// <summary>
+    /// Fill missing segment indices with fallback items.
+    /// </summary>
+    private static void FillMissingSegments(
+        List<BrollPromptItem> results,
+        List<(string Timestamp, string ScriptText)> segments,
+        string defaultPrompt = "")
+    {
+        for (int i = 0; i < segments.Count; i++)
+        {
+            if (!results.Any(r => r.Index == i))
+            {
+                results.Add(CreateFallbackItem(i, segments[i].Timestamp, segments[i].ScriptText, defaultPrompt));
+            }
+        }
+    }
 
-        // Build the system prompt once (reused across all batches)
-        var classifySystemPrompt = $@"You are a visual content classifier for Islamic video essays. Your job is to analyze script segments and decide the best visual approach for each.
-{eraBiasInstruction}
-For each segment, classify as:
-1. **BROLL** - Use stock footage (Pexels/Pixabay) with ABSOLUTELY NO HUMAN SUBJECTS when the content depicts:
-   - Real-world landscapes, nature, atmospheric shots, cityscapes (empty), urban (architectural), textures
-   - Atmospheric footage (rain, clouds, sunrise, ocean, forest, mountains)
-   - Objects (non-human), technology (abstract), textures, abstract light
-   - ABSOLUTE RULE: NO PEOPLE, NO SILHOUETTES, NO HUMAN ACTIVITY, NO PERSON, NO HANDS, NO FEET, NO CROWDS, NO EYES.
-   - NO MANUAL LABOR: Do not show hands planting, digging, or working. Use NATURE METAPHOR (e.g., 'planting' -> 'seedling growing timelapse').
-   - If the script implies human action, use a NATURE or URBAN METAPHOR (e.g., 'faith grows' -> 'growing plant timelapse', 'people gather' -> 'city skyline aerial')
+    // =============================================
+    // SHARED: Dynamic composition rotation
+    // =============================================
 
-2. **IMAGE_GEN** - Use AI image generation (Whisk / Imagen) when the content depicts:
-   - Historical/ancient scenes (7th century Arabia, ancient civilizations)
-   - Prophets or religious figures (requires divine light, no face)
-   - Supernatural/eschatological events (Day of Judgment, afterlife, angels)
-   - Human characters in specific Islamic historical contexts
-   - Abstract spiritual concepts (soul, faith, divine light)
-   - Scenes that stock footage cannot realistically portray
+    private ImageComposition GetDynamicComposition(int index)
+    {
+        var sequence = new[] 
+        {
+            ImageComposition.CinematicWide,
+            ImageComposition.CloseUp,
+            ImageComposition.LowAngle,
+            ImageComposition.WideShot,
+            ImageComposition.BirdsEye,
+            ImageComposition.CloseUp
+        };
+        return sequence[index % sequence.Length];
+    }
 
-{EraLibrary.GetEraSelectionInstructions()}
+    // =============================================
+    // SHARED: Prompt constants
+    // =============================================
 
-CHARACTER RULES (ISLAMIC SYAR'I - ONLY for IMAGE_GEN):
-{Models.CharacterRules.GENDER_RULES}
+    private const string IMAGE_GEN_COMPOSITION_RULES = @"
+COMPOSITION RULES (CRITICAL - MUST FOLLOW):
+- Generate ONE single unified scene. NEVER create split-screen, side-by-side, before/after, or montage compositions.
+- The image must depict ONE moment, ONE location, ONE continuous scene.
+- Do NOT use words like 'split', 'divided', 'left side / right side', 'juxtapose', 'contrast between two scenes', 'half and half'.
+- If comparing eras, pick ONE era per image, not both.
+- NO ERA BLENDING: Each image must exist in ONE single time period. NEVER combine ancient and modern elements in the same scene (e.g. NO ancient scrolls next to computer monitors, NO clay pots in server rooms, NO castles behind modern screens). If the script mentions both eras, choose the PRIMARY era for this segment only.
+- FULL BLEED: The image must fill the entire frame edge-to-edge. NO black bars, NO letterboxing, NO borders, NO cinematic bars at top/bottom or sides. The scene extends to all edges of the canvas.
+- NO TEXT: The image must contain ZERO text, letters, words, numbers, captions, titles, watermarks, or any written content. Pure visual scene only.
+- VISUAL VARIETY (CRITICAL): NEVER repeat the same primary subject as adjacent segments. Cycle through different visual categories: wide landscape/environment, architectural detail, object close-up, atmospheric/sky, interior space, natural element. If the previous segment showed an object (e.g. clay jar), this segment MUST show something different (e.g. wide cave interior, desert landscape, dramatic sky). Vary focal distance: alternate between wide shots, medium shots, and close-ups across consecutive segments.";
 
-{Models.CharacterRules.PROPHET_RULES}
-
-LOCKED VISUAL STYLE (REQUIRED FOR ALL IMAGE_GEN PROMPTS):
-{effectiveStyleSuffix}
-
-BROLL ERA-BASED VISUAL CONTEXT (CRITICAL FOR BROLL ONLY):
-- When the script describes stories of PROPHETS, ANCIENT TIMES, or HISTORICAL ERAS:
-  BROLL must use NATURE-BASED keywords ONLY: desert landscape, sand dunes, mountain range, vast sky, barren land, rocky terrain, ancient ruins without people, oasis, starry desert night, forest canopy, calm sea, sunrise horizon, windswept plains
-- When the script shifts to MODERN TIMES or CONTEMPORARY topics:
-  BROLL must use URBAN keywords: cityscape, modern buildings, skyline, highway, infrastructure, modern architecture, glass tower, empty urban street, traffic lights, bridge structure, aerial city view
-- REGARDLESS OF ERA: NEVER include any human presence in BROLL prompts
-
-For BROLL segments: Generate a concise English search query for cinematic footage (2-5 words).
-ABSOLUTE RULE for BROLL: DO NOT INCLUDE PEOPLE, HUMANS, FACES, SILHOUETTES, PERSON, HANDS, FEET, EYES, or any HUMAN ACTIVITY in the prompt. Use nature, architecture, or abstract metaphors.
-- For actions like planting/sowing: use 'seedling growing' or 'soil texture'. 
-- For actions like traveling: use 'road aerial' or 'moving clouds'.
-- Always prioritize WIDE SHOTS or MACRO (non-human).
-
-For IMAGE_GEN segments: Generate a detailed Whisk-style prompt following this structure:
-  [ERA PREFIX] [Detailed scene description: setting, action, lighting, atmosphere, characters]{{LOCKED_STYLE}}
-  - Start with one era prefix from the list above
-  - Include character descriptions with syar'i dress for females
-  - If prophets appear: add 'face replaced by intense white-golden divine light, facial features not visible'
-  - End with style suffix: '{effectiveStyleSuffix}'
-{customInstructionsSection}
-
+    private const string TEXT_OVERLAY_RULES = @"
 TEXT OVERLAY DETECTION (SELECTIVE - USE SPARINGLY):
 Only add textOverlay for HIGH-IMPACT moments. Segments with text overlays MUST use BROLL as background.
 
@@ -874,1056 +392,10 @@ EXCLUSIONS — NEVER add textOverlay for:
 - Closing/farewell phrases (""Wallahu a'lam bish shawab"", ""Wassalamu'alaikum"", etc.)
 - Opening greetings (""Assalamu'alaikum"", ""Bismillah"", etc.) unless it's a pivotal Quran verse
 - General narration, transitions, storytelling, context, explanations
-- Statements that are interesting but not scripture/hadith/pivotal thesis questions
+- Statements that are interesting but not scripture/hadith/pivotal thesis questions";
 
-RESPOND WITH JSON ONLY (no markdown):
-[
-  {{
-    ""index"": 0,
-    ""mediaType"": ""BROLL"" or ""IMAGE_GEN"",
-    ""prompt"": ""the generated prompt"",
-    ""textOverlay"": {{
-      ""type"": ""QuranVerse"",
-      ""text"": ""In the name of Allah"",
-      ""arabic"": ""بِسْمِ اللَّهِ"",
-      ""reference"": ""Surah Al-Fatiha 1:1""
-    }}
-  }}
-]
-Note: textOverlay is null/omitted for MOST segments. Only add for truly impactful moments.
-
-RULES:
-- Translate all prompts to English
-- For BROLL: Keep prompts short (2-5 words), focused on NATURE (for ancient/prophetic) or URBAN (for modern).
-- For BROLL: NEVER mention 'person', 'man', 'woman', 'people', 'crowd', 'face', 'silhouette', 'hands', 'feet', 'shadow person'.
-- For BROLL: ALSO AVOID human-adjacent terms that return human footage: 'mirror', 'reflection', 'shadow', 'window', 'doorway', 'selfie', 'walking', 'standing', 'sitting', 'running', 'praying', 'crying', 'laughing', 'embrace', 'handshake', 'footsteps', 'footprint'.
-  Use nature/urban metaphors instead: 'broken mirror' -> 'cracked earth texture', 'reflection' -> 'water surface', 'shadow' -> 'dark clouds'
-- For IMAGE_GEN: Include era prefix, detailed scene, locked style suffix
-- Never depict prophet faces
-- Avoid sensitive/haram visual triggers";
-
-        // Process in batches with parallel execution
-        var totalBatches = (int)Math.Ceiling((double)segments.Count / batchSize);
-        _logger.LogInformation("ClassifyBroll: Processing {Count} segments in {Batches} batches for topic '{Topic}'",
-            segments.Count, totalBatches, topic);
-
-        // Limit concurrent requests to avoid overwhelming the LLM
-        var semaphore = new SemaphoreSlim(3, 3);
-        var batchTasks = new List<Task>();
-        var resultsLock = new object();
-
-        for (int batchIdx = 0; batchIdx < totalBatches; batchIdx++)
-        {
-            var batchIdxCapture = batchIdx;
-            var batchStart = batchIdx * batchSize;
-            var batchSegments = segments.Skip(batchStart).Take(batchSize).ToList();
-
-            var batchTask = Task.Run(async () =>
-            {
-                await semaphore.WaitAsync(cancellationToken);
-                try
-                {
-                    _logger.LogDebug("ClassifyBroll: Batch {Batch}/{Total} — segments {Start}-{End}",
-                        batchIdxCapture + 1, totalBatches, batchStart, batchStart + batchSegments.Count - 1);
-
-                    var userPrompt = new System.Text.StringBuilder();
-                    userPrompt.AppendLine($"Topic: {topic}");
-                    userPrompt.AppendLine();
-                    userPrompt.AppendLine("SEGMENTS:");
-                    for (int i = 0; i < batchSegments.Count; i++)
-                    {
-                        userPrompt.AppendLine($"[{i}] {batchSegments[i].Timestamp} {batchSegments[i].ScriptText}");
-                    }
-
-                    var request = new GeminiChatRequest
-                    {
-                        Model = _settings.Model,
-                        Messages = new List<GeminiMessage>
-                        {
-                            new() { Role = "system", Content = classifySystemPrompt },
-                            new() { Role = "user", Content = userPrompt.ToString() }
-                        },
-                        Temperature = 0.4,
-                        MaxTokens = Math.Min(batchSegments.Count * 200, 4000)
-                    };
-
-                    var response = await _httpClient.PostAsJsonAsync(
-                        "v1/chat/completions",
-                        request,
-                        cancellationToken);
-
-                    response.EnsureSuccessStatusCode();
-
-                    var geminiResponse = await response.Content.ReadFromJsonAsync<GeminiChatResponse>(
-                        cancellationToken: cancellationToken);
-
-                    var rawContent = geminiResponse?.Choices?.FirstOrDefault()?.Message?.Content;
-                    var batchResults = new List<BrollPromptItem>();
-
-                    if (!string.IsNullOrEmpty(rawContent))
-                    {
-                        var cleanedJson = CleanJsonResponse(rawContent);
-                        _logger.LogDebug("ClassifyBroll batch {Batch} response: {Content}",
-                            batchIdxCapture + 1, rawContent.Length > 200 ? rawContent[..200] + "..." : rawContent);
-
-                        try
-                        {
-                            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                            var parsed = JsonSerializer.Deserialize<List<BrollClassificationResponse>>(cleanedJson, options);
-
-                            if (parsed != null)
-                            {
-                                foreach (var item in parsed)
-                                {
-                                    var localIdx = item.Index;
-                                    if (localIdx >= 0 && localIdx < batchSegments.Count)
-                                    {
-                                        var globalIdx = batchStart + localIdx;
-                                        var promptItem = new BrollPromptItem
-                                        {
-                                            Index = globalIdx,
-                                            Timestamp = segments[globalIdx].Timestamp,
-                                            ScriptText = segments[globalIdx].ScriptText,
-                                            MediaType = item.MediaType?.ToUpperInvariant() == "IMAGE_GEN"
-                                                ? BrollMediaType.ImageGeneration
-                                                : BrollMediaType.BrollVideo,
-                                            Prompt = item.Prompt ?? string.Empty
-                                        };
-
-                                        // Parse text overlay if present in LLM response
-                                        if (item.TextOverlay != null && !string.IsNullOrEmpty(item.TextOverlay.Text))
-                                        {
-                                            try
-                                            {
-                                                var overlayType = item.TextOverlay.Type?.ToLowerInvariant()?.Replace("_", "") switch
-                                                {
-                                                    "quranverse" => Models.TextOverlayType.QuranVerse,
-                                                    "hadith" => Models.TextOverlayType.Hadith,
-                                                    "rhetoricalquestion" => Models.TextOverlayType.RhetoricalQuestion,
-                                                    "keyphrase" => Models.TextOverlayType.KeyPhrase,
-                                                    _ => Models.TextOverlayType.KeyPhrase
-                                                };
-
-                                                promptItem.TextOverlay = new Models.TextOverlay
-                                                {
-                                                    Type = overlayType,
-                                                    Text = item.TextOverlay.Text,
-                                                    ArabicText = item.TextOverlay.Arabic,
-                                                    Reference = item.TextOverlay.Reference,
-                                                    Style = overlayType switch
-                                                    {
-                                                        Models.TextOverlayType.QuranVerse => Models.TextStyle.Quran,
-                                                        Models.TextOverlayType.Hadith => Models.TextStyle.Hadith,
-                                                        Models.TextOverlayType.RhetoricalQuestion => Models.TextStyle.Question,
-                                                        _ => Models.TextStyle.Default
-                                                    }
-                                                };
-
-                                                // Auto-enforce: Text overlays get B-roll backgrounds
-                                                promptItem.MediaType = BrollMediaType.BrollVideo;
-                                                _logger.LogDebug("Text overlay detected for segment {Index}: {Type} — {Text}",
-                                                    globalIdx, overlayType, item.TextOverlay.Text);
-                                            }
-                                            catch (Exception overlayEx)
-                                            {
-                                                _logger.LogWarning(overlayEx, "Failed to parse text overlay for segment {Index}", globalIdx);
-                                            }
-                                        }
-
-                                        // Auto-detect era and assign appropriate filter/texture
-                                        EraLibrary.AutoAssignEraStyle(promptItem);
-
-                                        batchResults.Add(promptItem);
-                                    }
-                                }
-                            }
-                        }
-                        catch (JsonException ex)
-                        {
-                            _logger.LogWarning("ClassifyBroll batch {Batch} JSON parse failed: {Error}", batchIdxCapture + 1, ex.Message);
-
-                            // Add fallback items for this batch
-                            for (int i = 0; i < batchSegments.Count; i++)
-                            {
-                                var globalIdx = batchStart + i;
-                                batchResults.Add(new BrollPromptItem
-                                {
-                                    Index = globalIdx,
-                                    Timestamp = segments[globalIdx].Timestamp,
-                                    ScriptText = segments[globalIdx].ScriptText,
-                                    MediaType = BrollMediaType.BrollVideo,
-                                    Prompt = "atmospheric cinematic footage"
-                                });
-                            }
-                        }
-                    }
-
-                    // Add batch results to main results
-                    lock (resultsLock)
-                    {
-                        results.AddRange(batchResults);
-                    }
-
-                    // Notify caller with current results so far
-                    if (onBatchComplete != null)
-                    {
-                        List<BrollPromptItem> snapshot;
-                        lock (resultsLock)
-                        {
-                            snapshot = results.OrderBy(r => r.Index).ToList();
-                        }
-                        await onBatchComplete(snapshot);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "ClassifyBroll batch {Batch} failed, segments {Start}-{End} will use fallback",
-                        batchIdxCapture + 1, batchStart, batchStart + batchSegments.Count - 1);
-
-                    // Fallback only for this batch's segments
-                    lock (resultsLock)
-                    {
-                        for (int i = 0; i < batchSegments.Count; i++)
-                        {
-                            var globalIdx = batchStart + i;
-                            if (!results.Any(r => r.Index == globalIdx))
-                            {
-                                results.Add(new BrollPromptItem
-                                {
-                                    Index = globalIdx,
-                                    Timestamp = segments[globalIdx].Timestamp,
-                                    ScriptText = segments[globalIdx].ScriptText,
-                                    MediaType = BrollMediaType.BrollVideo,
-                                    Prompt = "atmospheric cinematic footage"
-                                });
-                            }
-                        }
-                    }
-
-                    // Notify caller with current results (including fallbacks)
-                    if (onBatchComplete != null)
-                    {
-                        List<BrollPromptItem> snapshot;
-                        lock (resultsLock)
-                        {
-                            snapshot = results.OrderBy(r => r.Index).ToList();
-                        }
-                        await onBatchComplete(snapshot);
-                    }
-                }
-                finally
-                {
-                    semaphore.Release();
-                }
-            }, cancellationToken);
-
-            batchTasks.Add(batchTask);
-        }
-
-        await Task.WhenAll(batchTasks);
-
-        // Fill in any missing segments
-        for (int i = 0; i < segments.Count; i++)
-        {
-            if (!results.Any(r => r.Index == i))
-            {
-                results.Add(new BrollPromptItem
-                {
-                    Index = i,
-                    Timestamp = segments[i].Timestamp,
-                    ScriptText = segments[i].ScriptText,
-                    MediaType = BrollMediaType.BrollVideo,
-                    Prompt = "atmospheric cinematic footage"
-                });
-            }
-        }
-
-        results = results.OrderBy(r => r.Index).ToList();
-
-        var brollCount = results.Count(r => r.MediaType == BrollMediaType.BrollVideo);
-        var imageGenCount = results.Count(r => r.MediaType == BrollMediaType.ImageGeneration);
-        _logger.LogInformation(
-            "ClassifyBroll: Classified {Total} segments ({Broll} broll, {ImageGen} image gen) in {Ms}ms across {Batches} batches",
-            results.Count, brollCount, imageGenCount, stopwatch.ElapsedMilliseconds, totalBatches);
-
-        _logger.LogInformation("ClassifyBroll: Completed with {Count} items in {Ms}ms", results.Count, stopwatch.ElapsedMilliseconds);
-        return results;
-    }
-
-    /// <summary>
-    /// Classification-only: determines BROLL vs IMAGE_GEN for each segment without generating prompts.
-    /// Much faster than ClassifyAndGeneratePromptsAsync since prompts are skipped.
-    /// </summary>
-    public async Task<List<BrollPromptItem>> ClassifySegmentsOnlyAsync(
-        List<(string Timestamp, string ScriptText)> segments,
-        string topic,
-        ImagePromptConfig? config = null,
-        Func<List<BrollPromptItem>, Task>? onBatchComplete = null,
-        CancellationToken cancellationToken = default)
-    {
-        var results = new List<BrollPromptItem>();
-        if (segments.Count == 0) return results;
-
-        var stopwatch = Stopwatch.StartNew();
-        const int batchSize = 15; // Larger batches since no prompt gen = smaller response
-
-        var eraBiasInstruction = config?.DefaultEra != VideoEra.None && config?.DefaultEra != null
-            ? $"\nDEFAULT ERA CONTEXT: Unless a segment clearly belongs to a different era, default to {config.DefaultEra} era.\n"
-            : string.Empty;
-
-        var classifySystemPrompt = $@"You are a visual content classifier for Islamic video essays. Classify each segment as BROLL or IMAGE_GEN.
-{eraBiasInstruction}
-BROLL - Stock footage (no humans): landscapes, nature, textures, cityscapes, atmospheric shots
-IMAGE_GEN - AI image generation: historical scenes, prophets, supernatural events, specific Islamic historical contexts, abstract spiritual concepts
-
-TEXT OVERLAY DETECTION (SELECTIVE - USE SPARINGLY):
-Only add textOverlay for HIGH-IMPACT moments. Segments with text overlays MUST use BROLL as background.
-
-Overlay types (USE SPARINGLY — max ~25% of total segments):
-- QURAN VERSES: ONLY explicit Quranic ayat quotations → type: ""QuranVerse"", include arabic text + translation + surah reference
-- HADITH: ONLY explicit Prophet's sayings with known source → type: ""Hadith"", include arabic + translation + source
-- RHETORICAL QUESTIONS: ONLY powerful, pivotal questions that define the video's thesis → type: ""RhetoricalQuestion""
-- KEY DECLARATIONS: ONLY short, punchy declarations (max 8 words) that are a direct claim or thesis statement — NOT definitions, descriptions, or explanations. Example YES: ""Imam Mahdi akan muncul di akhir zaman"". Example NO: ""Gelar metaforis bagi raja yang adil..."" (that's a definition, not a declaration).
-
-SPACING RULES (CRITICAL):
-- NEVER place textOverlay on 2 consecutive segments. Minimum 2-3 segments gap between overlays.
-- If two potential overlays are close, pick ONLY the stronger one.
-
-EXCLUSIONS — NEVER add textOverlay for:
-- Closing/farewell phrases (""Wallahu a'lam bish shawab"", ""Wassalamu'alaikum"", etc.)
-- Opening greetings (""Assalamu'alaikum"", ""Bismillah"", etc.) unless it's a pivotal Quran verse
-- General narration, transitions, storytelling, context, explanations
-- Statements that are interesting but not scripture/hadith/pivotal thesis questions
-
-RESPOND WITH JSON ONLY (no markdown):
-[
-  {{
-    ""index"": 0,
-    ""mediaType"": ""BROLL"" or ""IMAGE_GEN"",
-    ""textOverlay"": {{
-      ""type"": ""QuranVerse"",
-      ""text"": ""In the name of Allah"",
-      ""arabic"": ""بِسْمِ اللَّهِ"",
-      ""reference"": ""Surah Al-Fatiha 1:1""
-    }}
-  }}
-]
-Note: textOverlay is null/omitted for MOST segments. Only add for truly impactful moments.
-
-RULES:
-- Return index, mediaType, and textOverlay (if applicable)
-- Do NOT generate image/search prompts — just classify and detect overlays";
-
-        var totalBatches = (int)Math.Ceiling((double)segments.Count / batchSize);
-        var semaphore = new SemaphoreSlim(3, 3);
-        var batchTasks = new List<Task>();
-        var resultsLock = new object();
-
-        for (int batchIdx = 0; batchIdx < totalBatches; batchIdx++)
-        {
-            var batchIdxCapture = batchIdx;
-            var batchStart = batchIdx * batchSize;
-            var batchSegments = segments.Skip(batchStart).Take(batchSize).ToList();
-
-            var batchTask = Task.Run(async () =>
-            {
-                await semaphore.WaitAsync(cancellationToken);
-                try
-                {
-                    var userPrompt = new System.Text.StringBuilder();
-                    userPrompt.AppendLine($"Topic: {topic}");
-                    userPrompt.AppendLine("\nSEGMENTS:");
-                    for (int i = 0; i < batchSegments.Count; i++)
-                        userPrompt.AppendLine($"[{i}] {batchSegments[i].Timestamp} {batchSegments[i].ScriptText}");
-
-                    var request = new GeminiChatRequest
-                    {
-                        Model = _settings.Model,
-                        Messages = new List<GeminiMessage>
-                        {
-                            new() { Role = "system", Content = classifySystemPrompt },
-                            new() { Role = "user", Content = userPrompt.ToString() }
-                        },
-                        Temperature = 0.3,
-                        MaxTokens = Math.Min(batchSegments.Count * 150, 4000) // Larger for text overlay data
-                    };
-
-                    var response = await _httpClient.PostAsJsonAsync("v1/chat/completions", request, cancellationToken);
-                    response.EnsureSuccessStatusCode();
-
-                    var geminiResponse = await response.Content.ReadFromJsonAsync<GeminiChatResponse>(cancellationToken: cancellationToken);
-                    var rawContent = geminiResponse?.Choices?.FirstOrDefault()?.Message?.Content;
-                    var batchResults = new List<BrollPromptItem>();
-
-                    if (!string.IsNullOrEmpty(rawContent))
-                    {
-                        var cleanedJson = CleanJsonResponse(rawContent);
-                        try
-                        {
-                            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                            var parsed = JsonSerializer.Deserialize<List<BrollClassificationResponse>>(cleanedJson, options);
-                            if (parsed != null)
-                            {
-                                foreach (var item in parsed)
-                                {
-                                    if (item.Index >= 0 && item.Index < batchSegments.Count)
-                                    {
-                                        var globalIdx = batchStart + item.Index;
-                                        var promptItem = new BrollPromptItem
-                                        {
-                                            Index = globalIdx,
-                                            Timestamp = segments[globalIdx].Timestamp,
-                                            ScriptText = segments[globalIdx].ScriptText,
-                                            MediaType = item.MediaType?.ToUpperInvariant() == "IMAGE_GEN"
-                                                ? BrollMediaType.ImageGeneration
-                                                : BrollMediaType.BrollVideo,
-                                            Prompt = string.Empty // No prompt yet
-                                        };
-
-                                        // Parse text overlay if present
-                                        if (item.TextOverlay != null && !string.IsNullOrEmpty(item.TextOverlay.Text))
-                                        {
-                                            try
-                                            {
-                                                var overlayType = item.TextOverlay.Type?.ToLowerInvariant()?.Replace("_", "") switch
-                                                {
-                                                    "quranverse" => Models.TextOverlayType.QuranVerse,
-                                                    "hadith" => Models.TextOverlayType.Hadith,
-                                                    "rhetoricalquestion" => Models.TextOverlayType.RhetoricalQuestion,
-                                                    "keyphrase" => Models.TextOverlayType.KeyPhrase,
-                                                    _ => Models.TextOverlayType.KeyPhrase
-                                                };
-
-                                                promptItem.TextOverlay = new Models.TextOverlay
-                                                {
-                                                    Type = overlayType,
-                                                    Text = item.TextOverlay.Text,
-                                                    ArabicText = item.TextOverlay.Arabic,
-                                                    Reference = item.TextOverlay.Reference,
-                                                    Style = overlayType switch
-                                                    {
-                                                        Models.TextOverlayType.QuranVerse => Models.TextStyle.Quran,
-                                                        Models.TextOverlayType.Hadith => Models.TextStyle.Hadith,
-                                                        Models.TextOverlayType.RhetoricalQuestion => Models.TextStyle.Question,
-                                                        _ => Models.TextStyle.Default
-                                                    }
-                                                };
-
-                                                // Auto-enforce: Text overlays get B-roll backgrounds
-                                                promptItem.MediaType = BrollMediaType.BrollVideo;
-                                                _logger.LogDebug("ClassifyOnly: Text overlay detected for segment {Index}: {Type} — {Text}",
-                                                    globalIdx, overlayType, item.TextOverlay.Text);
-                                            }
-                                            catch (Exception overlayEx)
-                                            {
-                                                _logger.LogWarning(overlayEx, "ClassifyOnly: Failed to parse text overlay for segment {Index}", globalIdx);
-                                            }
-                                        }
-
-                                        batchResults.Add(promptItem);
-                                    }
-                                }
-                            }
-                        }
-                        catch (JsonException)
-                        {
-                            _logger.LogWarning("ClassifyOnly batch {Batch} JSON parse failed", batchIdxCapture + 1);
-                        }
-                    }
-
-                    // Fill missing with fallback
-                    for (int i = 0; i < batchSegments.Count; i++)
-                    {
-                        var globalIdx = batchStart + i;
-                        if (!batchResults.Any(r => r.Index == globalIdx))
-                        {
-                            batchResults.Add(new BrollPromptItem
-                            {
-                                Index = globalIdx,
-                                Timestamp = segments[globalIdx].Timestamp,
-                                ScriptText = segments[globalIdx].ScriptText,
-                                MediaType = BrollMediaType.BrollVideo,
-                                Prompt = string.Empty
-                            });
-                        }
-                    }
-
-                    lock (resultsLock) { results.AddRange(batchResults); }
-
-                    if (onBatchComplete != null)
-                    {
-                        List<BrollPromptItem> snapshot;
-                        lock (resultsLock) { snapshot = results.OrderBy(r => r.Index).ToList(); }
-                        await onBatchComplete(snapshot);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "ClassifyOnly batch {Batch} failed", batchIdxCapture + 1);
-                    lock (resultsLock)
-                    {
-                        for (int i = 0; i < batchSegments.Count; i++)
-                        {
-                            var globalIdx = batchStart + i;
-                            if (!results.Any(r => r.Index == globalIdx))
-                            {
-                                results.Add(new BrollPromptItem
-                                {
-                                    Index = globalIdx,
-                                    Timestamp = segments[globalIdx].Timestamp,
-                                    ScriptText = segments[globalIdx].ScriptText,
-                                    MediaType = BrollMediaType.BrollVideo,
-                                    Prompt = string.Empty
-                                });
-                            }
-                        }
-                    }
-                    if (onBatchComplete != null)
-                    {
-                        List<BrollPromptItem> snapshot;
-                        lock (resultsLock) { snapshot = results.OrderBy(r => r.Index).ToList(); }
-                        await onBatchComplete(snapshot);
-                    }
-                }
-                finally { semaphore.Release(); }
-            }, cancellationToken);
-
-            batchTasks.Add(batchTask);
-        }
-
-        await Task.WhenAll(batchTasks);
-
-        // Fill missing
-        for (int i = 0; i < segments.Count; i++)
-        {
-            if (!results.Any(r => r.Index == i))
-            {
-                results.Add(new BrollPromptItem
-                {
-                    Index = i, Timestamp = segments[i].Timestamp, ScriptText = segments[i].ScriptText,
-                    MediaType = BrollMediaType.BrollVideo, Prompt = string.Empty
-                });
-            }
-        }
-
-        results = results.OrderBy(r => r.Index).ToList();
-        var brollCount = results.Count(r => r.MediaType == BrollMediaType.BrollVideo);
-        var imageGenCount = results.Count(r => r.MediaType == BrollMediaType.ImageGeneration);
-        _logger.LogInformation("ClassifyOnly: {Total} segments ({Broll} broll, {ImageGen} image gen) in {Ms}ms",
-            results.Count, brollCount, imageGenCount, stopwatch.ElapsedMilliseconds);
-
-        return results;
-    }
-
-    /// <summary>
-    /// Batch-generate prompts for segments of a specific media type.
-    /// Updates items in-place with generated prompts.
-    /// </summary>
-    public async Task GeneratePromptsForTypeBatchAsync(
-        List<BrollPromptItem> items,
-        BrollMediaType targetType,
-        string topic,
-        ImagePromptConfig? config = null,
-        Func<int, Task>? onProgress = null,
-        CancellationToken cancellationToken = default)
-    {
-        var targetItems = items.Where(i => i.MediaType == targetType).ToList();
-        if (targetItems.Count == 0) return;
-
-        var stopwatch = Stopwatch.StartNew();
-        var semaphore = new SemaphoreSlim(3, 3);
-        int completedCount = 0;
-
-        var tasks = targetItems.Select(async item =>
-        {
-            await semaphore.WaitAsync(cancellationToken);
-            try
-            {
-                var generatedPrompt = await GeneratePromptForTypeAsync(
-                    item.ScriptText, targetType, topic, config, cancellationToken, item.Index);
-                    
-                item.Prompt = generatedPrompt ?? (targetType == BrollMediaType.BrollVideo ? "cinematic footage" : "islamic historical scene");
-
-                // Auto-detect era for IMAGE_GEN
-                if (targetType == BrollMediaType.ImageGeneration)
-                    EraLibrary.AutoAssignEraStyle(item);
-
-                var count = Interlocked.Increment(ref completedCount);
-                if (onProgress != null) await onProgress(count);
-            }
-            finally { semaphore.Release(); }
-        });
-
-        await Task.WhenAll(tasks);
-
-        _logger.LogInformation("GeneratePromptsBatch: Generated {Count} {Type} prompts in {Ms}ms",
-            targetItems.Count, targetType, stopwatch.ElapsedMilliseconds);
-    }
-
-    public async Task<string> GeneratePromptForTypeAsync(
-        string scriptText,
-        BrollMediaType mediaType,
-        string topic,
-        ImagePromptConfig? config = null,
-        CancellationToken cancellationToken = default,
-        int segmentIndex = 0)
-    {
-        var activeConfig = config ?? new ImagePromptConfig();
-        
-        // Force angle rotation if Auto
-        if (mediaType == BrollMediaType.ImageGeneration && activeConfig.Composition == ImageComposition.Auto)
-        {
-            activeConfig = new ImagePromptConfig
-            {
-                ArtStyle = activeConfig.ArtStyle,
-                CustomArtStyle = activeConfig.CustomArtStyle,
-                Lighting = activeConfig.Lighting,
-                ColorPalette = activeConfig.ColorPalette,
-                Composition = GetDynamicComposition(segmentIndex),
-                DefaultEra = activeConfig.DefaultEra,
-                CustomInstructions = activeConfig.CustomInstructions
-            };
-        }
-
-        var effectiveStyleSuffix = activeConfig.EffectiveStyleSuffix;
-        var eraBias = activeConfig.DefaultEra != VideoEra.None
-            ? $"\nDEFAULT ERA: Bias toward {activeConfig.DefaultEra} era visual style.\n"
-            : string.Empty;
-        var customInstr = !string.IsNullOrWhiteSpace(activeConfig.CustomInstructions)
-            ? $"\nUSER INSTRUCTIONS: {activeConfig.CustomInstructions}\n"
-            : string.Empty;
-
-        string systemPrompt;
-        
-        if (mediaType == BrollMediaType.BrollVideo)
-        {
-            systemPrompt = $@"You are a visual content analyzer for Islamic video essays.
-Your task: Generate a concise English search query for STOCK FOOTAGE (B-Roll) based on the script segment.
-
-CONTEXT: {topic}
-{eraBias}
-RULES for BROLL:
-- Output ONLY the search query (2-5 words).
-- ABSOLUTELY NO PEOPLE, NO HUMAN BODY PARTS, NO FACES, NO SILHOUETTES.
+    private const string BROLL_NO_HUMAN_RULES = @"ABSOLUTE RULE: NO PEOPLE, NO HUMAN BODY PARTS, NO FACES, NO SILHOUETTES.
 - Use NATURE or URBAN imagery depending on context.
 - Avoid human-adjacent terms (walking, praying, hands, shadows).
-- Examples: 'storm clouds timelapse', 'desert sand dunes', 'modern city skyline', 'flowing river', 'ancient ruins'.
-{customInstr}
-SCRIPT SEGMENT: ""{scriptText}""
-
-OUTPUT (Just the search query, no quotes):";
-        }
-        else // ImageGeneration
-        {
-            systemPrompt = $@"You are an AI image prompt generator for Islamic video essays.
-Your task: Generate a detailed, high-quality image generation prompt for Whisk/Imagen.
-
-CONTEXT: {topic}
-{eraBias}
-RULES for IMAGE_GEN:
-- Output ONLY the prompt string.
-- Follow this structure: [ERA PREFIX] [Detailed Description]{{LOCKED_STYLE}}
-- ERA PREFIXES: {EraLibrary.GetEraSelectionInstructions()}
-- CHARACTER RULES: {Models.CharacterRules.GENDER_RULES}
-- PROPHET RULES: {Models.CharacterRules.PROPHET_RULES}
-- LOCKED STYLE: {effectiveStyleSuffix}
-
-COMPOSITION RULES (CRITICAL - MUST FOLLOW):
-- Generate ONE single unified scene. NEVER create split-screen, side-by-side, before/after, or montage compositions.
-- The image must depict ONE moment, ONE location, ONE continuous scene.
-- Do NOT use words like 'split', 'divided', 'left side / right side', 'juxtapose', 'contrast between two scenes', 'half and half'.
-- If comparing eras, pick ONE era per image, not both.
-- NO ERA BLENDING: Each image must exist in ONE single time period. NEVER combine ancient and modern elements in the same scene (e.g. NO ancient scrolls next to computer monitors, NO clay pots in server rooms, NO castles behind modern screens). If the script mentions both eras, choose the PRIMARY era for this segment only.
-- FULL BLEED: The image must fill the entire frame edge-to-edge. NO black bars, NO letterboxing, NO borders, NO cinematic bars at top/bottom or sides. The scene extends to all edges of the canvas.
-- NO TEXT: The image must contain ZERO text, letters, words, numbers, captions, titles, watermarks, or any written content. Pure visual scene only.
-- VISUAL VARIETY (CRITICAL): NEVER repeat the same primary subject as adjacent segments. Cycle through different visual categories: wide landscape/environment, architectural detail, object close-up, atmospheric/sky, interior space, natural element. If the previous segment showed an object (e.g. clay jar), this segment MUST show something different (e.g. wide cave interior, desert landscape, dramatic sky). Vary focal distance: alternate between wide shots, medium shots, and close-ups across consecutive segments.
-{customInstr}
-SCRIPT SEGMENT: ""{scriptText}""
-
-OUTPUT (Just the prompt, no quotes):";
-        }
-
-        var result = await GenerateContentAsync(systemPrompt, $"Generate prompt for: {scriptText}", maxTokens: 300, temperature: 0.7, cancellationToken: cancellationToken);
-        return result?.Trim().Trim('"');
-    }
-
-    // =============================================
-    // CONTEXT-AWARE GENERATION (Pass 1 + Pass 2)
-    // =============================================
-
-    public async Task<GlobalScriptContext?> ExtractGlobalContextAsync(
-        List<BrollPromptItem> segments,
-        string topic,
-        CancellationToken cancellationToken = default)
-    {
-        var sw = System.Diagnostics.Stopwatch.StartNew();
-        _logger.LogInformation("ExtractGlobalContext: Analyzing {Count} segments for topic: {Topic}", segments.Count, topic);
-
-        try
-        {
-            // Build full script for analysis
-            var fullScript = string.Join("\n", segments.Select((s, i) =>
-                $"[Segment {i}] [{s.Timestamp}] {s.ScriptText}"));
-
-            var userPrompt = $"TOPIC: {topic}\n\nFULL SCRIPT ({segments.Count} segments):\n{fullScript}";
-
-            var response = await GenerateContentAsync(
-                GlobalContextExtractionPrompt,
-                userPrompt,
-                maxTokens: 4000,
-                temperature: 0.3,
-                cancellationToken: cancellationToken);
-
-            if (string.IsNullOrWhiteSpace(response))
-            {
-                _logger.LogWarning("ExtractGlobalContext: Empty response from LLM");
-                return null;
-            }
-
-            // Parse JSON response
-            var cleaned = response.Trim();
-            if (cleaned.StartsWith("```")) cleaned = cleaned.Split('\n', 2).Last();
-            if (cleaned.EndsWith("```")) cleaned = cleaned[..cleaned.LastIndexOf("```")];
-            cleaned = cleaned.Trim();
-
-            var dto = System.Text.Json.JsonSerializer.Deserialize<GlobalContextExtractionResponse>(
-                cleaned,
-                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-
-            if (dto == null)
-            {
-                _logger.LogWarning("ExtractGlobalContext: Failed to deserialize response");
-                return null;
-            }
-
-            var ctx = dto.ToGlobalScriptContext(topic);
-            sw.Stop();
-            _logger.LogInformation(
-                "ExtractGlobalContext: Extracted {Locs} locations, {Chars} characters, {Eras} eras, {Moods} mood beats in {Ms}ms",
-                ctx.PrimaryLocations.Count, ctx.IdentifiedCharacters.Count,
-                ctx.EraTimeline.Count, ctx.MoodBeats.Count, sw.ElapsedMilliseconds);
-
-            return ctx;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "ExtractGlobalContext: Failed to extract global context");
-            return null;
-        }
-    }
-
-    public async Task GeneratePromptsWithContextAsync(
-        List<BrollPromptItem> items,
-        BrollMediaType targetType,
-        string topic,
-        GlobalScriptContext globalContext,
-        ImagePromptConfig? config = null,
-        Func<int, Task>? onProgress = null,
-        int windowSize = 2,
-        CancellationToken cancellationToken = default)
-    {
-        var sw = System.Diagnostics.Stopwatch.StartNew();
-        var targetItems = items.Where(i => i.MediaType == targetType).ToList();
-
-        _logger.LogInformation("GeneratePromptsWithContext: {Count} {Type} items with context (window=±{W})",
-            targetItems.Count, targetType, windowSize);
-
-        var semaphore = new SemaphoreSlim(3);
-        int completedCount = 0;
-
-        var tasks = targetItems.Select(async item =>
-        {
-            await semaphore.WaitAsync(cancellationToken);
-            try
-            {
-                var prompt = await GeneratePromptWithContextAsync(
-                    item, items, topic, globalContext, config, windowSize, cancellationToken);
-
-                item.Prompt = !string.IsNullOrWhiteSpace(prompt)
-                    ? prompt
-                    : (targetType == BrollMediaType.BrollVideo ? "cinematic footage" : "islamic historical scene");
-
-                if (targetType == BrollMediaType.ImageGeneration)
-                    EraLibrary.AutoAssignEraStyle(item);
-
-                var count = Interlocked.Increment(ref completedCount);
-                if (onProgress != null) await onProgress(count);
-            }
-            finally { semaphore.Release(); }
-        });
-
-        await Task.WhenAll(tasks);
-
-        _logger.LogInformation("GeneratePromptsWithContext: Generated {Count} {Type} prompts in {Ms}ms",
-            targetItems.Count, targetType, sw.ElapsedMilliseconds);
-    }
-
-    public async Task<string> GeneratePromptWithContextAsync(
-        BrollPromptItem currentItem,
-        List<BrollPromptItem> allItems,
-        string topic,
-        GlobalScriptContext globalContext,
-        ImagePromptConfig? config = null,
-        int windowSize = 2,
-        CancellationToken cancellationToken = default)
-    {
-        var systemPrompt = BuildContextualPrompt(
-            currentItem, allItems, globalContext, topic, config, windowSize);
-
-        var userPrompt = $"Generate prompt for segment {currentItem.Index}: {currentItem.ScriptText}";
-
-        var result = await GenerateContentAsync(
-            systemPrompt,
-            userPrompt,
-            maxTokens: 500,
-            temperature: 0.7,
-            cancellationToken: cancellationToken);
-
-        return result?.Trim().Trim('"') ?? string.Empty;
-    }
-
-    private string BuildContextualPrompt(
-        BrollPromptItem currentItem,
-        List<BrollPromptItem> allItems,
-        GlobalScriptContext ctx,
-        string topic,
-        ImagePromptConfig? config,
-        int windowSize)
-    {
-        var sb = new System.Text.StringBuilder();
-        var mediaType = currentItem.MediaType;
-
-        // --- Global context ---
-        sb.AppendLine($"TOPIC: {topic}");
-        sb.AppendLine($"TOTAL SEGMENTS: {allItems.Count}");
-        sb.AppendLine($"CURRENT SEGMENT INDEX: {currentItem.Index}");
-        sb.AppendLine();
-
-        if (ctx.PrimaryLocations.Count > 0)
-            sb.AppendLine($"PRIMARY LOCATIONS: {string.Join(", ", ctx.PrimaryLocations)}");
-
-        if (ctx.IdentifiedCharacters.Count > 0)
-        {
-            sb.AppendLine("CHARACTERS:");
-            foreach (var c in ctx.IdentifiedCharacters)
-                sb.AppendLine($"  - {c.Name}: {c.Description}");
-        }
-
-        if (ctx.RecurringVisuals.Count > 0)
-            sb.AppendLine($"RECURRING VISUALS: {string.Join(", ", ctx.RecurringVisuals)}");
-
-        if (!string.IsNullOrEmpty(ctx.ColorProgression))
-            sb.AppendLine($"COLOR PROGRESSION: {ctx.ColorProgression}");
-
-        sb.AppendLine();
-
-        // --- Era for this segment ---
-        var era = ctx.GetEraForSegment(currentItem.Index);
-        if (era != null)
-        {
-            sb.AppendLine($"CURRENT ERA: {era.Era}");
-            if (!string.IsNullOrEmpty(era.Description))
-                sb.AppendLine($"ERA CONTEXT: {era.Description}");
-        }
-
-        // --- Mood beat for this segment ---
-        var mood = ctx.GetMoodBeatForSegment(currentItem.Index);
-        if (mood != null)
-        {
-            sb.AppendLine($"CURRENT MOOD: {mood.Mood} — {mood.Description}");
-            if (mood.VisualKeywords.Count > 0)
-                sb.AppendLine($"MOOD VISUALS: {string.Join(", ", mood.VisualKeywords)}");
-
-            // Auto visual settings from mood
-            if (config != null)
-            {
-                if (config.Lighting == ImageLighting.Auto && mood.SuggestedLighting.HasValue)
-                    sb.AppendLine($"SUGGESTED LIGHTING: {ImageStyleMappings.GetLightingSuffix(mood.SuggestedLighting.Value)}");
-
-                if (config.ColorPalette == ImageColorPalette.Auto && mood.SuggestedPalette.HasValue)
-                    sb.AppendLine($"SUGGESTED PALETTE: {ImageStyleMappings.GetColorPaletteSuffix(mood.SuggestedPalette.Value)}");
-
-                if (config.Composition == ImageComposition.Auto)
-                {
-                    var forcedAngle = GetDynamicComposition(currentItem.Index);
-                    sb.AppendLine($"SUGGESTED ANGLE: {ImageStyleMappings.GetCompositionSuffix(forcedAngle)}");
-                }
-                else if (config.Composition != ImageComposition.Auto)
-                {
-                    sb.AppendLine($"SUGGESTED ANGLE: {ImageStyleMappings.GetCompositionSuffix(config.Composition)}");
-                }
-
-                // If they had a specific reason for angle/lighting, we show it
-                if (!string.IsNullOrEmpty(mood.VisualRationale))
-                    sb.AppendLine($"RATIONALE: {mood.VisualRationale}");
-            }
-        }
-
-        sb.AppendLine();
-
-        // --- Sliding window context ---
-        var idx = currentItem.Index;
-        var windowStart = Math.Max(0, idx - windowSize);
-        var windowEnd = Math.Min(allItems.Count - 1, idx + windowSize);
-
-        sb.AppendLine("SURROUNDING SEGMENTS:");
-        for (int i = windowStart; i <= windowEnd; i++)
-        {
-            var seg = allItems[i];
-            var marker = i == idx ? ">>>" : "   ";
-            sb.AppendLine($"  {marker} [{i}] [{seg.Timestamp}] {seg.ScriptText}");
-        }
-        sb.AppendLine();
-
-        // --- Type-specific instructions ---
-        var effectiveStyleSuffix = config?.EffectiveStyleSuffix ?? Models.ImageVisualStyle.BASE_STYLE_SUFFIX;
-        var customInstr = !string.IsNullOrWhiteSpace(config?.CustomInstructions)
-            ? $"\nUSER INSTRUCTIONS: {config.CustomInstructions}\n"
-            : string.Empty;
-
-        if (mediaType == BrollMediaType.BrollVideo)
-        {
-            sb.AppendLine(@"TASK: Generate a concise English search query for STOCK FOOTAGE (B-Roll).
-RULES:
-- Output ONLY the search query (2-5 words).
-- ABSOLUTELY NO PEOPLE, NO HUMAN BODY PARTS, NO FACES, NO SILHOUETTES.
-- Match the era and mood context above.
-- Use NATURE imagery for ancient eras, URBAN imagery for modern.
-- Examples: 'storm clouds timelapse', 'desert sand dunes', 'ancient ruins'.
-OUTPUT (Just the search query, no quotes):");
-        }
-        else
-        {
-            sb.AppendLine($@"TASK: Generate a detailed, high-quality image generation prompt for Whisk/Imagen.
-RULES:
-- Output ONLY the prompt string.
-- Follow this structure: [ERA PREFIX] [Detailed Description]{{LOCKED_STYLE}}
-- ERA PREFIXES: {EraLibrary.GetEraSelectionInstructions()}
-- CHARACTER RULES: {Models.CharacterRules.GENDER_RULES}
-- PROPHET RULES: {Models.CharacterRules.PROPHET_RULES}
-- LOCKED STYLE: {effectiveStyleSuffix}
-- Use the MOOD and VISUAL KEYWORDS from context above to color the visual description.
-- Maintain visual consistency with adjacent segments.
-
-COMPOSITION RULES (CRITICAL - MUST FOLLOW):
-- Generate ONE single unified scene. NEVER create split-screen, side-by-side, before/after, or montage compositions.
-- The image must depict ONE moment, ONE location, ONE continuous scene.
-- Do NOT use words like 'split', 'divided', 'left side / right side', 'juxtapose', 'contrast between two scenes', 'half and half'.
-- If comparing eras, pick ONE era per image, not both.
-- NO ERA BLENDING: Each image must exist in ONE single time period. NEVER combine ancient and modern elements in the same scene (e.g. NO ancient scrolls next to computer monitors, NO clay pots in server rooms, NO castles behind modern screens). If the script mentions both eras, choose the PRIMARY era for this segment only.
-- FULL BLEED: The image must fill the entire frame edge-to-edge. NO black bars, NO letterboxing, NO borders, NO cinematic bars at top/bottom or sides. The scene extends to all edges of the canvas.
-- NO TEXT: The image must contain ZERO text, letters, words, numbers, captions, titles, watermarks, or any written content. Pure visual scene only.
-- VISUAL VARIETY (CRITICAL): NEVER repeat the same primary subject as adjacent segments. Cycle through different visual categories: wide landscape/environment, architectural detail, object close-up, atmospheric/sky, interior space, natural element. If the previous segment showed an object (e.g. clay jar), this segment MUST show something different (e.g. wide cave interior, desert landscape, dramatic sky). Vary focal distance: alternate between wide shots, medium shots, and close-ups across consecutive segments.
-OUTPUT (Just the prompt, no quotes):");
-        }
-
-        if (!string.IsNullOrEmpty(customInstr))
-            sb.AppendLine(customInstr);
-
-        return sb.ToString();
-    }
-
-    private ImageComposition GetDynamicComposition(int index)
-    {
-        var sequence = new[] 
-        {
-            ImageComposition.CinematicWide,
-            ImageComposition.CloseUp,
-            ImageComposition.LowAngle,
-            ImageComposition.WideShot,
-            ImageComposition.BirdsEye,
-            ImageComposition.CloseUp
-        };
-        return sequence[index % sequence.Length];
-    }
-}
-
-// Request/Response models for OpenAI-compatible API
-public class GeminiChatRequest
-{
-    [JsonPropertyName("model")]
-    public string Model { get; set; } = "gemini-2.5-flash";
-    
-    [JsonPropertyName("messages")]
-    public List<GeminiMessage> Messages { get; set; } = new();
-    
-    [JsonPropertyName("temperature")]
-    public double Temperature { get; set; } = 0.7;
-    
-    [JsonPropertyName("max_tokens")]
-    public int MaxTokens { get; set; } = 200;
-}
-
-public class GeminiMessage
-{
-    [JsonPropertyName("role")]
-    public string Role { get; set; } = string.Empty;
-    
-    [JsonPropertyName("content")]
-    public string Content { get; set; } = string.Empty;
-}
-
-public class GeminiChatResponse
-{
-    [JsonPropertyName("choices")]
-    public List<GeminiChoice>? Choices { get; set; }
-    
-    [JsonPropertyName("usage")]
-    public GeminiUsage? Usage { get; set; }
-}
-
-public class GeminiChoice
-{
-    [JsonPropertyName("message")]
-    public GeminiMessage? Message { get; set; }
-}
-
-public class GeminiUsage
-{
-    [JsonPropertyName("total_tokens")]
-    public int TotalTokens { get; set; }
-}
-
-public class GeminiSettings
-{
-    public string BaseUrl { get; set; } = "http://127.0.0.1:8317";
-    public string Model { get; set; } = "gemini-3-pro-preview";
-    public string ApiKey { get; set; } = "sk-dummy";
-    public int TimeoutSeconds { get; set; } = 30;
-}
-
-public class AuthSettings
-{
-    public string Email { get; set; } = "";
-    public string Password { get; set; } = "";
-}
-
-public class BrollClassificationResponse
-{
-    [JsonPropertyName("index")]
-    public int Index { get; set; }
-
-    [JsonPropertyName("mediaType")]
-    public string? MediaType { get; set; }
-
-    [JsonPropertyName("prompt")]
-    public string? Prompt { get; set; }
-
-    [JsonPropertyName("textOverlay")]
-    public TextOverlayDto? TextOverlay { get; set; }
-}
-
-public class TextOverlayDto
-{
-    [JsonPropertyName("type")]
-    public string Type { get; set; } = string.Empty;
-
-    [JsonPropertyName("text")]
-    public string Text { get; set; } = string.Empty;
-
-    [JsonPropertyName("arabic")]
-    public string? Arabic { get; set; }
-
-    [JsonPropertyName("reference")]
-    public string? Reference { get; set; }
+- Examples: 'storm clouds timelapse', 'desert sand dunes', 'modern city skyline', 'flowing river', 'ancient ruins'.";
 }
