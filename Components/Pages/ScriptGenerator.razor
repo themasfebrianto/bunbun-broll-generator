@@ -1079,13 +1079,11 @@
         {
             var segments = new List<(string Timestamp, string ScriptText)>();
 
-            // Check if we already have segments from SRT import (have ScriptText but no Prompt yet)
-            var hasImportedSegments = _brollPromptItems.Count > 0 
-                && _brollPromptItems.All(i => string.IsNullOrEmpty(i.Prompt));
-
-            if (hasImportedSegments)
+            // Reuse existing segments if we have any — don't re-parse from _resultSections
+            // which produces fewer segments than the original SRT import
+            if (_brollPromptItems.Count > 0)
             {
-                // Reuse existing imported segments — don't re-parse from _resultSections
+                // Reuse existing segments — preserve SRT-imported segment count
                 segments = _brollPromptItems
                     .Select(i => (i.Timestamp, i.ScriptText))
                     .ToList();
@@ -1310,7 +1308,42 @@
 
     private async Task HandleReclassifyBroll()
     {
-        InvalidateBrollClassification();
+        if (_brollPromptItems.Count == 0) return;
+
+        // Extract original segment data BEFORE any cleanup
+        var originalSegments = _brollPromptItems
+            .OrderBy(i => i.Index)
+            .Select(i => (i.Index, i.Timestamp, i.ScriptText))
+            .ToList();
+
+        // Delete associated media files (but DON'T clear the items list)
+        foreach (var item in _brollPromptItems)
+        {
+            if (!string.IsNullOrEmpty(item.WhiskImagePath) && File.Exists(item.WhiskImagePath))
+                try { File.Delete(item.WhiskImagePath); } catch { }
+            if (!string.IsNullOrEmpty(item.WhiskVideoPath) && File.Exists(item.WhiskVideoPath))
+                try { File.Delete(item.WhiskVideoPath); } catch { }
+            if (!string.IsNullOrEmpty(item.FilteredVideoPath) && File.Exists(item.FilteredVideoPath))
+                try { File.Delete(item.FilteredVideoPath); } catch { }
+            foreach (var video in item.SearchResults)
+            {
+                if (!string.IsNullOrEmpty(video.LocalPath) && File.Exists(video.LocalPath))
+                    try { File.Delete(video.LocalPath); } catch { }
+            }
+        }
+
+        // Rebuild as fresh stub items preserving original segment count
+        _brollPromptItems = originalSegments.Select(s => new BrollPromptItem
+        {
+            Index = s.Index,
+            Timestamp = s.Timestamp,
+            ScriptText = s.ScriptText,
+            Prompt = string.Empty
+        }).ToList();
+
+        _classifyTotalSegments = 0;
+        _classifyCompletedSegments = 0;
+
         await RunClassifyOnly();
     }
 

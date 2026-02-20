@@ -261,7 +261,7 @@
     {
         <div class="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-destructive text-sm">@ClassifyError</div>
     }
-    else if (PromptItems.Count == 0 || !PromptItems.Any(i => !string.IsNullOrEmpty(i.Prompt)))
+    else if (PromptItems.Count == 0)
     {
         @* Config Panel — configure before generating *@
         <div class="card p-6 space-y-5">
@@ -717,9 +717,21 @@
                     OnSave="OnSave"
                     GetAssetUrl="GetAssetUrl"
                     ResolveLocalPath="ResolveLocalPath"
-                    OnCookieUpdateRequested="OnCookieUpdateRequested" />
+                    OnCookieUpdateRequested="OnCookieUpdateRequested"
+                    OnAddTextOverlay="HandleAddTextOverlay"
+                    OnEditTextOverlay="HandleEditTextOverlay"
+                    OnRemoveTextOverlay="HandleRemoveTextOverlay" />
             }
         </div>
+
+        @* Text Overlay Editor Modal *@
+        @if (_showOverlayEditor && _editingOverlayItem?.TextOverlay != null)
+        {
+            <TextOverlayEditorModal 
+                Overlay="_editingOverlayItem.TextOverlay"
+                OnSave="HandleSaveOverlay"
+                OnCancel="HandleCancelOverlay" />
+        }
     }
 </div>
 
@@ -899,4 +911,46 @@
         VideoTexture.Scratches => "✨ Scratches (scratches.mp4)",
         _ => texture.ToString()
     };
+
+    // === Text Overlay State & Handlers ===
+    private BrollPromptItem? _editingOverlayItem;
+    private bool _showOverlayEditor;
+
+    private void HandleAddTextOverlay(BrollPromptItem item)
+    {
+        item.TextOverlay = new TextOverlay
+        {
+            Type = TextOverlayType.KeyPhrase,
+            Text = item.ScriptText.Length > 80 ? item.ScriptText[..80] + "..." : item.ScriptText,
+            Style = TextStyle.Default
+        };
+        item.MediaType = BrollMediaType.BrollVideo;
+        _editingOverlayItem = item;
+        _showOverlayEditor = true;
+    }
+
+    private void HandleEditTextOverlay(BrollPromptItem item)
+    {
+        _editingOverlayItem = item;
+        _showOverlayEditor = true;
+    }
+
+    private async Task HandleRemoveTextOverlay(BrollPromptItem item)
+    {
+        item.TextOverlay = null;
+        await OnSave.InvokeAsync();
+    }
+
+    private async Task HandleSaveOverlay()
+    {
+        _showOverlayEditor = false;
+        _editingOverlayItem = null;
+        await OnSave.InvokeAsync();
+    }
+
+    private void HandleCancelOverlay()
+    {
+        _showOverlayEditor = false;
+        _editingOverlayItem = null;
+    }
 }

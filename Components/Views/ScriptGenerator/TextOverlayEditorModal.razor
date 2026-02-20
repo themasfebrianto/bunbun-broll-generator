@@ -1,0 +1,152 @@
+@namespace BunbunBroll.Components.Views.ScriptGenerator
+@using BunbunBroll.Models
+
+<div class="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
+     @onclick="OnCancel">
+    <div class="bg-card border border-border rounded-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+         @onclick:stopPropagation>
+
+        @* Header *@
+        <div class="sticky top-0 bg-card border-b border-border p-4 flex items-center justify-between z-10">
+            <h3 class="text-lg font-semibold">✏️ Edit Text Overlay</h3>
+            <button class="text-muted-foreground hover:text-foreground" @onclick="OnCancel">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+
+        <div class="p-6 space-y-5">
+            @* Overlay Type *@
+            <div class="space-y-2">
+                <label class="text-sm font-medium">Overlay Type</label>
+                <div class="flex flex-wrap gap-2">
+                    @foreach (var type in Enum.GetValues<TextOverlayType>())
+                    {
+                        var isSelected = Overlay.Type == type;
+                        <button class="@(isSelected ? "bg-emerald-600 text-white" : "bg-muted text-muted-foreground") text-xs px-3 py-1.5 rounded-full border transition-colors"
+                                @onclick="() => { Overlay.Type = type; ApplyStylePreset(); }">
+                            @GetTypeLabel(type)
+                        </button>
+                    }
+                </div>
+            </div>
+
+            @* Primary Text *@
+            <div class="space-y-2">
+                <label class="text-sm font-medium">Text</label>
+                <textarea class="w-full bg-muted/20 border border-border rounded-lg px-3 py-2 text-sm"
+                          rows="2" @bind="Overlay.Text" placeholder="Enter overlay text..."></textarea>
+            </div>
+
+            @* Arabic Text (conditional) *@
+            @if (Overlay.Type == TextOverlayType.QuranVerse || Overlay.Type == TextOverlayType.Hadith)
+            {
+                <div class="space-y-2">
+                    <label class="text-sm font-medium">Arabic Text (Optional)</label>
+                    <input type="text" class="w-full bg-muted/20 border border-border rounded-lg px-3 py-2 text-lg text-right"
+                           dir="rtl" @bind="Overlay.ArabicText" placeholder="النص العربي..." />
+                </div>
+
+                <div class="space-y-2">
+                    <label class="text-sm font-medium">Reference</label>
+                    <input type="text" class="w-full bg-muted/20 border border-border rounded-lg px-3 py-2 text-sm"
+                           @bind="Overlay.Reference" placeholder="e.g., Surah Al-Isra 17:70" />
+                </div>
+            }
+
+            @* Animation Style *@
+            <div class="space-y-2">
+                <label class="text-sm font-medium">Animation</label>
+                <select class="w-full bg-muted/20 border border-border rounded-lg px-3 py-2 text-sm"
+                        @bind="Overlay.AnimationStyle">
+                    @foreach (var style in Enum.GetValues<TypingAnimationStyle>())
+                    {
+                        <option value="@style">@style</option>
+                    }
+                </select>
+            </div>
+
+            @* Timing *@
+            <div class="grid grid-cols-2 gap-4">
+                <div class="space-y-2">
+                    <label class="text-sm font-medium">Start Delay (ms)</label>
+                    <input type="number" class="w-full bg-muted/20 border border-border rounded-lg px-3 py-2 text-sm"
+                           @bind="Overlay.StartDelayMs" min="0" max="5000" step="100" />
+                </div>
+                <div class="space-y-2">
+                    <label class="text-sm font-medium">Typing Speed (ms/char)</label>
+                    <input type="number" class="w-full bg-muted/20 border border-border rounded-lg px-3 py-2 text-sm"
+                           @bind="Overlay.TypingSpeedMs" min="10" max="200" step="10" />
+                </div>
+            </div>
+
+            @* Style Presets *@
+            <div class="space-y-2">
+                <label class="text-sm font-medium">Style Preset</label>
+                <div class="flex flex-wrap gap-2">
+                    <button class="text-xs px-3 py-1.5 rounded-full border bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 transition-colors"
+                            @onclick="() => Overlay.Style = TextStyle.Quran">
+                        📖 Quran
+                    </button>
+                    <button class="text-xs px-3 py-1.5 rounded-full border bg-orange-500/20 text-orange-300 hover:bg-orange-500/30 transition-colors"
+                            @onclick="() => Overlay.Style = TextStyle.Hadith">
+                        🕌 Hadith
+                    </button>
+                    <button class="text-xs px-3 py-1.5 rounded-full border bg-blue-500/20 text-blue-300 hover:bg-blue-500/30 transition-colors"
+                            @onclick="() => Overlay.Style = TextStyle.Question">
+                        ❓ Question
+                    </button>
+                    <button class="text-xs px-3 py-1.5 rounded-full border bg-gray-500/20 text-gray-300 hover:bg-gray-500/30 transition-colors"
+                            @onclick="() => Overlay.Style = TextStyle.Default">
+                        📝 Default
+                    </button>
+                </div>
+
+                @* Style Preview *@
+                <div class="p-3 bg-muted/10 rounded-lg border border-border/30 mt-2">
+                    <div class="flex items-center gap-4 text-xs text-muted-foreground">
+                        <span>Font: <strong class="text-foreground">@Overlay.Style.FontFamily</strong></span>
+                        <span>Size: <strong class="text-foreground">@(Overlay.Style.FontSize)px</strong></span>
+                        <span>Color: <span class="inline-block w-3 h-3 rounded-full border border-border/50 align-middle" style="background-color: @Overlay.Style.Color"></span></span>
+                        <span>Pos: <strong class="text-foreground">@Overlay.Style.Position</strong></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* Footer *@
+        <div class="sticky bottom-0 bg-card border-t border-border p-4 flex justify-end gap-3">
+            <button class="btn-secondary" @onclick="OnCancel">Cancel</button>
+            <button class="btn-primary bg-emerald-600 hover:bg-emerald-500" @onclick="OnSave">
+                Save Overlay
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public TextOverlay Overlay { get; set; } = new();
+    [Parameter] public EventCallback OnSave { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private string GetTypeLabel(TextOverlayType type) => type switch
+    {
+        TextOverlayType.QuranVerse => "📖 Quran",
+        TextOverlayType.Hadith => "🕌 Hadith",
+        TextOverlayType.RhetoricalQuestion => "❓ Question",
+        TextOverlayType.KeyPhrase => "⭐ Key Phrase",
+        _ => "📝 Text"
+    };
+
+    private void ApplyStylePreset()
+    {
+        Overlay.Style = Overlay.Type switch
+        {
+            TextOverlayType.QuranVerse => TextStyle.Quran,
+            TextOverlayType.Hadith => TextStyle.Hadith,
+            TextOverlayType.RhetoricalQuestion => TextStyle.Question,
+            _ => TextStyle.Default
+        };
+    }
+}

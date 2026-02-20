@@ -856,14 +856,41 @@ For IMAGE_GEN segments: Generate a detailed Whisk-style prompt following this st
   - If prophets appear: add 'face replaced by intense white-golden divine light, facial features not visible'
   - End with style suffix: '{effectiveStyleSuffix}'
 {customInstructionsSection}
+
+TEXT OVERLAY DETECTION (SELECTIVE - USE SPARINGLY):
+Only add textOverlay for HIGH-IMPACT moments. Segments with text overlays MUST use BROLL as background.
+
+Overlay types (USE SPARINGLY — max ~20% of total segments):
+- QURAN VERSES: ONLY explicit Quranic ayat quotations → type: ""QuranVerse"", include arabic text + translation + surah reference
+- HADITH: ONLY explicit Prophet's sayings with known source → type: ""Hadith"", include arabic + translation + source
+- RHETORICAL QUESTIONS: ONLY powerful, pivotal questions that define the video's thesis → type: ""RhetoricalQuestion""
+- KEY DECLARATIONS: ONLY short, punchy declarations (max 8 words) that are a direct claim or thesis statement — NOT definitions, descriptions, or explanations. Example YES: ""Imam Mahdi akan muncul di akhir zaman"". Example NO: ""Gelar metaforis bagi raja yang adil..."" (that's a definition, not a declaration).
+
+SPACING RULES (CRITICAL):
+- NEVER place textOverlay on 2 consecutive segments. Minimum 2-3 segments gap between overlays.
+- If two potential overlays are close, pick ONLY the stronger one.
+
+EXCLUSIONS — NEVER add textOverlay for:
+- Closing/farewell phrases (""Wallahu a'lam bish shawab"", ""Wassalamu'alaikum"", etc.)
+- Opening greetings (""Assalamu'alaikum"", ""Bismillah"", etc.) unless it's a pivotal Quran verse
+- General narration, transitions, storytelling, context, explanations
+- Statements that are interesting but not scripture/hadith/pivotal thesis questions
+
 RESPOND WITH JSON ONLY (no markdown):
 [
   {{
     ""index"": 0,
     ""mediaType"": ""BROLL"" or ""IMAGE_GEN"",
-    ""prompt"": ""the generated prompt""
+    ""prompt"": ""the generated prompt"",
+    ""textOverlay"": {{
+      ""type"": ""QuranVerse"",
+      ""text"": ""In the name of Allah"",
+      ""arabic"": ""بِسْمِ اللَّهِ"",
+      ""reference"": ""Surah Al-Fatiha 1:1""
+    }}
   }}
 ]
+Note: textOverlay is null/omitted for MOST segments. Only add for truly impactful moments.
 
 RULES:
 - Translate all prompts to English
@@ -962,6 +989,46 @@ RULES:
                                                 : BrollMediaType.BrollVideo,
                                             Prompt = item.Prompt ?? string.Empty
                                         };
+
+                                        // Parse text overlay if present in LLM response
+                                        if (item.TextOverlay != null && !string.IsNullOrEmpty(item.TextOverlay.Text))
+                                        {
+                                            try
+                                            {
+                                                var overlayType = item.TextOverlay.Type?.ToLowerInvariant()?.Replace("_", "") switch
+                                                {
+                                                    "quranverse" => Models.TextOverlayType.QuranVerse,
+                                                    "hadith" => Models.TextOverlayType.Hadith,
+                                                    "rhetoricalquestion" => Models.TextOverlayType.RhetoricalQuestion,
+                                                    "keyphrase" => Models.TextOverlayType.KeyPhrase,
+                                                    _ => Models.TextOverlayType.KeyPhrase
+                                                };
+
+                                                promptItem.TextOverlay = new Models.TextOverlay
+                                                {
+                                                    Type = overlayType,
+                                                    Text = item.TextOverlay.Text,
+                                                    ArabicText = item.TextOverlay.Arabic,
+                                                    Reference = item.TextOverlay.Reference,
+                                                    Style = overlayType switch
+                                                    {
+                                                        Models.TextOverlayType.QuranVerse => Models.TextStyle.Quran,
+                                                        Models.TextOverlayType.Hadith => Models.TextStyle.Hadith,
+                                                        Models.TextOverlayType.RhetoricalQuestion => Models.TextStyle.Question,
+                                                        _ => Models.TextStyle.Default
+                                                    }
+                                                };
+
+                                                // Auto-enforce: Text overlays get B-roll backgrounds
+                                                promptItem.MediaType = BrollMediaType.BrollVideo;
+                                                _logger.LogDebug("Text overlay detected for segment {Index}: {Type} — {Text}",
+                                                    globalIdx, overlayType, item.TextOverlay.Text);
+                                            }
+                                            catch (Exception overlayEx)
+                                            {
+                                                _logger.LogWarning(overlayEx, "Failed to parse text overlay for segment {Index}", globalIdx);
+                                            }
+                                        }
 
                                         // Auto-detect era and assign appropriate filter/texture
                                         EraLibrary.AutoAssignEraStyle(promptItem);
@@ -1109,12 +1176,43 @@ RULES:
 BROLL - Stock footage (no humans): landscapes, nature, textures, cityscapes, atmospheric shots
 IMAGE_GEN - AI image generation: historical scenes, prophets, supernatural events, specific Islamic historical contexts, abstract spiritual concepts
 
+TEXT OVERLAY DETECTION (SELECTIVE - USE SPARINGLY):
+Only add textOverlay for HIGH-IMPACT moments. Segments with text overlays MUST use BROLL as background.
+
+Overlay types (USE SPARINGLY — max ~25% of total segments):
+- QURAN VERSES: ONLY explicit Quranic ayat quotations → type: ""QuranVerse"", include arabic text + translation + surah reference
+- HADITH: ONLY explicit Prophet's sayings with known source → type: ""Hadith"", include arabic + translation + source
+- RHETORICAL QUESTIONS: ONLY powerful, pivotal questions that define the video's thesis → type: ""RhetoricalQuestion""
+- KEY DECLARATIONS: ONLY short, punchy declarations (max 8 words) that are a direct claim or thesis statement — NOT definitions, descriptions, or explanations. Example YES: ""Imam Mahdi akan muncul di akhir zaman"". Example NO: ""Gelar metaforis bagi raja yang adil..."" (that's a definition, not a declaration).
+
+SPACING RULES (CRITICAL):
+- NEVER place textOverlay on 2 consecutive segments. Minimum 2-3 segments gap between overlays.
+- If two potential overlays are close, pick ONLY the stronger one.
+
+EXCLUSIONS — NEVER add textOverlay for:
+- Closing/farewell phrases (""Wallahu a'lam bish shawab"", ""Wassalamu'alaikum"", etc.)
+- Opening greetings (""Assalamu'alaikum"", ""Bismillah"", etc.) unless it's a pivotal Quran verse
+- General narration, transitions, storytelling, context, explanations
+- Statements that are interesting but not scripture/hadith/pivotal thesis questions
+
 RESPOND WITH JSON ONLY (no markdown):
-[{{ ""index"": 0, ""mediaType"": ""BROLL"" }}]
+[
+  {{
+    ""index"": 0,
+    ""mediaType"": ""BROLL"" or ""IMAGE_GEN"",
+    ""textOverlay"": {{
+      ""type"": ""QuranVerse"",
+      ""text"": ""In the name of Allah"",
+      ""arabic"": ""بِسْمِ اللَّهِ"",
+      ""reference"": ""Surah Al-Fatiha 1:1""
+    }}
+  }}
+]
+Note: textOverlay is null/omitted for MOST segments. Only add for truly impactful moments.
 
 RULES:
-- Return ONLY index and mediaType (""BROLL"" or ""IMAGE_GEN"")
-- Do NOT generate prompts — just classify";
+- Return index, mediaType, and textOverlay (if applicable)
+- Do NOT generate image/search prompts — just classify and detect overlays";
 
         var totalBatches = (int)Math.Ceiling((double)segments.Count / batchSize);
         var semaphore = new SemaphoreSlim(3, 3);
@@ -1147,7 +1245,7 @@ RULES:
                             new() { Role = "user", Content = userPrompt.ToString() }
                         },
                         Temperature = 0.3,
-                        MaxTokens = Math.Min(batchSegments.Count * 30, 1000) // Tiny: just index+mediaType
+                        MaxTokens = Math.Min(batchSegments.Count * 150, 4000) // Larger for text overlay data
                     };
 
                     var response = await _httpClient.PostAsJsonAsync("v1/chat/completions", request, cancellationToken);
@@ -1171,7 +1269,7 @@ RULES:
                                     if (item.Index >= 0 && item.Index < batchSegments.Count)
                                     {
                                         var globalIdx = batchStart + item.Index;
-                                        batchResults.Add(new BrollPromptItem
+                                        var promptItem = new BrollPromptItem
                                         {
                                             Index = globalIdx,
                                             Timestamp = segments[globalIdx].Timestamp,
@@ -1180,7 +1278,49 @@ RULES:
                                                 ? BrollMediaType.ImageGeneration
                                                 : BrollMediaType.BrollVideo,
                                             Prompt = string.Empty // No prompt yet
-                                        });
+                                        };
+
+                                        // Parse text overlay if present
+                                        if (item.TextOverlay != null && !string.IsNullOrEmpty(item.TextOverlay.Text))
+                                        {
+                                            try
+                                            {
+                                                var overlayType = item.TextOverlay.Type?.ToLowerInvariant()?.Replace("_", "") switch
+                                                {
+                                                    "quranverse" => Models.TextOverlayType.QuranVerse,
+                                                    "hadith" => Models.TextOverlayType.Hadith,
+                                                    "rhetoricalquestion" => Models.TextOverlayType.RhetoricalQuestion,
+                                                    "keyphrase" => Models.TextOverlayType.KeyPhrase,
+                                                    _ => Models.TextOverlayType.KeyPhrase
+                                                };
+
+                                                promptItem.TextOverlay = new Models.TextOverlay
+                                                {
+                                                    Type = overlayType,
+                                                    Text = item.TextOverlay.Text,
+                                                    ArabicText = item.TextOverlay.Arabic,
+                                                    Reference = item.TextOverlay.Reference,
+                                                    Style = overlayType switch
+                                                    {
+                                                        Models.TextOverlayType.QuranVerse => Models.TextStyle.Quran,
+                                                        Models.TextOverlayType.Hadith => Models.TextStyle.Hadith,
+                                                        Models.TextOverlayType.RhetoricalQuestion => Models.TextStyle.Question,
+                                                        _ => Models.TextStyle.Default
+                                                    }
+                                                };
+
+                                                // Auto-enforce: Text overlays get B-roll backgrounds
+                                                promptItem.MediaType = BrollMediaType.BrollVideo;
+                                                _logger.LogDebug("ClassifyOnly: Text overlay detected for segment {Index}: {Type} — {Text}",
+                                                    globalIdx, overlayType, item.TextOverlay.Text);
+                                            }
+                                            catch (Exception overlayEx)
+                                            {
+                                                _logger.LogWarning(overlayEx, "ClassifyOnly: Failed to parse text overlay for segment {Index}", globalIdx);
+                                            }
+                                        }
+
+                                        batchResults.Add(promptItem);
                                     }
                                 }
                             }
@@ -1768,4 +1908,22 @@ public class BrollClassificationResponse
 
     [JsonPropertyName("prompt")]
     public string? Prompt { get; set; }
+
+    [JsonPropertyName("textOverlay")]
+    public TextOverlayDto? TextOverlay { get; set; }
+}
+
+public class TextOverlayDto
+{
+    [JsonPropertyName("type")]
+    public string Type { get; set; } = string.Empty;
+
+    [JsonPropertyName("text")]
+    public string Text { get; set; } = string.Empty;
+
+    [JsonPropertyName("arabic")]
+    public string? Arabic { get; set; }
+
+    [JsonPropertyName("reference")]
+    public string? Reference { get; set; }
 }

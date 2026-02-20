@@ -137,6 +137,15 @@ public class BrollPromptItem
     /// <summary>Status text for filter application (e.g. "Downloading...", "Rendering...")</summary>
     public string FilterStatus { get; set; } = string.Empty;
 
+    // === Text Overlay Support ===
+
+    /// <summary>Text overlay for this segment (Quran verse, hadith, question, key phrase)</summary>
+    public TextOverlay? TextOverlay { get; set; }
+
+    /// <summary>Helper to check if segment has text overlay</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool HasTextOverlay => TextOverlay != null;
+
     private static readonly Random _random = new();
     public static KenBurnsMotionType GetRandomMotion()
     {

@@ -210,6 +210,12 @@ public record VideoClip
     /// <summary>Opacity percentage of the texture effect (0-100)</summary>
     public int TextureOpacity { get; init; } = 30;
 
+    /// <summary>Text overlay for this clip (if any)</summary>
+    public TextOverlay? TextOverlay { get; init; }
+
+    /// <summary>Helper to check if clip has text overlay</summary>
+    public bool HasTextOverlay => TextOverlay != null;
+
     public VideoClip() { }
 
     public VideoClip(string sourcePath, string text)
@@ -237,7 +243,8 @@ public record VideoClip
         VideoFilter filter = VideoFilter.None,
         VideoTexture texture = VideoTexture.None,
         int filterIntensity = 100,
-        int textureOpacity = 30)
+        int textureOpacity = 30,
+        TextOverlay? textOverlay = null)
     {
         return new VideoClip
         {
@@ -248,7 +255,8 @@ public record VideoClip
             Filter = filter,
             FilterIntensity = filterIntensity,
             Texture = texture,
-            TextureOpacity = textureOpacity
+            TextureOpacity = textureOpacity,
+            TextOverlay = textOverlay
         };
     }
 }

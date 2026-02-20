@@ -41,6 +41,49 @@
             @* === Script Text === *@
             <p class="text-base leading-relaxed text-foreground">@Item.ScriptText</p>
 
+            @* === Text Overlay Section === *@
+            @if (Item.HasTextOverlay)
+            {
+                <div class="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-semibold text-emerald-400">
+                            @GetOverlayTypeIcon(Item.TextOverlay!.Type) @Item.TextOverlay.Type
+                        </span>
+                        <div class="flex gap-1">
+                            <button class="text-xs px-2 py-1 bg-emerald-500/20 text-emerald-300 rounded hover:bg-emerald-500/30 transition-colors"
+                                    @onclick="() => OnEditTextOverlay.InvokeAsync(Item)">
+                                ✏️ Edit
+                            </button>
+                            <button class="text-xs px-2 py-1 bg-red-500/20 text-red-300 rounded hover:bg-red-500/30 transition-colors"
+                                    @onclick="() => OnRemoveTextOverlay.InvokeAsync(Item)">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="space-y-1">
+                        @if (!string.IsNullOrEmpty(Item.TextOverlay.ArabicText))
+                        {
+                            <p class="text-right text-lg text-amber-300" dir="rtl" style="font-family: 'Amiri', serif;">
+                                @Item.TextOverlay.ArabicText
+                            </p>
+                        }
+                        <p class="text-sm text-white">"@Item.TextOverlay.Text"</p>
+                        @if (!string.IsNullOrEmpty(Item.TextOverlay.Reference))
+                        {
+                            <p class="text-xs text-gray-400 italic">@Item.TextOverlay.Reference</p>
+                        }
+                    </div>
+                </div>
+            }
+            else
+            {
+                <button class="w-full text-xs py-2 border border-dashed border-gray-600 text-gray-400 rounded hover:border-emerald-500/50 hover:text-emerald-400 transition-colors"
+                        @onclick="() => OnAddTextOverlay.InvokeAsync(Item)">
+                    + Add Text Overlay
+                </button>
+            }
+
             @* === Prompt Section === *@
             <div class="space-y-2">
                 <div class="flex items-center justify-between">
@@ -305,6 +348,9 @@
     
     [Parameter] public Func<string, string> GetAssetUrl { get; set; } = _ => "";
     [Parameter] public Func<string?, string> ResolveLocalPath { get; set; } = _ => "";
+    [Parameter] public EventCallback<BrollPromptItem> OnAddTextOverlay { get; set; }
+    [Parameter] public EventCallback<BrollPromptItem> OnEditTextOverlay { get; set; }
+    [Parameter] public EventCallback<BrollPromptItem> OnRemoveTextOverlay { get; set; }
 
     private async Task ToggleMediaType() => await OnToggleMediaType.InvokeAsync(Item);
     private async Task Search() => await OnSearch.InvokeAsync(Item);
@@ -327,6 +373,15 @@
         VideoFilter.Cool => "❄️ Cool",
         VideoFilter.Noir => "🕵️ Noir",
         _ => filter.ToString()
+    };
+
+    private static string GetOverlayTypeIcon(TextOverlayType type) => type switch
+    {
+        TextOverlayType.QuranVerse => "📖",
+        TextOverlayType.Hadith => "🕌",
+        TextOverlayType.RhetoricalQuestion => "❓",
+        TextOverlayType.KeyPhrase => "⭐",
+        _ => "📝"
     };
 
     private static string GetTextureDisplayName(VideoTexture texture) => texture switch
