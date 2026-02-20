@@ -14,8 +14,6 @@
 @inject IJSRuntime JS
 @inject BackgroundGenerationService BgService
 @inject ISrtService SrtService
-@inject IPhaseDetectionService PhaseDetectionService
-@inject ITimestampSplitterService TimestampSplitterService
 @inject BunbunBroll.Services.ToastService ToastService
 @inject GenerationEventBus EventBus
 @inject IIntelligenceService IntelligenceService
@@ -1172,22 +1170,6 @@
             StateHasChanged();
         }
 
-        // OVERRIDE: Force ImageGeneration for Phase 1 & 2 (visual hooking) if enabled in config
-        if (_imagePromptConfig.ForceVisualHook)
-        {
-            foreach (var item in _brollPromptItems)
-            {
-                if (TryParseTimestamp(item.Timestamp, out var timestamp))
-                {
-                    var phaseId = PhaseDetectionService.DetectPhase(timestamp);
-                    if (phaseId == "opening-hook" || phaseId == "contextualization")
-                    {
-                        item.MediaType = BrollMediaType.ImageGeneration;
-                        item.Reasoning = $"Phase {phaseId}: Forced to ImageGeneration for visual hooking";
-                    }
-                }
-            }
-        }
 
         await SaveBrollPromptsToDisk();
         await SaveImageConfigToDisk();
@@ -2377,13 +2359,10 @@
         }
     }
 
-    private List<MicroBeatSegment> ParseSrtToSegments(string srtContent)
+    private List<(string Timestamp, string Text)> ParseSrtToSegments(string srtContent)
     {
-        // Use phase-aware splitting for visual hooking in first 3 minutes
-        var microBeats = SrtService.ParseWithPhaseSplitting(srtContent, PhaseDetectionService, TimestampSplitterService);
-
-        // Return full MicroBeatSegment objects to preserve PhaseId, OriginalText, etc.
-        return microBeats;
+        var entries = SrtService.ParseSrt(srtContent);
+        return SrtService.MergeToSegments(entries, maxDurationSeconds: 20.0);
     }
 
     /// <summary>

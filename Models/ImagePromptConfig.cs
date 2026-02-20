@@ -169,10 +169,6 @@ public class ImagePromptConfig
     /// <summary>Additional context/instructions injected into the classification system prompt</summary>
     public string CustomInstructions { get; set; } = string.Empty;
 
-    // === Visual Hook ===
-    /// <summary>Whether to force ImageGeneration for Phase 1 & 2 (first 3 minutes)</summary>
-    public bool ForceVisualHook { get; set; } = true;
-
     /// <summary>Check if any custom config is set beyond defaults</summary>
     public bool HasCustomConfig =>
         ArtStyle != ImageArtStyle.SemiRealisticPainting

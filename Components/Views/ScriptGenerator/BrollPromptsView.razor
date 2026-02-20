@@ -397,20 +397,7 @@
                           @bind:event="oninput"></textarea>
             </div>
 
-            @* === Visual Hook Toggle === *@
-            <div class="flex items-center justify-between p-3 rounded-lg bg-muted/10 border border-border">
-                <div class="flex items-center gap-3">
-                    <svg class="h-5 w-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                    <div>
-                        <p class="text-sm font-medium">Visual Hook (3 menit pertama)</p>
-                        <p class="text-xs text-muted-foreground">Force Image Generation untuk Phase 1 & 2 agar lebih engaging</p>
-                    </div>
-                </div>
-                <button class="@(PromptConfig.ForceVisualHook ? "bg-orange-500 border-orange-400" : "bg-muted/30 border-border") relative w-11 h-6 rounded-full border transition-all duration-200 focus:outline-none"
-                        @onclick="() => { PromptConfig.ForceVisualHook = !PromptConfig.ForceVisualHook; }">
-                    <span class="@(PromptConfig.ForceVisualHook ? "translate-x-5 bg-white" : "translate-x-0.5 bg-muted-foreground/50") block w-5 h-5 rounded-full transition-transform duration-200 transform"></span>
-                </button>
-            </div>
+
 
             @* === Segment Preview (Script Review Before Generating) === *@
             @if (PromptItems.Count > 0)
@@ -498,7 +485,6 @@
                             @if (PromptConfig.Lighting != ImageLighting.Auto) { <span class="text-yellow-400 bg-yellow-500/10 px-1.5 py-0.5 rounded">@PromptConfig.Lighting</span> }
                             @if (PromptConfig.ColorPalette != ImageColorPalette.Auto) { <span class="text-pink-400 bg-pink-500/10 px-1.5 py-0.5 rounded">@PromptConfig.ColorPalette</span> }
                             @if (PromptConfig.DefaultEra != VideoEra.None) { <span class="text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded">Era @PromptConfig.DefaultEra</span> }
-                            @if (PromptConfig.ForceVisualHook) { <span class="text-orange-400 bg-orange-500/10 px-1.5 py-0.5 rounded">Visual Hook ON</span> }
                         </div>
                     </div>
                 </div>
@@ -611,16 +597,6 @@
                                           @bind="PromptConfig.CustomInstructions" @bind:event="oninput"></textarea>
                             </div>
 
-                            <div class="flex items-center justify-between p-2 rounded bg-background border border-border/50">
-                                <div>
-                                    <p class="text-[11px] font-medium leading-tight">Visual Hook</p>
-                                    <p class="text-[9px] text-muted-foreground leading-tight mt-0.5">Force Gen Phase 1&2</p>
-                                </div>
-                                <button class="@(PromptConfig.ForceVisualHook ? "bg-orange-500" : "bg-muted-foreground/30") relative w-8 h-4.5 rounded-full transition-colors focus:outline-none"
-                                        @onclick="() => { PromptConfig.ForceVisualHook = !PromptConfig.ForceVisualHook; }">
-                                    <span class="@(PromptConfig.ForceVisualHook ? "translate-x-3.5" : "translate-x-0.5") block w-3.5 h-3.5 bg-white rounded-full transition-transform transform mt-0.5"></span>
-                                </button>
-                            </div>
                         </div>
 
                     </div>

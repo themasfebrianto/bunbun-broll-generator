@@ -8,7 +8,6 @@ public interface ISrtService
 {
     List<SrtEntry> ParseSrt(string content);
     List<(string Timestamp, string Text)> MergeToSegments(List<SrtEntry> entries, double maxDurationSeconds = 20.0);
-    List<MicroBeatSegment> ParseWithPhaseSplitting(string content, IPhaseDetectionService phaseDetectionService, ITimestampSplitterService splitterService);
 }
 
 public class SrtService : ISrtService
@@ -196,25 +195,4 @@ public class SrtService : ISrtService
         return text;
     }
 
-    /// <summary>
-    /// Parse SRT content with phase-aware timestamp splitting.
-    /// This is the main entry point for visual hooking - it splits segments
-    /// into micro-beats based on phase configuration.
-    /// </summary>
-    public List<MicroBeatSegment> ParseWithPhaseSplitting(
-        string content,
-        IPhaseDetectionService phaseDetectionService,
-        ITimestampSplitterService splitterService)
-    {
-        // First, parse SRT into entries
-        var entries = ParseSrt(content);
-        if (entries.Count == 0)
-            return new List<MicroBeatSegment>();
-
-        // Then, merge into segments (using existing logic)
-        var segments = MergeToSegments(entries, maxDurationSeconds: 20.0);
-
-        // Finally, split into micro-beats based on phase
-        return splitterService.SplitIntoMicroBeats(segments, phaseDetectionService);
-    }
 }

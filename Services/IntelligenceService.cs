@@ -1341,8 +1341,7 @@ RULES:
                 ColorPalette = activeConfig.ColorPalette,
                 Composition = GetDynamicComposition(segmentIndex),
                 DefaultEra = activeConfig.DefaultEra,
-                CustomInstructions = activeConfig.CustomInstructions,
-                ForceVisualHook = activeConfig.ForceVisualHook
+                CustomInstructions = activeConfig.CustomInstructions
             };
         }
 
