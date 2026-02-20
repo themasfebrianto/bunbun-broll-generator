@@ -1,0 +1,319 @@
+@using BunbunBroll.Models
+
+@if (Context != null)
+{
+    <div class="global-context-card @(_isExpanded ? "expanded" : "collapsed")">
+        <div class="context-header" @onclick="() => _isExpanded = !_isExpanded">
+            <div class="header-left">
+                <svg class="chevron @(_isExpanded ? "rotated" : "")" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 18l6-6-6-6"/>
+                </svg>
+                <span class="header-title">🧠 Narrative Context</span>
+                <span class="header-badge">@Context.MoodBeats.Count moods · @Context.PrimaryLocations.Count locations · @Context.IdentifiedCharacters.Count characters</span>
+            </div>
+            <div class="header-right">
+                @if (OnRegenerateContext.HasDelegate)
+                {
+                    <button class="regen-btn" @onclick="HandleRegenClick" @onclick:stopPropagation="true" title="Re-analyze context">
+                        🔄
+                    </button>
+                }
+                <span class="extracted-time" title="@Context.ExtractedAt.ToString("g")">
+                    @GetTimeSince(Context.ExtractedAt)
+                </span>
+            </div>
+        </div>
+
+        @if (_isExpanded)
+        {
+            <div class="context-body">
+                @* Mood Timeline *@
+                @if (Context.MoodBeats.Count > 0)
+                {
+                    <div class="context-section">
+                        <span class="section-label">Mood Timeline</span>
+                        <div class="mood-timeline">
+                            @foreach (var mood in Context.MoodBeats)
+                            {
+                                <div class="mood-segment"
+                                     style="flex: @GetMoodFlex(mood); background-color: @GetMoodColor(mood.Mood);"
+                                     title="@mood.Mood: @mood.Description (segments @mood.StartSegment–@(mood.EndSegment?.ToString() ?? "end"))">
+                                    <span class="mood-label">@mood.Mood</span>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+
+                @* Locations *@
+                @if (Context.PrimaryLocations.Count > 0)
+                {
+                    <div class="context-section">
+                        <span class="section-label">📍 Locations</span>
+                        <div class="badge-list">
+                            @foreach (var loc in Context.PrimaryLocations)
+                            {
+                                <span class="context-badge location-badge">@loc</span>
+                            }
+                        </div>
+                    </div>
+                }
+
+                @* Characters *@
+                @if (Context.IdentifiedCharacters.Count > 0)
+                {
+                    <div class="context-section">
+                        <span class="section-label">👤 Characters</span>
+                        <div class="badge-list">
+                            @foreach (var c in Context.IdentifiedCharacters)
+                            {
+                                <span class="context-badge character-badge" title="@c.Description">@c.Name</span>
+                            }
+                        </div>
+                    </div>
+                }
+
+                @* Recurring Visuals *@
+                @if (Context.RecurringVisuals.Count > 0)
+                {
+                    <div class="context-section">
+                        <span class="section-label">🎨 Recurring Visuals</span>
+                        <div class="badge-list">
+                            @foreach (var vis in Context.RecurringVisuals)
+                            {
+                                <span class="context-badge visual-badge">@vis</span>
+                            }
+                        </div>
+                    </div>
+                }
+
+                @* Color Progression *@
+                @if (!string.IsNullOrEmpty(Context.ColorProgression))
+                {
+                    <div class="context-section">
+                        <span class="section-label">🌈 Color Progression</span>
+                        <p class="color-progression-text">@Context.ColorProgression</p>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public GlobalScriptContext? Context { get; set; }
+    [Parameter] public EventCallback OnRegenerateContext { get; set; }
+
+    private bool _isExpanded = false;
+
+    private async Task HandleRegenClick()
+    {
+        if (OnRegenerateContext.HasDelegate)
+            await OnRegenerateContext.InvokeAsync();
+    }
+
+    private string GetTimeSince(DateTime extractedAt)
+    {
+        var diff = DateTime.UtcNow - extractedAt;
+        if (diff.TotalMinutes < 1) return "just now";
+        if (diff.TotalMinutes < 60) return $"{(int)diff.TotalMinutes}m ago";
+        if (diff.TotalHours < 24) return $"{(int)diff.TotalHours}h ago";
+        return extractedAt.ToString("MMM dd");
+    }
+
+    private int GetMoodFlex(MoodBeat mood)
+    {
+        if (mood.EndSegment.HasValue)
+            return Math.Max(1, mood.EndSegment.Value - mood.StartSegment);
+        return 10; // Default for open-ended moods
+    }
+
+    private string GetMoodColor(string mood)
+    {
+        return mood.ToLowerInvariant() switch
+        {
+            "mysterious" or "contemplative" => "rgba(147, 130, 220, 0.6)",
+            "tense" or "anxious" or "urgent" => "rgba(220, 80, 80, 0.6)",
+            "hopeful" or "inspiring" or "uplifting" => "rgba(250, 200, 80, 0.6)",
+            "calm" or "peaceful" or "serene" => "rgba(100, 180, 220, 0.6)",
+            "epic" or "powerful" or "dramatic" => "rgba(200, 120, 60, 0.6)",
+            "melancholic" or "sad" or "sorrowful" => "rgba(100, 120, 180, 0.6)",
+            "dark" or "ominous" or "apocalyptic" => "rgba(60, 60, 80, 0.8)",
+            "joyful" or "celebratory" => "rgba(100, 200, 120, 0.6)",
+            "reflective" or "introspective" => "rgba(160, 140, 200, 0.5)",
+            "revelatory" or "divine" => "rgba(255, 215, 100, 0.7)",
+            _ => "rgba(120, 120, 140, 0.5)"
+        };
+    }
+}
+
+<style>
+    .global-context-card {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 10px;
+        margin-bottom: 12px;
+        overflow: hidden;
+    }
+
+    .context-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 12px;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+
+    .context-header:hover {
+        background: rgba(255, 255, 255, 0.04);
+    }
+
+    .header-left {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .header-right {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .chevron {
+        width: 14px;
+        height: 14px;
+        color: rgba(255, 255, 255, 0.4);
+        transition: transform 0.2s;
+        flex-shrink: 0;
+    }
+
+    .chevron.rotated {
+        transform: rotate(90deg);
+    }
+
+    .header-title {
+        font-size: 12px;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.85);
+    }
+
+    .header-badge {
+        font-size: 10px;
+        color: rgba(255, 255, 255, 0.4);
+        background: rgba(255, 255, 255, 0.05);
+        padding: 2px 8px;
+        border-radius: 10px;
+    }
+
+    .regen-btn {
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 6px;
+        padding: 2px 8px;
+        font-size: 11px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .regen-btn:hover {
+        background: rgba(255, 255, 255, 0.12);
+        border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .extracted-time {
+        font-size: 10px;
+        color: rgba(255, 255, 255, 0.3);
+    }
+
+    .context-body {
+        padding: 4px 12px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .context-section {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .section-label {
+        font-size: 10px;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.5);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .mood-timeline {
+        display: flex;
+        height: 24px;
+        border-radius: 6px;
+        overflow: hidden;
+        gap: 1px;
+    }
+
+    .mood-segment {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 30px;
+        transition: all 0.2s;
+        cursor: default;
+    }
+
+    .mood-segment:hover {
+        filter: brightness(1.3);
+    }
+
+    .mood-label {
+        font-size: 9px;
+        color: rgba(255, 255, 255, 0.85);
+        font-weight: 500;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        padding: 0 4px;
+    }
+
+    .badge-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+
+    .context-badge {
+        font-size: 10px;
+        padding: 2px 8px;
+        border-radius: 8px;
+        white-space: nowrap;
+    }
+
+    .location-badge {
+        background: rgba(59, 130, 246, 0.15);
+        color: rgba(147, 197, 253, 0.9);
+        border: 1px solid rgba(59, 130, 246, 0.2);
+    }
+
+    .character-badge {
+        background: rgba(167, 139, 250, 0.15);
+        color: rgba(196, 181, 253, 0.9);
+        border: 1px solid rgba(167, 139, 250, 0.2);
+    }
+
+    .visual-badge {
+        background: rgba(251, 191, 36, 0.15);
+        color: rgba(253, 224, 71, 0.9);
+        border: 1px solid rgba(251, 191, 36, 0.2);
+    }
+
+    .color-progression-text {
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.6);
+        margin: 0;
+        line-height: 1.4;
+    }
+</style>

@@ -28,6 +28,8 @@ public enum ImageArtStyle
 /// <summary>Lighting preset for AI image generation</summary>
 public enum ImageLighting
 {
+    /// <summary>Auto-detect based on mood beat and context</summary>
+    Auto,
     /// <summary>Dramatic directional light with strong shadows</summary>
     DramaticHighContrast,
     /// <summary>Warm golden hour sunlight</summary>
@@ -45,6 +47,8 @@ public enum ImageLighting
 /// <summary>Color palette preset for AI image generation</summary>
 public enum ImageColorPalette
 {
+    /// <summary>Auto-detect based on mood beat and era</summary>
+    Auto,
     /// <summary>Vibrant focal colors against muted backgrounds (default)</summary>
     VibrantFocalMuted,
     /// <summary>Warm earthy tones: amber, brown, terracotta, ochre</summary>
@@ -97,6 +101,7 @@ public static class ImageStyleMappings
 
     public static string GetLightingSuffix(ImageLighting lighting) => lighting switch
     {
+        ImageLighting.Auto => "",
         ImageLighting.DramaticHighContrast => "dramatic high-contrast lighting with directional illumination, deep shadows",
         ImageLighting.GoldenHour => "warm golden hour lighting, long soft shadows, glowing rim light, sunset warmth",
         ImageLighting.SoftAmbient => "soft ambient lighting, diffused and gentle, no harsh shadows, even illumination",
@@ -108,6 +113,7 @@ public static class ImageStyleMappings
 
     public static string GetColorPaletteSuffix(ImageColorPalette palette) => palette switch
     {
+        ImageColorPalette.Auto => "",
         ImageColorPalette.VibrantFocalMuted => "vibrant focal colors against muted backgrounds",
         ImageColorPalette.WarmEarthy => "warm earthy color palette: amber, terracotta, ochre, bronze, burnt sienna",
         ImageColorPalette.CoolBlue => "cool blue color palette: navy, teal, cerulean, silver, ice blue",
@@ -145,11 +151,11 @@ public class ImagePromptConfig
 
     // === Lighting ===
     /// <summary>Lighting preset for the image generator</summary>
-    public ImageLighting Lighting { get; set; } = ImageLighting.DramaticHighContrast;
+    public ImageLighting Lighting { get; set; } = ImageLighting.Auto;
 
     // === Color Palette ===
     /// <summary>Color palette preset for the image generator</summary>
-    public ImageColorPalette ColorPalette { get; set; } = ImageColorPalette.VibrantFocalMuted;
+    public ImageColorPalette ColorPalette { get; set; } = ImageColorPalette.Auto;
 
     // === Composition ===
     /// <summary>Camera composition/angle preset for the image generator</summary>
@@ -170,8 +176,8 @@ public class ImagePromptConfig
     /// <summary>Check if any custom config is set beyond defaults</summary>
     public bool HasCustomConfig =>
         ArtStyle != ImageArtStyle.SemiRealisticPainting
-        || Lighting != ImageLighting.DramaticHighContrast
-        || ColorPalette != ImageColorPalette.VibrantFocalMuted
+        || Lighting != ImageLighting.Auto
+        || ColorPalette != ImageColorPalette.Auto
         || Composition != ImageComposition.Auto
         || DefaultEra != VideoEra.None
         || !string.IsNullOrWhiteSpace(CustomInstructions);
@@ -192,17 +198,26 @@ public class ImagePromptConfig
                 if (!string.IsNullOrEmpty(artSuffix)) parts.Add(artSuffix);
             }
 
-            // Lighting
-            var lightSuffix = ImageStyleMappings.GetLightingSuffix(Lighting);
-            if (!string.IsNullOrEmpty(lightSuffix)) parts.Add(lightSuffix);
+            // Lighting - skip Auto
+            if (Lighting != ImageLighting.Auto)
+            {
+                var lightSuffix = ImageStyleMappings.GetLightingSuffix(Lighting);
+                if (!string.IsNullOrEmpty(lightSuffix)) parts.Add(lightSuffix);
+            }
 
-            // Color palette
-            var colorSuffix = ImageStyleMappings.GetColorPaletteSuffix(ColorPalette);
-            if (!string.IsNullOrEmpty(colorSuffix)) parts.Add(colorSuffix);
+            // Color Palette - skip Auto
+            if (ColorPalette != ImageColorPalette.Auto)
+            {
+                var colorSuffix = ImageStyleMappings.GetColorPaletteSuffix(ColorPalette);
+                if (!string.IsNullOrEmpty(colorSuffix)) parts.Add(colorSuffix);
+            }
 
-            // Composition
-            var compSuffix = ImageStyleMappings.GetCompositionSuffix(Composition);
-            if (!string.IsNullOrEmpty(compSuffix)) parts.Add(compSuffix);
+            // Composition - skip Auto
+            if (Composition != ImageComposition.Auto)
+            {
+                var compSuffix = ImageStyleMappings.GetCompositionSuffix(Composition);
+                if (!string.IsNullOrEmpty(compSuffix)) parts.Add(compSuffix);
+            }
 
             // Always append quality tags
             parts.Add("expressive painterly textures, atmospheric depth, ultra-detailed, sharp focus, 8k quality, consistent visual tone");

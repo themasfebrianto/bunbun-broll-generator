@@ -454,8 +454,8 @@
                     <svg class="h-3.5 w-3.5 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     <span>Config:</span>
                     @if (PromptConfig.ArtStyle != ImageArtStyle.SemiRealisticPainting) { <span class="text-purple-400 font-medium bg-purple-500/10 px-1.5 py-0.5 rounded">@PromptConfig.ArtStyle</span> }
-                    @if (PromptConfig.Lighting != ImageLighting.DramaticHighContrast) { <span class="text-yellow-400 font-medium bg-yellow-500/10 px-1.5 py-0.5 rounded">@PromptConfig.Lighting</span> }
-                    @if (PromptConfig.ColorPalette != ImageColorPalette.VibrantFocalMuted) { <span class="text-pink-400 font-medium bg-pink-500/10 px-1.5 py-0.5 rounded">@PromptConfig.ColorPalette</span> }
+                    @if (PromptConfig.Lighting != ImageLighting.Auto) { <span class="text-yellow-400 font-medium bg-yellow-500/10 px-1.5 py-0.5 rounded">@PromptConfig.Lighting</span> }
+                    @if (PromptConfig.ColorPalette != ImageColorPalette.Auto) { <span class="text-pink-400 font-medium bg-pink-500/10 px-1.5 py-0.5 rounded">@PromptConfig.ColorPalette</span> }
                     @if (PromptConfig.Composition != ImageComposition.Auto) { <span class="text-cyan-400 font-medium bg-cyan-500/10 px-1.5 py-0.5 rounded">@PromptConfig.Composition</span> }
                     @if (PromptConfig.DefaultEra != VideoEra.None) { <span class="text-amber-400 font-medium bg-amber-500/10 px-1.5 py-0.5 rounded">Era @PromptConfig.DefaultEra</span> }
                     @if (!string.IsNullOrWhiteSpace(PromptConfig.CustomInstructions)) { <span class="text-blue-400 font-medium bg-blue-500/10 px-1.5 py-0.5 rounded">Instructions</span> }
@@ -495,8 +495,8 @@
                         <p class="text-sm font-semibold text-left">⚙️ Image Prompt Config</p>
                         <div class="flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
                             @if (PromptConfig.ArtStyle != ImageArtStyle.SemiRealisticPainting) { <span class="text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded">@PromptConfig.ArtStyle</span> }
-                            @if (PromptConfig.Lighting != ImageLighting.DramaticHighContrast) { <span class="text-yellow-400 bg-yellow-500/10 px-1.5 py-0.5 rounded">@PromptConfig.Lighting</span> }
-                            @if (PromptConfig.ColorPalette != ImageColorPalette.VibrantFocalMuted) { <span class="text-pink-400 bg-pink-500/10 px-1.5 py-0.5 rounded">@PromptConfig.ColorPalette</span> }
+                            @if (PromptConfig.Lighting != ImageLighting.Auto) { <span class="text-yellow-400 bg-yellow-500/10 px-1.5 py-0.5 rounded">@PromptConfig.Lighting</span> }
+                            @if (PromptConfig.ColorPalette != ImageColorPalette.Auto) { <span class="text-pink-400 bg-pink-500/10 px-1.5 py-0.5 rounded">@PromptConfig.ColorPalette</span> }
                             @if (PromptConfig.DefaultEra != VideoEra.None) { <span class="text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded">Era @PromptConfig.DefaultEra</span> }
                             @if (PromptConfig.ForceVisualHook) { <span class="text-orange-400 bg-orange-500/10 px-1.5 py-0.5 rounded">Visual Hook ON</span> }
                         </div>
@@ -720,6 +720,9 @@
             }
         </div>
 
+        @* Global Narrative Context *@
+        <GlobalContextView Context="GlobalContext" OnRegenerateContext="OnRegenerateContext" />
+
         @* Segment List — Redesigned Cards *@
         <div class="space-y-4">
             @foreach (var item in PromptItems)
@@ -797,6 +800,8 @@
     [Parameter] public Func<string?, string> ResolveLocalPath { get; set; } = _ => "";
     [Parameter] public EventCallback<Microsoft.AspNetCore.Components.Forms.InputFileChangeEventArgs> OnImportSrt { get; set; }
     [Parameter] public ImagePromptConfig PromptConfig { get; set; } = new();
+    [Parameter] public GlobalScriptContext? GlobalContext { get; set; }
+    [Parameter] public EventCallback OnRegenerateContext { get; set; }
 
     private bool _showSegmentPreview = true; // Default open so user sees segments after import
     private bool _showConfigPanel = false;   // Collapsed by default in post-classification view
@@ -817,6 +822,7 @@
 
     private static readonly (string Label, ImageLighting Value)[] _lightingOptions = new[]
     {
+        ("🔄 Auto", ImageLighting.Auto),
         ("⚡ Dramatic", ImageLighting.DramaticHighContrast),
         ("🌅 Golden Hour", ImageLighting.GoldenHour),
         ("☁️ Soft Ambient", ImageLighting.SoftAmbient),
@@ -827,6 +833,7 @@
 
     private static readonly (string Label, ImageColorPalette Value)[] _colorPaletteOptions = new[]
     {
+        ("🔄 Auto", ImageColorPalette.Auto),
         ("🎯 Vibrant Focal", ImageColorPalette.VibrantFocalMuted),
         ("🏜️ Warm Earthy", ImageColorPalette.WarmEarthy),
         ("❄️ Cool Blue", ImageColorPalette.CoolBlue),

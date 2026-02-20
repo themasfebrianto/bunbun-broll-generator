@@ -194,6 +194,8 @@
             ResolveLocalPath="ResolveLocalPath"
             IsImportingSrt="_isImportingSrt"
             PromptConfig="_imagePromptConfig"
+            GlobalContext="_globalContext"
+            OnRegenerateContext="HandleRegenerateGlobalContext"
             OnImportSrt="HandleImportSrt" />
     }
 </div>
@@ -318,6 +320,7 @@
     // Broll Prompts
     private List<BrollPromptItem> _brollPromptItems = new();
     private ImagePromptConfig _imagePromptConfig = new();
+    private GlobalScriptContext? _globalContext;
     private bool _isClassifyingBroll;
     private int _classifyTotalSegments;
     private int _classifyCompletedSegments;
@@ -1203,14 +1206,41 @@
 
         try
         {
-            await IntelligenceService.GeneratePromptsForTypeBatchAsync(
-                _brollPromptItems, BrollMediaType.ImageGeneration,
-                _resultSession.Topic, _imagePromptConfig,
-                onProgress: async count =>
-                {
-                    _imagePromptGeneratedCount = count;
-                    await InvokeAsync(StateHasChanged);
-                });
+            // Pass 1: Extract global context if needed
+            if (_globalContext == null || _globalContext.Topic != _resultSession.Topic)
+            {
+                _classifyError = null;
+                StateHasChanged();
+
+                _globalContext = await IntelligenceService.ExtractGlobalContextAsync(
+                    _brollPromptItems, _resultSession.Topic);
+            }
+
+            if (_globalContext != null)
+            {
+                // Pass 2: Context-aware generation
+                await IntelligenceService.GeneratePromptsWithContextAsync(
+                    _brollPromptItems, BrollMediaType.ImageGeneration,
+                    _resultSession.Topic, _globalContext, _imagePromptConfig,
+                    onProgress: async count =>
+                    {
+                        _imagePromptGeneratedCount = count;
+                        await InvokeAsync(StateHasChanged);
+                    },
+                    windowSize: 2);
+            }
+            else
+            {
+                // Fallback: non-context-aware generation
+                await IntelligenceService.GeneratePromptsForTypeBatchAsync(
+                    _brollPromptItems, BrollMediaType.ImageGeneration,
+                    _resultSession.Topic, _imagePromptConfig,
+                    onProgress: async count =>
+                    {
+                        _imagePromptGeneratedCount = count;
+                        await InvokeAsync(StateHasChanged);
+                    });
+            }
         }
         catch (Exception ex)
         {
@@ -1240,14 +1270,41 @@
 
         try
         {
-            await IntelligenceService.GeneratePromptsForTypeBatchAsync(
-                _brollPromptItems, BrollMediaType.BrollVideo,
-                _resultSession.Topic, _imagePromptConfig,
-                onProgress: async count =>
-                {
-                    _keywordGeneratedCount = count;
-                    await InvokeAsync(StateHasChanged);
-                });
+            // Pass 1: Extract global context if needed
+            if (_globalContext == null || _globalContext.Topic != _resultSession.Topic)
+            {
+                _classifyError = null;
+                StateHasChanged();
+
+                _globalContext = await IntelligenceService.ExtractGlobalContextAsync(
+                    _brollPromptItems, _resultSession.Topic);
+            }
+
+            if (_globalContext != null)
+            {
+                // Pass 2: Context-aware generation
+                await IntelligenceService.GeneratePromptsWithContextAsync(
+                    _brollPromptItems, BrollMediaType.BrollVideo,
+                    _resultSession.Topic, _globalContext, _imagePromptConfig,
+                    onProgress: async count =>
+                    {
+                        _keywordGeneratedCount = count;
+                        await InvokeAsync(StateHasChanged);
+                    },
+                    windowSize: 2);
+            }
+            else
+            {
+                // Fallback: non-context-aware generation
+                await IntelligenceService.GeneratePromptsForTypeBatchAsync(
+                    _brollPromptItems, BrollMediaType.BrollVideo,
+                    _resultSession.Topic, _imagePromptConfig,
+                    onProgress: async count =>
+                    {
+                        _keywordGeneratedCount = count;
+                        await InvokeAsync(StateHasChanged);
+                    });
+            }
         }
         catch (Exception ex)
         {
@@ -1418,6 +1475,33 @@
         }
     }
 
+    private async Task HandleRegenerateGlobalContext()
+    {
+        if (_resultSession == null || _brollPromptItems.Count == 0) return;
+
+        _classifyError = null;
+        StateHasChanged();
+
+        try
+        {
+            _globalContext = await IntelligenceService.ExtractGlobalContextAsync(
+                _brollPromptItems, _resultSession.Topic);
+
+            if (_globalContext == null)
+            {
+                _classifyError = "Failed to extract global context. Please try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _classifyError = $"Context extraction failed: {ex.Message}";
+        }
+        finally
+        {
+            StateHasChanged();
+        }
+    }
+
     private async Task HandleRegenSegmentKeywords(BrollPromptItem item)
     {
         if (_resultSession == null) return;
@@ -1427,13 +1511,24 @@
 
         try
         {
-            var brollKeywords = await IntelligenceService.GeneratePromptForTypeAsync(
-                item.ScriptText, BrollMediaType.BrollVideo, _resultSession.Topic, config: _imagePromptConfig);
+            string? brollKeywords;
+
+            if (_globalContext != null)
+            {
+                brollKeywords = await IntelligenceService.GeneratePromptWithContextAsync(
+                    item, _brollPromptItems, _resultSession.Topic,
+                    _globalContext, _imagePromptConfig, windowSize: 2);
+            }
+            else
+            {
+                brollKeywords = await IntelligenceService.GeneratePromptForTypeAsync(
+                    item.ScriptText, BrollMediaType.BrollVideo, _resultSession.Topic, config: _imagePromptConfig);
+            }
 
             if (!string.IsNullOrWhiteSpace(brollKeywords))
             {
                 item.Prompt = brollKeywords;
-                item.Reasoning = "Regenerated keywords";
+                item.Reasoning = "Regenerated keywords" + (_globalContext != null ? " (with context)" : "");
             }
             else
             {
@@ -1596,13 +1691,24 @@
             item.CombinedRegenProgress = 20;
             StateHasChanged();
 
-            var imagePrompt = await IntelligenceService.GeneratePromptForTypeAsync(
-                item.ScriptText, BrollMediaType.ImageGeneration, _resultSession.Topic, config: _imagePromptConfig);
+            string? imagePrompt;
+
+            if (_globalContext != null)
+            {
+                imagePrompt = await IntelligenceService.GeneratePromptWithContextAsync(
+                    item, _brollPromptItems, _resultSession.Topic,
+                    _globalContext, _imagePromptConfig, windowSize: 2);
+            }
+            else
+            {
+                imagePrompt = await IntelligenceService.GeneratePromptForTypeAsync(
+                    item.ScriptText, BrollMediaType.ImageGeneration, _resultSession.Topic, config: _imagePromptConfig);
+            }
 
             if (!string.IsNullOrWhiteSpace(imagePrompt))
             {
                 item.Prompt = imagePrompt;
-                item.Reasoning = "Regenerated image prompt";
+                item.Reasoning = "Regenerated image prompt" + (_globalContext != null ? " (with context)" : "");
                 item.KenBurnsMotion = BrollPromptItem.GetRandomMotion();
             }
             else
