@@ -685,6 +685,15 @@ public class ScriptOrchestrator : IScriptOrchestrator
             catch (Exception ex) { _logger.LogWarning(ex, "Failed to delete output directory for {SessionId}", sessionId); }
         }
 
+        // Delete synced session directory
+        var baseDir = Directory.GetCurrentDirectory();
+        var sessionDir = Path.Combine(baseDir, "sessions", sessionId);
+        if (Directory.Exists(sessionDir))
+        {
+            try { Directory.Delete(sessionDir, recursive: true); }
+            catch (Exception ex) { _logger.LogWarning(ex, "Failed to delete synced session directory for {SessionId}", sessionId); }
+        }
+
         db.ScriptGenerationSessions.Remove(session);
         await db.SaveChangesAsync();
 

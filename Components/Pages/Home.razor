@@ -1,537 +1,95 @@
 @page "/generator"
 @page "/editor/{ProjectId}"
 @rendermode InteractiveServer
-@inject IPipelineOrchestrator Orchestrator
-@inject IShortVideoComposer ShortVideoComposer
-@inject IHalalVideoFilter HalalFilter
-@inject IProjectService ProjectService
-@inject IIntelligenceService IntelligenceService
-@inject ILogger<Home> Logger
-@inject IJSRuntime JS
+@inject BunbunBroll.Services.IProjectService ProjectService
+@inject BunbunBroll.Services.IHalalVideoFilter HalalFilter
+@inject NavigationManager NavigationManager
 @inject BunbunBroll.Services.ToastService ToastService
-@inject BunbunBroll.Services.WhiskImageGenerator WhiskGenerator
-@implements IDisposable
 
-<PageTitle>Sequence Generator</PageTitle>
+<PageTitle>@(string.IsNullOrEmpty(ProjectId) ? "New Project" : "Edit Project")</PageTitle>
 
-<div class="animate-in">
-    @if (_currentJob == null)
-    {
-        <!-- Input Form View -->
-        <BrollInputForm 
-            FormTitle="@GetFormTitle()"
-            @bind-ProjectName="_projectName"
-            @bind-ScriptText="_scriptText"
-            @bind-SelectedMood="_selectedMood"
-            @bind-HalalFilterEnabled="_halalFilterEnabled"
-            IsLoading="_isSearching"
-            ProcessedCount="_processedCount"
-            TotalCount="_totalCount"
-            StatusMessage="_statusMessage"
-            OnSubmit="StartSearch" />
-    }
-    else if (_showFullPageLoading)
-    {
-        <!-- Full Page Loading -->
-        <FullPageLoading
-            ProcessedCount="@_processedCount"
-            TotalCount="@_totalCount"
-            EtaText="@GetEtaText()"
-            CurrentStage="@_currentStage"
-            StageMessage="@_statusMessage" />
-    }
-    else
-    {
-        <!-- Results View -->
-        <BrollResultsView 
-            Job="_currentJob"
-            StatusMessage="_statusMessage"
-            ResearchingSentenceId="_researchingSentenceId"
-            RegeneratingSentenceId="_isRegeneratingKeywords"
-            GeneratingImageSentenceId="_isGeneratingWhisk"
-            IsDownloading="_isDownloading"
-            ShowShortVideoPanel="false"
-            ShowMobileProgress="true"
-            OnBack="ResetJob"
-            OnDownloadZip="DownloadAsZip"
-            OnExportLinks="ExportDownloadLinks"
-            OnSaveProject="SaveCurrentProject"
-            OnResearch="ResearchSentence"
-            OnDownload="DownloadSingleDirect"
-            OnRegenerateKeywords="RegenerateKeywords"
-            OnGenerateImage="HandleGenerateWhiskImage"
-            OnClearImage="ClearWhiskImage"
-            OnSelectVideoPair="HandleSelectVideo"
-            OnConfirmVideo="ConfirmSelection" />
-    }
+<div class="animate-in max-w-2xl mx-auto mt-12 px-4">
+    <BunbunBroll.Components.Views.Broll.BrollInputForm 
+        FormTitle="@(string.IsNullOrEmpty(ProjectId) ? "Generate B-Roll" : "Edit Project")"
+        @bind-ProjectName="_projectName"
+        @bind-ScriptText="_scriptText"
+        @bind-SelectedMood="_selectedMood"
+        @bind-HalalFilterEnabled="_halalFilterEnabled"
+        IsLoading="_isLoading"
+        OnSubmit="HandleSubmit" />
 </div>
 
 @code {
-    // Form State
+    [Parameter] public string? ProjectId { get; set; }
+
     private string _projectName = "";
     private string _scriptText = "";
     private string _selectedMood = "";
-    private string _statusMessage = "";
-    private bool _isSearching = false;
-    private bool _isDownloading = false;
-    private int? _isGeneratingWhisk = null;
     private bool _halalFilterEnabled = true;
-    
-    // Job State
-    private ProcessingJob? _currentJob;
-    private CancellationTokenSource? _cts;
-    private int? _researchingSentenceId;
-    private int? _isRegeneratingKeywords;
-    private int _processedCount = 0;
-    private int _totalCount = 0;
-    
-    // Loading State
-    private DateTime _processStartTime;
-    private int _currentStage = 0;
-    private bool _showFullPageLoading = false;
-    
-    private const int STAGE_KEYWORDS = 1;
-    private const int STAGE_SEARCH = 2;
-    private const int STAGE_DONE = 3;
-
-    [Parameter] public string? ProjectId { get; set; }
+    private bool _isLoading = false;
 
     protected override async Task OnInitializedAsync()
     {
         _halalFilterEnabled = HalalFilter.IsEnabled;
-        Orchestrator.OnSentenceProgress += HandleProgress;
-        Orchestrator.OnJobProgress += HandleJobProgress;
 
         if (!string.IsNullOrEmpty(ProjectId))
         {
-            await LoadSavedProject(ProjectId);
-        }
-    }
-
-    private string GetFormTitle() => string.IsNullOrEmpty(ProjectId) ? "Sequence Baru" : "Edit Project";
-
-    private async Task LoadSavedProject(string id)
-    {
-        var saved = await ProjectService.GetProjectAsync(id);
-        if (saved != null)
-        {
-            _projectName = saved.Name;
-            _scriptText = saved.RawScript;
-            _selectedMood = saved.Mood ?? "";
-            
-            _currentJob = new ProcessingJob
+            var saved = await ProjectService.GetProjectAsync(ProjectId);
+            if (saved != null)
             {
-                Id = saved.Id,
-                ProjectName = saved.Name,
-                RawScript = saved.RawScript,
-                Mood = saved.Mood,
-                CreatedAt = saved.CreatedAt,
-                Status = JobStatus.PreviewReady
-            };
-
-            foreach (var s in saved.Segments.OrderBy(x => x.Order))
-            {
-                var segment = new ScriptSegment
-                {
-                    Id = s.Id,
-                    Title = s.Title,
-                    Status = SegmentStatus.Completed
-                };
-                foreach (var sent in s.Sentences.OrderBy(x => x.Order))
-                {
-                    var sentence = new ScriptSentence
-                    {
-                        Id = sent.Id,
-                        Text = sent.Text,
-                        KeywordSet = sent.GetKeywordSet(),
-                        Status = SentenceStatus.PreviewReady
-                    };
-                    if (!string.IsNullOrEmpty(sent.VideoUrl))
-                    {
-                        sentence.SelectedVideo = new VideoAsset
-                        {
-                            Id = sent.VideoId ?? "",
-                            Provider = sent.VideoProvider ?? "Pexels",
-                            DownloadUrl = sent.VideoUrl,
-                            PreviewUrl = sent.VideoPreviewUrl ?? "",
-                            ThumbnailUrl = sent.VideoThumbUrl ?? "",
-                            DurationSeconds = sent.VideoDuration
-                        };
-                    }
-
-                    sentence.WhiskImagePath = sent.WhiskImagePath;
-                    if (Enum.TryParse<KenBurnsMotionType>(sent.WhiskMotionType, out var motion))
-                    {
-                        sentence.WhiskMotionType = motion;
-                    }
-
-                    if (Enum.TryParse<VideoStyle>(sent.VideoStyle, out var style))
-                    {
-                        sentence.Style = style;
-                    }
-
-                    segment.Sentences.Add(sentence);
-                }
-                _currentJob.Segments.Add(segment);
+                _projectName = saved.Name;
+                _scriptText = saved.RawScript;
+                _selectedMood = saved.Mood ?? "";
             }
         }
     }
 
-    private void ToggleHalalFilter()
+    private async Task HandleSubmit()
     {
-        _halalFilterEnabled = !_halalFilterEnabled;
-        HalalFilter.IsEnabled = _halalFilterEnabled;
-    }
-
-    private async Task StartSearch()
-    {
-        if (string.IsNullOrWhiteSpace(_projectName) || string.IsNullOrWhiteSpace(_scriptText)) return;
-        
-        _processStartTime = DateTime.Now;
-        _showFullPageLoading = true;
-        _isSearching = true;
-        _processedCount = 0;
-        _totalCount = 0;
-        _currentStage = STAGE_KEYWORDS;
-        _cts = new CancellationTokenSource();
-        _researchingSentenceId = null;
-
-        ToastService.Show("Mulai nyari B-Roll...");
-
-        _currentJob = new ProcessingJob {
-            ProjectName = _projectName.Trim(),
-            RawScript = _scriptText.Trim(),
-            Mood = string.IsNullOrEmpty(_selectedMood) ? null : _selectedMood
-        };
-
-        StateHasChanged();
-        await Orchestrator.SearchPreviewsAsync(_currentJob, _cts.Token);
-        await SaveCurrentProject();
-        _showFullPageLoading = false;
-        _isSearching = false;
-        _processedCount = 0;
-        _totalCount = 0;
-        _currentStage = STAGE_DONE;
-        ToastService.Show("✓ Selesai! Cek hasilnya ↓", ToastType.Success);
-        StateHasChanged();
-    }
-
-    private async Task ResearchSentence(ScriptSentence sentence)
-    {
-        if (_currentJob == null) return;
-        _researchingSentenceId = sentence.Id;
-        StateHasChanged();
-        await Orchestrator.ResearchSentenceAsync(_currentJob, sentence, null, _cts?.Token ?? default);
-        StateHasChanged();
-    }
-
-    private async Task RegenerateKeywords(ScriptSentence sentence)
-    {
-        if (_currentJob == null) return;
-        _isRegeneratingKeywords = sentence.Id;
-        _statusMessage = $"Regenerating keywords for sentence #{sentence.Id}...";
-        StateHasChanged();
-        
-        try
+        if (string.IsNullOrWhiteSpace(_projectName) || string.IsNullOrWhiteSpace(_scriptText))
         {
-            var keywordResult = await IntelligenceService.ExtractKeywordsAsync(
-                sentence.Text, 
-                _currentJob.Mood, 
-                _cts?.Token ?? default);
-            
-            if (keywordResult.Success && keywordResult.KeywordSet.TotalCount > 0)
-            {
-                sentence.KeywordSet = keywordResult.KeywordSet;
-                _statusMessage = $"✓ Generated {sentence.KeywordSet.TotalCount} keywords";
-                
-                _researchingSentenceId = sentence.Id;
-                StateHasChanged();
-                await Orchestrator.ResearchSentenceAsync(_currentJob, sentence, null, _cts?.Token ?? default);
-                await SaveCurrentProject();
-            }
-            else
-            {
-                _statusMessage = $"⚠ AI extraction failed: {keywordResult.Error ?? "Unknown error"}";
-            }
-        }
-        catch (Exception ex)
-        {
-            _statusMessage = $"Error: {ex.Message}";
-        }
-        finally
-        {
-            _isRegeneratingKeywords = null;
-            _researchingSentenceId = null;
-            StateHasChanged();
-        }
-    }
-
-    private void HandleSelectVideo((ScriptSentence sentence, VideoAsset video) pair)
-    {
-        pair.sentence.SelectedVideo = pair.video;
-        StateHasChanged();
-    }
-
-    private async Task ConfirmSelection(ScriptSentence sentence)
-    {
-        _researchingSentenceId = null;
-        sentence.Status = SentenceStatus.PreviewReady;
-        await SaveCurrentProject();
-        StateHasChanged();
-    }
-
-    private async Task SaveCurrentProject()
-    {
-        if (_currentJob != null)
-        {
-            await ProjectService.SaveJobAsProjectAsync(_currentJob);
-        }
-    }
-
-    private string GenerateFileName(int index, ScriptSentence sentence)
-    {
-        var projectSlug = SanitizeForFilename(_currentJob?.ProjectName ?? "project");
-        var keyword = sentence.Keywords.FirstOrDefault() ?? "clip";
-        var keywordSlug = SanitizeForFilename(keyword);
-        return $"{projectSlug}_{index:D2}_{keywordSlug}.mp4";
-    }
-
-    private static string SanitizeForFilename(string input)
-    {
-        var invalid = Path.GetInvalidFileNameChars();
-        var sanitized = new string(input
-            .Replace(' ', '_')
-            .Where(c => !invalid.Contains(c))
-            .ToArray())
-            .ToLower();
-        return sanitized.Length > 30 ? sanitized[..30] : sanitized;
-    }
-
-    private async Task DownloadSingleDirect(ScriptSentence sentence)
-    {
-        if (_currentJob == null || sentence.SelectedVideo == null) return;
-
-        var index = 1;
-        foreach (var s in _currentJob.Segments.SelectMany(seg => seg.Sentences))
-        {
-            if (s.Id == sentence.Id) break;
-            if (s.SelectedVideo != null) index++;
-        }
-
-        var filename = GenerateFileName(index, sentence);
-        
-        try
-        {
-            await JS.InvokeVoidAsync("triggerDownload", sentence.SelectedVideo.DownloadUrl, filename);
-            _statusMessage = $"Downloading: {filename}";
-            StateHasChanged();
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Single download failed");
-            _statusMessage = $"Download error: {ex.Message}";
-            StateHasChanged();
-        }
-    }
-
-    private async Task DownloadAsZip()
-    {
-        if (_currentJob == null) return;
-        _isDownloading = true;
-        _statusMessage = "Preparing download...";
-        StateHasChanged();
-
-        try
-        {
-            var downloads = GetDownloadList();
-            
-            if (downloads.Count == 0)
-            {
-                _statusMessage = "No videos to download";
-                _isDownloading = false;
-                StateHasChanged();
-                return;
-            }
-
-            var projectSlug = SanitizeForFilename(_currentJob.ProjectName);
-            var zipFilename = $"{projectSlug}_broll.zip";
-            var filesArray = downloads.Select(d => new { url = d.Url, filename = d.Filename }).ToArray();
-
-            _statusMessage = $"Fetching {downloads.Count} videos...";
-            StateHasChanged();
-
-            var result = await JS.InvokeAsync<ZipResult>("downloadAsZip", zipFilename, filesArray);
-
-            if (result != null)
-            {
-                _statusMessage = $"✓ Downloaded {result.Success}/{result.Total} videos as {zipFilename}";
-                if (result.Failed > 0)
-                {
-                    _statusMessage += $" ({result.Failed} failed)";
-                }
-            }
-            else
-            {
-                _statusMessage = "✓ ZIP download started!";
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "ZIP download failed");
-            _statusMessage = $"Download error: {ex.Message}";
-        }
-        finally
-        {
-            _isDownloading = false;
-            StateHasChanged();
-        }
-    }
-
-    private async Task ExportDownloadLinks()
-    {
-        if (_currentJob == null) return;
-
-        var downloads = GetDownloadList();
-        if (downloads.Count == 0)
-        {
-            _statusMessage = "No videos to export";
+            ToastService.ShowError("Isi nama dan script dulu bos!");
             return;
         }
-
-        var projectSlug = SanitizeForFilename(_currentJob.ProjectName);
-        var content = $"# {_currentJob.ProjectName} - B-Roll Download Links\n";
-        content += $"# Generated: {DateTime.Now:yyyy-MM-dd HH:mm}\n";
-        content += $"# Total: {downloads.Count} videos\n\n";
-
-        foreach (var (url, filename, _) in downloads)
-        {
-            content += $"{filename}\n{url}\n\n";
-        }
-
-        var bytes = System.Text.Encoding.UTF8.GetBytes(content);
-        var base64 = Convert.ToBase64String(bytes);
-        await JS.InvokeVoidAsync("downloadFile", $"{projectSlug}_links.txt", base64, "text/plain");
         
-        _statusMessage = $"Exported {downloads.Count} links to {projectSlug}_links.txt";
-        StateHasChanged();
-    }
-
-    private List<(string Url, string Filename, int Index)> GetDownloadList()
-    {
-        if (_currentJob == null) return new();
-
-        var index = 1;
-        var downloads = new List<(string, string, int)>();
-
-        foreach (var sentence in _currentJob.Segments.SelectMany(s => s.Sentences))
-        {
-            if (sentence.SelectedVideo != null)
-            {
-                var filename = GenerateFileName(index, sentence);
-                downloads.Add((sentence.SelectedVideo.DownloadUrl, filename, index));
-                index++;
-            }
-        }
-
-        return downloads;
-    }
-
-    private void ResetJob()
-    {
-        _currentJob = null;
-        _statusMessage = "";
-        _researchingSentenceId = null;
-    }
-
-    private void HandleProgress(object? sender, SentenceProgressEventArgs e)
-    {
-        _statusMessage = e.Message;
-        _processedCount = e.Sentence.Id;
-        _totalCount = e.Job.TotalSentences;
-
-        _currentStage = e.Job.Status switch
-        {
-            JobStatus.Segmenting => STAGE_KEYWORDS,
-            JobStatus.Processing => STAGE_KEYWORDS,
-            >= JobStatus.PreviewReady => STAGE_SEARCH,
-            _ => _currentStage
-        };
-
-        InvokeAsync(StateHasChanged);
-    }
-
-    private void HandleJobProgress(object? sender, JobProgressEventArgs e)
-    {
-        _statusMessage = e.Message;
-        _totalCount = e.Job.TotalSentences;
-        InvokeAsync(StateHasChanged);
-    }
-
-    private string GetEtaText()
-    {
-        if (_totalCount == 0 || _processedCount == 0) return "Hitung waktu...";
-
-        var elapsed = (DateTime.Now - _processStartTime).TotalSeconds;
-        var percentComplete = (double)_processedCount / _totalCount;
-        var etaSeconds = (elapsed / percentComplete) * (1 - percentComplete);
-
-        return etaSeconds < 60
-            ? $"Kurang lebih {(int)etaSeconds} detik lagi"
-            : $"Kurang lebih {(int)(etaSeconds / 60)} menit lagi";
-    }
-
-    private async Task HandleGenerateWhiskImage(ScriptSentence sentence)
-    {
-        if (_currentJob == null) return;
-        _isGeneratingWhisk = sentence.Id;
-        StateHasChanged();
+        _isLoading = true;
+        HalalFilter.IsEnabled = _halalFilterEnabled;
 
         try
         {
-            var outputDir = Path.Combine(Directory.GetCurrentDirectory(), "output", _currentJob.Id, "whisks_images");
-            var prompt = sentence.WhiskPrompt ?? sentence.Text;
-            var result = await WhiskGenerator.GenerateImageAsync(prompt, outputDir, $"sent_{sentence.Id}");
-            if (result.Success)
+            // If editing an existing project, just update the basic info.
+            if (!string.IsNullOrEmpty(ProjectId))
             {
-                sentence.WhiskImagePath = result.ImagePath;
-                sentence.SelectedVideo = null;
-                await ProjectService.SaveJobAsProjectAsync(_currentJob);
-                ToastService.ShowSuccess("AI Image generated!");
+                var existing = await ProjectService.GetProjectAsync(ProjectId);
+                if (existing != null)
+                {
+                    existing.Name = _projectName;
+                    existing.RawScript = _scriptText;
+                    existing.Mood = _selectedMood;
+                    // Note: changing the script text here does not currently delete old segments, 
+                    // To do that, we'll need a "regenerate" flow, but for now we just redirect.
+                    NavigationManager.NavigateTo($"/workspace/{ProjectId}/script");
+                    return;
+                }
             }
-            else
+
+            // Create new project
+            var job = new BunbunBroll.Models.ProcessingJob
             {
-                ToastService.ShowError($"Whisk Error: {result.Error}");
-            }
+                Id = Guid.NewGuid().ToString("N")[..8],
+                ProjectName = _projectName,
+                RawScript = _scriptText,
+                Mood = _selectedMood,
+                Status = BunbunBroll.Models.JobStatus.Created
+            };
+            
+            await ProjectService.SaveJobAsProjectAsync(job);
+            NavigationManager.NavigateTo($"/workspace/{job.Id}/script");
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Failed to generate whisk image for sentence {Id}", sentence.Id);
-            ToastService.ShowError($"Generation failed: {ex.Message}");
+            ToastService.ShowError($"Gagal: {ex.Message}");
+            _isLoading = false;
         }
-        finally
-        {
-            _isGeneratingWhisk = null;
-            StateHasChanged();
-        }
-    }
-
-    private void ClearWhiskImage(ScriptSentence sentence)
-    {
-        sentence.WhiskImagePath = null;
-        StateHasChanged();
-    }
-
-    public void Dispose()
-    {
-        Orchestrator.OnSentenceProgress -= HandleProgress;
-        Orchestrator.OnJobProgress -= HandleJobProgress;
-        _cts?.Dispose();
-    }
-
-    private class ZipResult
-    {
-        public int Success { get; set; }
-        public int Failed { get; set; }
-        public int Total { get; set; }
     }
 }

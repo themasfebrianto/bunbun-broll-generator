@@ -1,0 +1,243 @@
+@page "/workspace/{ProjectId}/script"
+@layout WorkspaceLayout
+@inject NavigationManager NavigationManager
+@inject BunbunBroll.Services.IProjectService ProjectService
+@inject BunbunBroll.Services.IPipelineOrchestrator Orchestrator
+@inject BunbunBroll.Services.IIntelligenceService IntelligenceService
+@inject BunbunBroll.Services.ToastService ToastService
+
+<PageTitle>Script & Story - Stage 1</PageTitle>
+
+<div class="space-y-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-bold tracking-tight">Script & Storyboard</h1>
+            <p class="text-sm text-muted-foreground">Review your script segments and AI-generated keywords.</p>
+        </div>
+        @if (_isLoaded && !_isProcessing)
+        {
+            <button @onclick="ProceedToNextStage" class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2">
+                Proceed to Visuals
+                <svg class="ml-2 w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+            </button>
+        }
+    </div>
+
+    @if (!_isLoaded || _isProcessing)
+    {
+        <div class="flex flex-col items-center justify-center py-24 space-y-4">
+            <div class="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+            <p class="text-muted-foreground animate-pulse">@_statusMessage</p>
+        </div>
+    }
+    else if (_job != null)
+    {
+        <div class="space-y-12 max-w-4xl">
+            @foreach (var segment in _job.Segments)
+            {
+                <div class="space-y-4">
+                    <div class="flex items-center gap-4">
+                        <h2 class="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground/50">@segment.Title</h2>
+                        <div class="h-[1px] flex-1 bg-border"></div>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        @foreach (var sentence in segment.Sentences)
+                        {
+                            <div class="p-4 rounded-xl border border-border bg-card shadow-sm space-y-3">
+                                <p class="text-[0.95rem] text-card-foreground">@sentence.Text</p>
+                                
+                                <div class="flex flex-wrap gap-2 items-center">
+                                    <span class="text-xs font-medium text-muted-foreground">Keywords:</span>
+                                    @if (sentence.Keywords.Any())
+                                    {
+                                        @foreach (var kw in sentence.Keywords)
+                                        {
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-secondary text-secondary-foreground">
+                                                @kw
+                                            </span>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span class="text-xs text-muted-foreground italic">No keywords generated</span>
+                                    }
+
+                                    <button @onclick="() => RegenerateKeywords(sentence)" disabled="@(_isRegenerating == sentence.Id)" class="ml-auto inline-flex items-center text-xs text-primary hover:text-primary/80 transition-colors disabled:opacity-50">
+                                        @if (_isRegenerating == sentence.Id)
+                                        {
+                                            <svg class="animate-spin -ml-1 mr-1.5 h-3 w-3" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                            <span>Regenerating...</span>
+                                        }
+                                        else
+                                        {
+                                            <svg class="mr-1 h-3 w-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                                            <span>Regenerate AI Keywords</span>
+                                        }
+                                    </button>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string ProjectId { get; set; } = string.Empty;
+    [CascadingParameter] public BunbunBroll.Components.Layout.WorkspaceLayout Layout { get; set; } = null!;
+
+    private bool _isLoaded;
+    private bool _isProcessing;
+    private string _statusMessage = "Loading project...";
+    private BunbunBroll.Models.ProcessingJob? _job;
+    private int? _isRegenerating;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Layout?.SetContext(ProjectId, "script");
+        await LoadOrGenerateProject();
+    }
+
+    private async Task LoadOrGenerateProject()
+    {
+        var saved = await ProjectService.GetProjectAsync(ProjectId);
+        if (saved == null)
+        {
+            NavigationManager.NavigateTo("/");
+            return;
+        }
+
+        RebuildJobFromProject(saved);
+
+        // If it hasn't been generated yet (no segments), generate it now
+        if (_job != null && !_job.Segments.Any())
+        {
+            _isProcessing = true;
+            _statusMessage = "Analyzing script and finding best keywords...";
+            StateHasChanged();
+
+            Orchestrator.OnSentenceProgress += HandleProgress;
+            using var cts = new CancellationTokenSource();
+            
+            await Orchestrator.SearchPreviewsAsync(_job, cts.Token);
+            
+            Orchestrator.OnSentenceProgress -= HandleProgress;
+
+            // Save the newly generated segments back to the DB
+            await ProjectService.SaveJobAsProjectAsync(_job);
+            
+            _isProcessing = false;
+        }
+
+        _isLoaded = true;
+        StateHasChanged();
+    }
+
+    private void RebuildJobFromProject(BunbunBroll.Data.Project saved)
+    {
+        _job = new BunbunBroll.Models.ProcessingJob
+        {
+            Id = saved.Id,
+            ProjectName = saved.Name,
+            RawScript = saved.RawScript,
+            Mood = saved.Mood,
+            CreatedAt = saved.CreatedAt,
+            Status = BunbunBroll.Models.JobStatus.PreviewReady
+        };
+
+        foreach (var s in saved.Segments.OrderBy(x => x.Order))
+        {
+            var segment = new BunbunBroll.Models.ScriptSegment
+            {
+                Id = s.Id,
+                Title = s.Title,
+                Status = BunbunBroll.Models.SegmentStatus.Completed
+            };
+            foreach (var sent in s.Sentences.OrderBy(x => x.Order))
+            {
+                var sentence = new BunbunBroll.Models.ScriptSentence
+                {
+                    Id = sent.Id,
+                    Text = sent.Text,
+                    KeywordSet = sent.GetKeywordSet(),
+                    Status = BunbunBroll.Models.SentenceStatus.PreviewReady
+                };
+                // Copy other properties needed to retain DB state
+                // We keep them all so SaveJobAsProjectAsync doesn't overwrite with nulls
+                if (!string.IsNullOrEmpty(sent.VideoUrl))
+                {
+                    sentence.SelectedVideo = new BunbunBroll.Models.VideoAsset
+                    {
+                        Id = sent.VideoId ?? "",
+                        Provider = sent.VideoProvider ?? "Pexels",
+                        DownloadUrl = sent.VideoUrl,
+                        PreviewUrl = sent.VideoPreviewUrl ?? "",
+                        ThumbnailUrl = sent.VideoThumbUrl ?? "",
+                        DurationSeconds = sent.VideoDuration
+                    };
+                }
+                sentence.WhiskImagePath = sent.WhiskImagePath;
+                if (Enum.TryParse<BunbunBroll.Models.KenBurnsMotionType>(sent.WhiskMotionType, out var motion))
+                    sentence.WhiskMotionType = motion;
+                
+                if (Enum.TryParse<BunbunBroll.Models.VideoStyle>(sent.VideoStyle, out var style))
+                    sentence.Style = style;
+
+                segment.Sentences.Add(sentence);
+            }
+            _job.Segments.Add(segment);
+        }
+    }
+
+    private void HandleProgress(object? sender, BunbunBroll.Services.SentenceProgressEventArgs e)
+    {
+        _statusMessage = e.Message;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task RegenerateKeywords(BunbunBroll.Models.ScriptSentence sentence)
+    {
+        if (_job == null) return;
+        _isRegenerating = sentence.Id;
+        StateHasChanged();
+        
+        try
+        {
+            using var cts = new CancellationTokenSource();
+            var keywordResult = await IntelligenceService.ExtractKeywordsAsync(sentence.Text, _job.Mood, cts.Token);
+            
+            if (keywordResult.Success && keywordResult.KeywordSet.TotalCount > 0)
+            {
+                sentence.KeywordSet = keywordResult.KeywordSet;
+                
+                // Immediately research new videos for these keywords so the data is ready for Stage 2
+                await Orchestrator.ResearchSentenceAsync(_job, sentence, null, cts.Token);
+                await ProjectService.SaveJobAsProjectAsync(_job);
+                ToastService.ShowSuccess($"Generated {sentence.KeywordSet.TotalCount} new keywords");
+            }
+            else
+            {
+                ToastService.ShowError($"AI extraction failed: {keywordResult.Error ?? "Unknown error"}");
+            }
+        }
+        catch (Exception ex)
+        {
+            ToastService.ShowError($"Error: {ex.Message}");
+        }
+        finally
+        {
+            _isRegenerating = null;
+            StateHasChanged();
+        }
+    }
+
+    private void ProceedToNextStage()
+    {
+        NavigationManager.NavigateTo($"/workspace/{ProjectId}/visuals");
+    }
+}

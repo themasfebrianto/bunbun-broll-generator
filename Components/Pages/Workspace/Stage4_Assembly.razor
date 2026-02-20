@@ -1,0 +1,308 @@
+@page "/workspace/{ProjectId}/assembly"
+@layout WorkspaceLayout
+@inject NavigationManager NavigationManager
+@inject BunbunBroll.Services.IProjectService ProjectService
+@inject BunbunBroll.Services.IShortVideoComposer ShortVideoComposer
+@inject BunbunBroll.Services.ToastService ToastService
+@inject IJSRuntime JS
+
+<PageTitle>Assembly & Render - Stage 4</PageTitle>
+
+<div class="space-y-6 max-w-4xl mx-auto">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-bold tracking-tight">Assembly & Render</h1>
+            <p class="text-sm text-muted-foreground">Review your project and compile the final video.</p>
+        </div>
+        <div class="flex gap-2">
+            <button @onclick="GoBack" class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 px-4 py-2">
+                <svg class="mr-2 w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                Back to Audio
+            </button>
+        </div>
+    </div>
+
+    @if (!_isLoaded)
+    {
+        <div class="flex flex-col items-center justify-center py-24 space-y-4">
+            <div class="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+            <p class="text-muted-foreground animate-pulse">Loading assembly data...</p>
+        </div>
+    }
+    else if (_job != null)
+    {
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <!-- Project Summary -->
+            <div class="space-y-4">
+                <div class="p-6 rounded-xl border border-border bg-card shadow-sm space-y-4">
+                    <h3 class="font-semibold text-lg border-b pb-2">Project Overview</h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <p class="text-xs text-muted-foreground">Project Name</p>
+                            <p class="font-medium truncate">@_job.ProjectName</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-muted-foreground">Total Segments</p>
+                            <p class="font-medium">@_job.Segments.Count</p>
+                        </div>
+                        <div>
+                            <p class="text-xs text-muted-foreground">Visuals Prepared</p>
+                            <p class="font-medium text-primary">@GetReadyCount() / @_job.TotalSentences</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Aspect Ratio Selection -->
+                <div class="p-6 rounded-xl border border-border bg-card shadow-sm space-y-4">
+                    <h3 class="font-semibold text-lg border-b pb-2">Video Settings</h3>
+                    <div class="space-y-2">
+                        <label class="text-sm font-medium text-foreground">Aspect Ratio</label>
+                        <select @bind="_selectedRatio" class="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm">
+                            @foreach (var ratio in Enum.GetValues<BunbunBroll.Models.AspectRatio>())
+                            {
+                                <option value="@ratio">@ratio.ToString().Replace("_", " ")</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Voiceover Synchronization -->
+                <div class="p-6 rounded-xl border border-border bg-card shadow-sm space-y-4">
+                    <h3 class="font-semibold text-lg border-b pb-2">CapCut Voiceover Sync</h3>
+                    <p class="text-xs text-muted-foreground">Optional: Provide paths to your externally generated CapCut voiceover and SRT for automatic synchronization.</p>
+                    <div class="space-y-2">
+                        <label class="text-sm font-medium text-foreground">CapCut Audio (.mp3) Path</label>
+                        <input type="text" @bind="_capcutAudioPath" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground" placeholder="C:\path\to\VO.mp3" />
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-sm font-medium text-foreground">CapCut Subtitles (.srt) Path</label>
+                        <input type="text" @bind="_capcutSrtPath" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground" placeholder="C:\path\to\VO.srt" />
+                    </div>
+                </div>
+            </div>
+
+            <!-- Video Rendering Section -->
+            <div class="space-y-4">
+                <div class="p-6 rounded-xl border border-border bg-card shadow-sm space-y-6">
+                    <h3 class="font-semibold text-lg border-b pb-2">Compile Video</h3>
+
+                    @if (_shortVideoResult?.Success == true)
+                    {
+                        <div class="p-4 rounded-md bg-green-500/10 border border-green-500/30 space-y-3">
+                            <div class="flex items-center gap-2">
+                                <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+                                <p class="text-sm font-medium text-green-600 dark:text-green-400">
+                                    Render Complete!
+                                </p>
+                            </div>
+                            <p class="text-xs text-muted-foreground">Duration: @_shortVideoResult.DurationSeconds s | Size: @FormatFileSize(_shortVideoResult.FileSizeBytes)</p>
+                            
+                            <button @onclick="DownloadVideo" class="w-full inline-flex items-center justify-center rounded-md font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2">
+                                <svg class="mr-2 w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                                Download MP4
+                            </button>
+                        </div>
+                    }
+
+                    <button @onclick="GenerateVideo" disabled="@(_isGenerating || GetReadyCount() == 0)" class="w-full inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none bg-primary text-primary-foreground hover:bg-primary/90 h-12 px-4 py-2 disabled:opacity-50">
+                        @if (_isGenerating)
+                        {
+                            <svg class="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                            <span>@_generateStage (@_generateProgress%)</span>
+                        }
+                        else
+                        {
+                            <svg class="mr-2 w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            <span>Render Final Video</span>
+                        }
+                    </button>
+
+                    @if (_isGenerating)
+                    {
+                        <div class="space-y-2">
+                            <div class="h-2 w-full bg-muted rounded-full overflow-hidden">
+                                <div class="h-full bg-primary transition-all duration-300 ease-out" style="width: @_generateProgress%"></div>
+                            </div>
+                            <p class="text-xs text-center text-muted-foreground truncate">@_generateMessage</p>
+                        </div>
+                    }
+                    
+                    @if (_shortVideoResult?.Success == false)
+                    {
+                        <div class="p-3 rounded-md bg-red-500/10 border border-red-500/30">
+                            <p class="text-xs text-red-500">@_shortVideoResult.ErrorMessage</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string ProjectId { get; set; } = string.Empty;
+    [CascadingParameter] public BunbunBroll.Components.Layout.WorkspaceLayout Layout { get; set; } = null!;
+
+    private bool _isLoaded;
+    private BunbunBroll.Models.ProcessingJob? _job;
+    
+    // Rendering State
+    private bool _isGenerating;
+    private int _generateProgress;
+    private string _generateStage = "";
+    private string _generateMessage = "";
+    private BunbunBroll.Models.ShortVideoResult? _shortVideoResult;
+    private BunbunBroll.Models.AspectRatio _selectedRatio = BunbunBroll.Models.AspectRatio.Portrait_9x16;
+    private string _capcutAudioPath = "";
+    private string _capcutSrtPath = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        Layout?.SetContext(ProjectId, "assembly");
+        await LoadProject();
+    }
+
+    private async Task LoadProject()
+    {
+        var saved = await ProjectService.GetProjectAsync(ProjectId);
+        if (saved == null)
+        {
+            NavigationManager.NavigateTo("/");
+            return;
+        }
+
+        RebuildJobFromProject(saved);
+        _isLoaded = true;
+        StateHasChanged();
+    }
+
+    private void RebuildJobFromProject(BunbunBroll.Data.Project saved)
+    {
+        _job = new BunbunBroll.Models.ProcessingJob
+        {
+            Id = saved.Id,
+            ProjectName = saved.Name,
+            RawScript = saved.RawScript,
+            Mood = saved.Mood,
+            Status = BunbunBroll.Models.JobStatus.PreviewReady
+        };
+
+        foreach (var s in saved.Segments.OrderBy(x => x.Order))
+        {
+            var segment = new BunbunBroll.Models.ScriptSegment { Id = s.Id };
+            foreach (var sent in s.Sentences.OrderBy(x => x.Order))
+            {
+                var sentence = new BunbunBroll.Models.ScriptSentence { 
+                    Id = sent.Id,
+                    WhiskImagePath = sent.WhiskImagePath
+                };
+                if (!string.IsNullOrEmpty(sent.VideoUrl))
+                {
+                    sentence.SelectedVideo = new BunbunBroll.Models.VideoAsset { DownloadUrl = sent.VideoUrl };
+                }
+                segment.Sentences.Add(sentence);
+            }
+            _job.Segments.Add(segment);
+        }
+    }
+
+    private int GetReadyCount() => _job?.Segments.SelectMany(s => s.Sentences).Count(s => s.SelectedVideo != null || !string.IsNullOrEmpty(s.WhiskImagePath)) ?? 0;
+
+    private async Task GenerateVideo()
+    {
+        if (_job == null) return;
+        
+        _isGenerating = true;
+        _generateProgress = 0;
+        _generateStage = "Preparing...";
+        _shortVideoResult = null;
+        StateHasChanged();
+
+        var reporter = new Progress<BunbunBroll.Models.CompositionProgress>(p =>
+        {
+            _generateProgress = p.Percent;
+            _generateStage = p.Stage;
+            _generateMessage = p.Message;
+            InvokeAsync(StateHasChanged);
+        });
+
+        try
+        {
+            var config = new BunbunBroll.Models.ShortVideoConfig
+            {
+                Ratio = _selectedRatio,
+                CapCutAudioPath = _capcutAudioPath,
+                CapCutSrtPath = _capcutSrtPath
+                // Additional options for Audio overlay can be passed here once Stage 3 is ready
+            };
+            
+            var clips = new List<BunbunBroll.Models.VideoClip>();
+            if (_job != null)
+            {
+                foreach (var segment in _job.Segments)
+                {
+                    foreach (var sentence in segment.Sentences)
+                    {
+                        if (sentence.SelectedVideo != null && !string.IsNullOrEmpty(sentence.SelectedVideo.DownloadUrl))
+                        {
+                            clips.Add(new BunbunBroll.Models.VideoClip(sentence.SelectedVideo.DownloadUrl, sentence.SelectedVideo.DownloadUrl, "", 3.0));
+                        }
+                        else if (!string.IsNullOrEmpty(sentence.WhiskImagePath))
+                        {
+                            clips.Add(BunbunBroll.Models.VideoClip.FromImage(sentence.WhiskImagePath, "", 3.0));
+                        }
+                    }
+                }
+            }
+
+            _shortVideoResult = await ShortVideoComposer.ComposeAsync(clips, config, _job?.Id, reporter);
+            
+            if (_shortVideoResult.Success)
+            {
+                ToastService.ShowSuccess("Video Assembly Complete!");
+            }
+            else
+            {
+                ToastService.ShowError("Video rendering failed.");
+            }
+        }
+        catch (Exception ex)
+        {
+            _shortVideoResult = new BunbunBroll.Models.ShortVideoResult { Success = false, ErrorMessage = ex.Message };
+            ToastService.ShowError($"Assembly error: {ex.Message}");
+        }
+        finally
+        {
+            _isGenerating = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task DownloadVideo()
+    {
+        if (_shortVideoResult?.Success == true && !string.IsNullOrEmpty(_shortVideoResult.OutputPath))
+        {
+            var url = $"/project-assets/{_job!.Id}/short-video/{Path.GetFileName(_shortVideoResult.OutputPath)}";
+            var filename = $"{_job.ProjectName.Replace(" ", "_")}_final.mp4";
+            await JS.InvokeVoidAsync("triggerDownload", url, filename);
+        }
+    }
+
+    private void GoBack()
+    {
+        NavigationManager.NavigateTo($"/workspace/{ProjectId}/audio");
+    }
+
+    private static string FormatFileSize(long bytes)
+    {
+        string[] sizes = { "B", "KB", "MB", "GB" };
+        double len = bytes;
+        int order = 0;
+        while (len >= 1024 && order < sizes.Length - 1)
+        {
+            order++;
+            len /= 1024;
+        }
+        return $"{len:0.##} {sizes[order]}";
+    }
+}

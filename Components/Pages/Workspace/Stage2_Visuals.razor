@@ -1,0 +1,261 @@
+@page "/workspace/{ProjectId}/visuals"
+@layout WorkspaceLayout
+@inject NavigationManager NavigationManager
+@inject BunbunBroll.Services.IProjectService ProjectService
+@inject BunbunBroll.Services.IPipelineOrchestrator Orchestrator
+@inject BunbunBroll.Services.IIntelligenceService IntelligenceService
+@inject BunbunBroll.Services.WhiskImageGenerator WhiskGenerator
+@inject BunbunBroll.Services.ToastService ToastService
+@inject IJSRuntime JS
+@inject ILogger<Stage2_Visuals> Logger
+
+<PageTitle>Visuals & Media - Stage 2</PageTitle>
+
+<div class="space-y-6">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-bold tracking-tight">Visuals & Media</h1>
+            <p class="text-sm text-muted-foreground">Select videos, generate AI images, and prepare the B-roll assets.</p>
+        </div>
+        @if (_isLoaded)
+        {
+            <div class="flex gap-2">
+                <button @onclick="GoBack" class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 px-4 py-2">
+                    <svg class="mr-2 w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                    Back to Script
+                </button>
+                <button @onclick="ProceedToNextStage" class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2">
+                    Proceed to Audio
+                    <svg class="ml-2 w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
+                </button>
+            </div>
+        }
+    </div>
+
+    @if (!_isLoaded)
+    {
+        <div class="flex flex-col items-center justify-center py-24 space-y-4">
+            <div class="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+            <p class="text-muted-foreground animate-pulse">Loading visual assets...</p>
+        </div>
+    }
+    else if (_job != null)
+    {
+        <!-- Using the existing BrollResultsView for rendering the visual elements and sidebar -->
+        <BunbunBroll.Components.Views.Broll.BrollResultsView 
+            Job="_job"
+            StatusMessage="_statusMessage"
+            ResearchingSentenceId="_researchingSentenceId"
+            GeneratingImageSentenceId="_isGeneratingWhisk"
+            IsDownloading="_isDownloading"
+            ShowShortVideoPanel="false"
+            ShowMobileProgress="true"
+            OnBack="GoBack"
+            OnDownloadZip="DownloadAsZip"
+            OnExportLinks="ExportDownloadLinks"
+            OnSaveProject="SaveCurrentProject"
+            OnResearch="ResearchSentence"
+            OnDownload="DownloadSingleDirect"
+            OnGenerateImage="HandleGenerateWhiskImage"
+            OnClearImage="ClearWhiskImage"
+            OnSelectVideoPair="HandleSelectVideo"
+            OnConfirmVideo="ConfirmSelection" />
+    }
+</div>
+
+@code {
+    [Parameter] public string ProjectId { get; set; } = string.Empty;
+    [CascadingParameter] public BunbunBroll.Components.Layout.WorkspaceLayout Layout { get; set; } = null!;
+
+    private bool _isLoaded;
+    private string _statusMessage = "";
+    private BunbunBroll.Models.ProcessingJob? _job;
+    private int? _researchingSentenceId;
+    private int? _isGeneratingWhisk;
+    private bool _isDownloading = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Layout?.SetContext(ProjectId, "visuals");
+        await LoadProject();
+    }
+
+    private async Task LoadProject()
+    {
+        var saved = await ProjectService.GetProjectAsync(ProjectId);
+        if (saved == null)
+        {
+            NavigationManager.NavigateTo("/");
+            return;
+        }
+
+        RebuildJobFromProject(saved);
+        _isLoaded = true;
+        StateHasChanged();
+    }
+
+    // Helper to map entity back to ProcessingJob model
+    private void RebuildJobFromProject(BunbunBroll.Data.Project saved)
+    {
+        _job = new BunbunBroll.Models.ProcessingJob
+        {
+            Id = saved.Id,
+            ProjectName = saved.Name,
+            RawScript = saved.RawScript,
+            Mood = saved.Mood,
+            CreatedAt = saved.CreatedAt,
+            Status = BunbunBroll.Models.JobStatus.PreviewReady
+        };
+
+        foreach (var s in saved.Segments.OrderBy(x => x.Order))
+        {
+            var segment = new BunbunBroll.Models.ScriptSegment
+            {
+                Id = s.Id,
+                Title = s.Title,
+                Status = BunbunBroll.Models.SegmentStatus.Completed
+            };
+            foreach (var sent in s.Sentences.OrderBy(x => x.Order))
+            {
+                var sentence = new BunbunBroll.Models.ScriptSentence
+                {
+                    Id = sent.Id,
+                    Text = sent.Text,
+                    KeywordSet = sent.GetKeywordSet(),
+                    Status = BunbunBroll.Models.SentenceStatus.PreviewReady
+                };
+                if (!string.IsNullOrEmpty(sent.VideoUrl))
+                {
+                    sentence.SelectedVideo = new BunbunBroll.Models.VideoAsset
+                    {
+                        Id = sent.VideoId ?? "",
+                        Provider = sent.VideoProvider ?? "Pexels",
+                        DownloadUrl = sent.VideoUrl,
+                        PreviewUrl = sent.VideoPreviewUrl ?? "",
+                        ThumbnailUrl = sent.VideoThumbUrl ?? "",
+                        DurationSeconds = sent.VideoDuration
+                    };
+                }
+                sentence.WhiskImagePath = sent.WhiskImagePath;
+                if (Enum.TryParse<BunbunBroll.Models.KenBurnsMotionType>(sent.WhiskMotionType, out var motion))
+                    sentence.WhiskMotionType = motion;
+                
+                if (Enum.TryParse<BunbunBroll.Models.VideoStyle>(sent.VideoStyle, out var style))
+                    sentence.Style = style;
+
+                segment.Sentences.Add(sentence);
+            }
+            _job.Segments.Add(segment);
+        }
+    }
+
+    private async Task SaveCurrentProject()
+    {
+        if (_job != null)
+        {
+            await ProjectService.SaveJobAsProjectAsync(_job);
+        }
+    }
+
+    // --- Media Action Handlers --- 
+
+    private async Task ResearchSentence(BunbunBroll.Models.ScriptSentence sentence)
+    {
+        if (_job == null) return;
+        _researchingSentenceId = sentence.Id;
+        StateHasChanged();
+        
+        using var cts = new CancellationTokenSource();
+        await Orchestrator.ResearchSentenceAsync(_job, sentence, null, cts.Token);
+        
+        StateHasChanged();
+    }
+
+    private async Task HandleGenerateWhiskImage(BunbunBroll.Models.ScriptSentence sentence)
+    {
+        if (_job == null) return;
+        _isGeneratingWhisk = sentence.Id;
+        StateHasChanged();
+
+        try
+        {
+            var outputDir = Path.Combine(Directory.GetCurrentDirectory(), "output", _job.Id, "whisks_images");
+            var prompt = sentence.WhiskPrompt ?? sentence.Text;
+            var result = await WhiskGenerator.GenerateImageAsync(prompt, outputDir, $"sent_{sentence.Id}");
+            if (result.Success)
+            {
+                sentence.WhiskImagePath = result.ImagePath;
+                sentence.SelectedVideo = null;
+                await SaveCurrentProject();
+                ToastService.ShowSuccess("AI Image generated!");
+            }
+            else
+            {
+                ToastService.ShowError($"Whisk Error: {result.Error}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to generate whisk image for sentence {Id}", sentence.Id);
+            ToastService.ShowError($"Generation failed: {ex.Message}");
+        }
+        finally
+        {
+            _isGeneratingWhisk = null;
+            StateHasChanged();
+        }
+    }
+
+    private void HandleSelectVideo((BunbunBroll.Models.ScriptSentence sentence, BunbunBroll.Models.VideoAsset video) pair)
+    {
+        pair.sentence.SelectedVideo = pair.video;
+        StateHasChanged();
+    }
+
+    private async Task ConfirmSelection(BunbunBroll.Models.ScriptSentence sentence)
+    {
+        _researchingSentenceId = null;
+        sentence.Status = BunbunBroll.Models.SentenceStatus.PreviewReady;
+        await SaveCurrentProject();
+        StateHasChanged();
+    }
+
+    private void ClearWhiskImage(BunbunBroll.Models.ScriptSentence sentence)
+    {
+        sentence.WhiskImagePath = null;
+        StateHasChanged();
+    }
+    
+    private async Task DownloadSingleDirect(BunbunBroll.Models.ScriptSentence sentence)
+    {
+        if (_job == null || sentence.SelectedVideo == null) return;
+        // implementation goes here (using JS runtime to download directly)
+        _statusMessage = "Downloading...";
+        StateHasChanged();
+    }
+    
+    private async Task DownloadAsZip()
+    {
+        _isDownloading = true;
+        // implementation goes here
+        _isDownloading = false;
+        StateHasChanged();
+    }
+    
+    private async Task ExportDownloadLinks()
+    {
+        // implementation goes here
+    }
+
+    // --- Navigation ---
+
+    private void ProceedToNextStage()
+    {
+        NavigationManager.NavigateTo($"/workspace/{ProjectId}/audio");
+    }
+
+    private void GoBack()
+    {
+        NavigationManager.NavigateTo($"/workspace/{ProjectId}/script");
+    }
+}

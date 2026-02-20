@@ -79,6 +79,10 @@ public record ShortVideoConfig
     /// </summary>
     public float MusicVolume { get; init; } = 0.3f;
 
+    // === Voiceover Synchronization ===
+    public string? CapCutAudioPath { get; init; }
+    public string? CapCutSrtPath { get; init; }
+
     // === Hook/Intro Text ===
 
     /// <summary>

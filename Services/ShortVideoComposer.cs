@@ -92,6 +92,7 @@ public class ShortVideoComposer : IShortVideoComposer
     private readonly string _ffmpegDirectory;
     private readonly string _tempDirectory;
     private readonly string _outputDirectory;
+    private readonly VoSyncService _voSyncService;
     private bool _isInitialized = false;
     
     // Optimization settings
@@ -106,12 +107,14 @@ public class ShortVideoComposer : IShortVideoComposer
         ILogger<ShortVideoComposer> logger, 
         IConfiguration config,
         KenBurnsService kenBurnsService,
-        VideoStyleSettings styleSettings)
+        VideoStyleSettings styleSettings,
+        VoSyncService voSyncService)
     {
         _logger = logger;
         _config = config;
         _kenBurnsService = kenBurnsService;
         _styleSettings = styleSettings;
+        _voSyncService = voSyncService;
         
         // FFmpeg binaries directory - use absolute paths
         _ffmpegDirectory = Path.GetFullPath(config["FFmpeg:BinaryDirectory"] 
@@ -1139,6 +1142,64 @@ public class ShortVideoComposer : IShortVideoComposer
             // Step 5: Concatenate all processed clips with transitions
             progress?.Report(new CompositionProgress { Stage = "Concatenating", Percent = 75, Message = "Joining clips with transitions..." });
             await ConcatenateClipsWithTransitionsAsync(orderedClips, outputPath, config, cancellationToken);
+
+            // Step 5.5: Voiceover Sync
+            if (!string.IsNullOrEmpty(config.CapCutAudioPath) && File.Exists(config.CapCutAudioPath) &&
+                !string.IsNullOrEmpty(config.CapCutSrtPath) && File.Exists(config.CapCutSrtPath))
+            {
+                progress?.Report(new CompositionProgress { Stage = "Audio Sync", Percent = 85, Message = "Syncing Voiceover to Timeline..." });
+                
+                string truthSrtPath = Path.Combine(sessionOutputDir, "app_truth.srt");
+                var truthEntries = new List<BunbunBroll.Models.SrtEntry>();
+                TimeSpan current = TimeSpan.Zero;
+                for (int i = 0; i < localClips.Count; i++)
+                {
+                    if (string.IsNullOrEmpty(localClips[i].Original.AssociatedText)) continue;
+                    var dur = clipDurations[i].Duration;
+                    truthEntries.Add(new BunbunBroll.Models.SrtEntry
+                    {
+                        Index = truthEntries.Count + 1,
+                        StartTime = current,
+                        EndTime = current + TimeSpan.FromSeconds(dur),
+                        Text = localClips[i].Original.AssociatedText
+                    });
+                    current += TimeSpan.FromSeconds(dur);
+                }
+                
+                var sb = new System.Text.StringBuilder();
+                foreach (var item in truthEntries)
+                {
+                    sb.AppendLine(item.Index.ToString());
+                    sb.AppendLine($"{item.StartTime.ToString("hh\\:mm\\:ss\\,fff")} --> {item.EndTime.ToString("hh\\:mm\\:ss\\,fff")}");
+                    sb.AppendLine(item.Text);
+                    sb.AppendLine();
+                }
+                File.WriteAllText(truthSrtPath, sb.ToString());
+                
+                string syncedVoPath = await _voSyncService.SyncVoiceoverToAppTimeline(
+                    config.CapCutAudioPath, 
+                    config.CapCutSrtPath, 
+                    truthSrtPath, 
+                    sessionOutputDir);
+                    
+                string finalOutputPath = Path.Combine(sessionOutputDir, $"final_vo_{composeSessionId}.mp4");
+                string ffmpegPath = await FindFFmpegExecutablePathAsync();
+                
+                if (ffmpegPath != null) 
+                {
+                    // Merge synchronized voiceover into the final concatenated video
+                    string args = $"-i \"{outputPath}\" -i \"{syncedVoPath}\" -c:v copy -c:a aac -map 0:v:0 -map 1:a:0 -shortest -y \"{finalOutputPath}\"";
+                    var process = new Process { StartInfo = new ProcessStartInfo { FileName = ffmpegPath, Arguments = args, UseShellExecute = false, CreateNoWindow = true } };
+                    process.Start();
+                    await process.WaitForExitAsync(cancellationToken);
+                    
+                    if (File.Exists(finalOutputPath))
+                    {
+                        try { File.Delete(outputPath); } catch { }
+                        outputPath = finalOutputPath;
+                    }
+                }
+            }
 
             // Step 6: Cleanup temp files
             progress?.Report(new CompositionProgress { Stage = "Cleanup", Percent = 90, Message = "Cleaning up..." });

@@ -107,8 +107,34 @@ public class ProjectService(AppDbContext db) : IProjectService
         var project = await db.Projects.FindAsync(id);
         if (project != null)
         {
+            // Delete output directory containing videos, images, and JSONs
+            var baseDir = Directory.GetCurrentDirectory();
+            var outputDir = Path.Combine(baseDir, "output", id);
+            if (Directory.Exists(outputDir))
+            {
+                try { Directory.Delete(outputDir, recursive: true); }
+                catch (Exception ex) { Console.WriteLine($"Failed to delete output directory for Project {id}: {ex.Message}"); }
+            }
+
+            // Also delete the synced session directory if it exists, 
+            // to ensure no ghost sessions remain
+            var sessionDir = Path.Combine(baseDir, "sessions", id);
+            if (Directory.Exists(sessionDir))
+            {
+                try { Directory.Delete(sessionDir, recursive: true); }
+                catch (Exception ex) { Console.WriteLine($"Failed to delete session directory for Project {id}: {ex.Message}"); }
+            }
+
+            // Also delete any existing ScriptGenerationSession so they stay in sync
+            var scriptSession = await db.ScriptGenerationSessions.FindAsync(id);
+            if (scriptSession != null)
+            {
+                db.ScriptGenerationSessions.Remove(scriptSession);
+            }
+
             db.Projects.Remove(project);
             await db.SaveChangesAsync();
         }
     }
 }
+

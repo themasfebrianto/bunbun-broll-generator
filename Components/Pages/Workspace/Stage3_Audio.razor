@@ -1,0 +1,54 @@
+@page "/workspace/{ProjectId}/audio"
+@layout WorkspaceLayout
+@inject NavigationManager NavigationManager
+
+<PageTitle>Audio & Voice - Stage 3</PageTitle>
+
+<div class="space-y-6 max-w-4xl mx-auto">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-bold tracking-tight">Audio & Voice</h1>
+            <p class="text-sm text-muted-foreground">Add Voiceovers, Background Music, and SFX.</p>
+        </div>
+        <div class="flex gap-2">
+            <button @onclick="GoBack" class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 px-4 py-2">
+                <svg class="mr-2 w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                Back to Visuals
+            </button>
+            <button @onclick="ProceedToNextStage" class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2">
+                Proceed to Assembly
+                <svg class="ml-2 w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
+            </button>
+        </div>
+    </div>
+
+    <div class="rounded-xl border border-dashed flex flex-col items-center justify-center space-y-3 bg-muted/20 p-24">
+        <svg class="w-12 h-12 text-muted-foreground" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+        </svg>
+        <h3 class="font-medium text-foreground text-lg">Coming Soon</h3>
+        <p class="text-sm text-muted-foreground text-center">
+            Audio generation features will be placed here. <br/> For now, skip to Assembly to merge your visuals.
+        </p>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string ProjectId { get; set; } = string.Empty;
+    [CascadingParameter] public BunbunBroll.Components.Layout.WorkspaceLayout Layout { get; set; } = null!;
+
+    protected override void OnInitialized()
+    {
+        Layout?.SetContext(ProjectId, "audio");
+    }
+
+    private void ProceedToNextStage()
+    {
+        NavigationManager.NavigateTo($"/workspace/{ProjectId}/assembly");
+    }
+
+    private void GoBack()
+    {
+        NavigationManager.NavigateTo($"/workspace/{ProjectId}/visuals");
+    }
+}
