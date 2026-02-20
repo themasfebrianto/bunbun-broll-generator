@@ -77,6 +77,24 @@ builder.Services.AddSingleton<BunbunBroll.Models.WhiskConfig>(sp =>
             whiskConfig.Cookie = envCookie;
     }
 
+    // Try to load cookie from persisted file
+    try
+    {
+        var cookieFile = Path.Combine(Directory.GetCurrentDirectory(), "whisk-cookie.txt");
+        if (File.Exists(cookieFile))
+        {
+            var txtCookie = File.ReadAllText(cookieFile).Trim();
+            if (!string.IsNullOrWhiteSpace(txtCookie))
+            {
+                whiskConfig.Cookie = txtCookie;
+            }
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Could not load persisted whisk-cookie.txt: {ex.Message}");
+    }
+
     return whiskConfig;
 });
 builder.Services.AddScoped<WhiskImageGenerator>();

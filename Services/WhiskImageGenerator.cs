@@ -23,6 +23,17 @@ public class WhiskImageGenerator
     {
         _config.Cookie = newCookie;
         _logger.LogInformation("WhiskImageGenerator cookie updated at runtime.");
+        
+        try
+        {
+            var cookieFile = Path.Combine(Directory.GetCurrentDirectory(), "whisk-cookie.txt");
+            File.WriteAllText(cookieFile, newCookie.Trim());
+            _logger.LogInformation("Saved new Whisk cookie to {Path}", cookieFile);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to save Whisk cookie to disk");
+        }
     }
 
     /// <summary>
