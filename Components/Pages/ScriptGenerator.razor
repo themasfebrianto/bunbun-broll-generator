@@ -227,6 +227,42 @@
     OnCancel="CancelConfirm"
     OnConfirm="ExecuteConfirm" />
 
+@* ============ Update Whisk Cookie Modal ============ *@
+@if (_showCookieModal)
+{
+    <div class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-background rounded-xl border border-border/50 shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="p-4 border-b border-border/50 bg-muted/30 flex justify-between items-center">
+                <h3 class="text-lg font-semibold flex items-center gap-2">
+                    <span class="text-amber-500">🍪</span> Update Whisk Cookie
+                </h3>
+            </div>
+            
+            <div class="p-6 space-y-4 overflow-y-auto">
+                <p class="text-sm text-muted-foreground">
+                    Your Google account cookie for Whisk image generation has expired or is invalid. 
+                    Please paste a new one below to resume generation.
+                </p>
+                <div class="space-y-2">
+                    <label class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">New Cookie String</label>
+                    <textarea class="input w-full min-h-[100px] text-sm font-mono bg-muted/30" 
+                              @bind="_newWhiskCookie"
+                              placeholder="Paste the full cookie string here..."></textarea>
+                </div>
+            </div>
+
+            <div class="p-4 border-t border-border/50 bg-muted/30 flex justify-end gap-3 rounded-b-xl">
+                <button class="btn-ghost" @onclick="CloseCookieModal">Cancel</button>
+                <button class="btn-primary" 
+                        disabled="@string.IsNullOrWhiteSpace(_newWhiskCookie)"
+                        @onclick="SubmitCookieUpdate">
+                    Update & Retry
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     // Query parameters for deep linking (e.g. from /video page)
     [SupplyParameterFromQuery(Name = "sessionId")]
@@ -318,6 +354,11 @@
     private bool _isSavingConfig;
     private string _editTopic = "";
     private string? _editOutline;
+
+    // Cookie Update Modal
+    private bool _showCookieModal;
+    private string _newWhiskCookie = "";
+    private BrollPromptItem? _cookieUpdateTargetItem;
     private string? _editSourceReferences;
     private int _editTargetDuration;
     private string _editChannelName = "";
@@ -1394,6 +1435,10 @@
                 item.Prompt = brollKeywords;
                 item.Reasoning = "Regenerated keywords";
             }
+            else
+            {
+                throw new Exception("AI failed to generate keywords. Please try again.");
+            }
 
             if (item.MediaType == BrollMediaType.BrollVideo)
             {
@@ -1408,6 +1453,52 @@
         {
             item.IsSearching = false;
             StateHasChanged();
+        }
+    }
+
+    private void HandleCookieUpdateRequested(BrollPromptItem item)
+    {
+        _cookieUpdateTargetItem = item;
+        _newWhiskCookie = "";
+        _showCookieModal = true;
+    }
+
+    private void CloseCookieModal()
+    {
+        _showCookieModal = false;
+        _newWhiskCookie = "";
+        _cookieUpdateTargetItem = null;
+    }
+
+    private async Task SubmitCookieUpdate()
+    {
+        if (string.IsNullOrWhiteSpace(_newWhiskCookie)) return;
+
+        WhiskGenerator.UpdateCookie(_newWhiskCookie);
+        
+        var target = _cookieUpdateTargetItem;
+        CloseCookieModal();
+
+        if (target != null)
+        {
+            // Retry generating the image
+            _ = Task.Run(async () =>
+            {
+                await InvokeAsync(() =>
+                {
+                    target.IsGenerating = true;
+                    StateHasChanged();
+                });
+
+                await GenerateWhiskImageForItem(target);
+
+                await InvokeAsync(() =>
+                {
+                    target.IsGenerating = false;
+                    StateHasChanged();
+                    _ = SaveBrollPromptsToDisk();
+                });
+            });
         }
     }
 
@@ -1514,6 +1605,10 @@
                 item.Reasoning = "Regenerated image prompt";
                 item.KenBurnsMotion = BrollPromptItem.GetRandomMotion();
             }
+            else
+            {
+                throw new Exception("AI disconnected or failed to generate a new prompt. Please try again or check logs.");
+            }
 
             item.CombinedRegenProgress = 50;
             StateHasChanged();
@@ -1581,6 +1676,8 @@
         item.WhiskVideoStatus = WhiskGenerationStatus.Generating;
         StateHasChanged();
 
+        bool shouldApplyFilter = false;
+
         try
         {
             var duration = EstimateDuration(item.ScriptText);
@@ -1595,6 +1692,7 @@
             {
                 item.WhiskVideoPath = outputPath;
                 item.WhiskVideoStatus = WhiskGenerationStatus.Done;
+                shouldApplyFilter = item.HasVisualEffect;
             }
             else
             {
@@ -1612,6 +1710,12 @@
             item.IsConvertingVideo = false;
             await SaveBrollPromptsToDisk();
             StateHasChanged();
+        }
+
+        if (shouldApplyFilter)
+        {
+            await Task.Delay(50);
+            await HandleApplyFilterToVideo(item);
         }
     }
 
@@ -2027,7 +2131,7 @@
             var videoConfig = new ShortVideoConfig { Ratio = AspectRatio.Landscape_16x9 };
 
             var filteredPath = await VideoComposer.ApplyFilterAndTextureToVideoAsync(
-                localPath, item.EffectiveFilter, item.EffectiveTexture, videoConfig, CancellationToken.None, isPreview: true);
+                localPath, item.EffectiveFilter, item.FilterIntensity, item.EffectiveTexture, item.TextureOpacity, videoConfig, CancellationToken.None, isPreview: true);
 
             if (!string.IsNullOrEmpty(filteredPath))
             {

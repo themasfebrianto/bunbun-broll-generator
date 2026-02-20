@@ -56,8 +56,8 @@
                     }
                 </div>
                 <textarea class="input w-full min-h-[70px] text-sm bg-background/50 resize-y"
-                          @bind="Item.Prompt"
-                          @bind:after="Save"
+                          @bind:get="Item.Prompt" 
+                          @bind:set="async (val) => { Item.Prompt = val; await Save(); }"
                           placeholder="Masukkan keyword pencarian..."></textarea>
             </div>
 
@@ -70,7 +70,7 @@
             }
 
             @* === Visual Effects Section === *@
-            @if (isBroll || (Item.MediaType == BrollMediaType.ImageGeneration && Item.WhiskVideoStatus == WhiskGenerationStatus.Done))
+            @if (isBroll || Item.MediaType == BrollMediaType.ImageGeneration)
             {
                 <div class="space-y-3 p-3 rounded-lg bg-muted/30 border border-border/30">
                     <div class="flex items-center justify-between">
@@ -110,6 +110,17 @@
                                     <option value="@filter">@GetFilterDisplayName(filter)</option>
                                 }
                             </select>
+                            @if (Item.Filter != VideoFilter.None)
+                            {
+                                <div class="flex items-center gap-2 mt-1 px-1">
+                                    <span class="text-[9px] text-muted-foreground whitespace-nowrap">Intensity</span>
+                                    <input type="range" min="0" max="100" class="w-full accent-blue-500 h-1"
+                                           @bind="Item.FilterIntensity"
+                                           @bind:event="oninput"
+                                           @bind:after="async () => { Item.FilteredVideoPath = null; await Save(); }" />
+                                    <span class="text-[9px] text-muted-foreground w-6 text-right">@(Item.FilterIntensity)%</span>
+                                </div>
+                            }
                         </div>
                         
                         @* Texture *@
@@ -123,6 +134,17 @@
                                     <option value="@texture">@GetTextureDisplayName(texture)</option>
                                 }
                             </select>
+                            @if (Item.Texture != VideoTexture.None)
+                            {
+                                <div class="flex items-center gap-2 mt-1 px-1">
+                                    <span class="text-[9px] text-muted-foreground whitespace-nowrap">Opacity</span>
+                                    <input type="range" min="0" max="100" class="w-full accent-blue-500 h-1"
+                                           @bind="Item.TextureOpacity"
+                                           @bind:event="oninput"
+                                           @bind:after="async () => { Item.FilteredVideoPath = null; await Save(); }" />
+                                    <span class="text-[9px] text-muted-foreground w-6 text-right">@(Item.TextureOpacity)%</span>
+                                </div>
+                            }
                         </div>
                     </div>
                     
@@ -196,11 +218,40 @@
                             <span>Generate Image</span>
                         }
                     </button>
+                    
+                    @if (Item.WhiskStatus == WhiskGenerationStatus.Done && !string.IsNullOrEmpty(Item.WhiskImagePath))
+                    {
+                        <div class="h-5 w-px bg-border/50 mx-1"></div>
+                        <button class="btn-secondary text-xs h-9 px-3 flex items-center gap-1.5 text-primary border-primary/30 hover:bg-primary/10 transition-colors" 
+                                disabled="@(Item.IsConvertingVideo || Item.IsGenerating)"
+                                title="@(Item.WhiskVideoStatus == WhiskGenerationStatus.Done ? "Re-convert with current motion" : "Convert to Ken Burns Video")"
+                                @onclick="GenerateKenBurns">
+                            @if (Item.IsConvertingVideo)
+                            {
+                                <svg class="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                <span>Converting...</span>
+                            }
+                            else
+                            {
+                                <span>🎥 @(Item.WhiskVideoStatus == WhiskGenerationStatus.Done ? "Re-convert" : "Convert")</span>
+                            }
+                        </button>
+                        
+                        @if (Item.WhiskVideoStatus == WhiskGenerationStatus.Done)
+                        {
+                            <button class="btn-ghost text-xs h-9 px-2.5 flex items-center gap-1.5 text-amber-500 hover:bg-amber-500/10 border border-transparent hover:border-amber-500/20 transition-colors" 
+                                    title="Hapus video ini (image tetap aman)"
+                                    disabled="@(Item.IsConvertingVideo || Item.IsGenerating)"
+                                    @onclick="ResetSegmentVideo">
+                                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                            </button>
+                        }
+                    }
                 }
 
                 @if (!isBroll && Item.IsGenerating)
                 {
-                    <div class="space-y-1 mt-1">
+                    <div class="space-y-1 mt-1 w-full basis-full">
                         <div class="progress-container h-1.5 shimmer-effect">
                             <div class="progress-bar bg-primary" style="width: @(Item.CombinedRegenProgress)%"></div>
                         </div>
@@ -230,7 +281,8 @@
                     OnResetSegmentVideo="ResetSegmentVideo"
                     GetAssetUrl="GetAssetUrl"
                     ResolveLocalPath="ResolveLocalPath"
-                    OnSave="Save" />
+                    OnSave="Save"
+                    OnCookieUpdateRequested="() => OnCookieUpdateRequested.InvokeAsync(Item)" />
             }
         </div>
     </div>
@@ -249,6 +301,7 @@
     [Parameter] public EventCallback<BrollPromptItem> OnGenerateKenBurns { get; set; }
     [Parameter] public EventCallback<BrollPromptItem> OnResetSegmentVideo { get; set; }
     [Parameter] public EventCallback OnSave { get; set; }
+    [Parameter] public EventCallback<BrollPromptItem> OnCookieUpdateRequested { get; set; }
     
     [Parameter] public Func<string, string> GetAssetUrl { get; set; } = _ => "";
     [Parameter] public Func<string?, string> ResolveLocalPath { get; set; } = _ => "";

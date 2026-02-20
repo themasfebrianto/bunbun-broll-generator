@@ -1178,8 +1178,10 @@ RULES:
             await semaphore.WaitAsync(cancellationToken);
             try
             {
-                item.Prompt = await GeneratePromptForTypeAsync(
+                var generatedPrompt = await GeneratePromptForTypeAsync(
                     item.ScriptText, targetType, topic, config, cancellationToken);
+                    
+                item.Prompt = generatedPrompt ?? (targetType == BrollMediaType.BrollVideo ? "cinematic footage" : "islamic historical scene");
 
                 // Auto-detect era for IMAGE_GEN
                 if (targetType == BrollMediaType.ImageGeneration)
@@ -1253,7 +1255,7 @@ OUTPUT (Just the prompt, no quotes):";
         }
 
         var result = await GenerateContentAsync(systemPrompt, $"Generate prompt for: {scriptText}", maxTokens: 300, temperature: 0.7, cancellationToken: cancellationToken);
-        return result?.Trim().Trim('"') ?? (mediaType == BrollMediaType.BrollVideo ? "cinematic footage" : "islamic historical scene");
+        return result?.Trim().Trim('"');
     }
 
 }

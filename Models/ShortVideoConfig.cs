@@ -201,8 +201,14 @@ public record VideoClip
     /// <summary>Artistic filter applied to the video (color/look adjustments)</summary>
     public VideoFilter Filter { get; init; } = VideoFilter.None;
     
+    /// <summary>Intensity percentage of the filter effect (0-100)</summary>
+    public int FilterIntensity { get; init; } = 100;
+    
     /// <summary>Texture overlay applied on top of the video</summary>
     public VideoTexture Texture { get; init; } = VideoTexture.None;
+
+    /// <summary>Opacity percentage of the texture effect (0-100)</summary>
+    public int TextureOpacity { get; init; } = 30;
 
     public VideoClip() { }
 
@@ -229,7 +235,9 @@ public record VideoClip
         double duration, 
         KenBurnsMotionType motion = KenBurnsMotionType.SlowZoomIn,
         VideoFilter filter = VideoFilter.None,
-        VideoTexture texture = VideoTexture.None)
+        VideoTexture texture = VideoTexture.None,
+        int filterIntensity = 100,
+        int textureOpacity = 30)
     {
         return new VideoClip
         {
@@ -238,7 +246,9 @@ public record VideoClip
             DurationSeconds = duration,
             MotionType = motion,
             Filter = filter,
-            Texture = texture
+            FilterIntensity = filterIntensity,
+            Texture = texture,
+            TextureOpacity = textureOpacity
         };
     }
 }

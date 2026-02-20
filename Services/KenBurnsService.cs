@@ -231,7 +231,8 @@ public class KenBurnsService
         string scaleDown = $"scale={outWidth}:{outHeight}:flags=fast_bilinear";
         
         // Vignette filter - applied to all Ken Burns videos for cinematic look (if enabled globally)
-        string vignette = _styleSettings.VignetteEnabled ? ",vignette=PI/6:aspect=1" : "";
+        // Note: vignette filter requires specific pixel formats. Adding format=yuv420p ensures compatibility.
+        string vignette = _styleSettings.VignetteEnabled ? ",format=yuv420p,vignette=PI/6:aspect=1" : "";
 
         return motionType switch
         {

@@ -70,7 +70,9 @@ public interface IShortVideoComposer
     Task<string?> ApplyFilterAndTextureToVideoAsync(
         string inputPath,
         VideoFilter filter,
+        int filterIntensity,
         VideoTexture texture,
+        int textureOpacity,
         ShortVideoConfig config,
         CancellationToken cancellationToken = default,
         bool isPreview = false,
@@ -479,7 +481,9 @@ public class ShortVideoComposer : IShortVideoComposer
     public async Task<string?> ApplyFilterAndTextureToVideoAsync(
         string inputPath,
         VideoFilter filter,
+        int filterIntensity,
         VideoTexture texture,
+        int textureOpacity,
         ShortVideoConfig config,
         CancellationToken cancellationToken = default,
         bool isPreview = false,
@@ -543,7 +547,7 @@ public class ShortVideoComposer : IShortVideoComposer
             // Build artistic filter with separate filter + texture
             bool isVideoTexture = textureSource?.IsVideo ?? false;
             string filterComplex;
-            var artFilter = BuildArtisticFilterComplex(filter, texture, "[vout]", "[styled]", hasTexture, isVideoTexture, targetWidth, targetHeight);
+            var artFilter = BuildArtisticFilterComplex(filter, filterIntensity, texture, textureOpacity, "[vout]", "[styled]", hasTexture, isVideoTexture, targetWidth, targetHeight);
             
             filterComplex = bgFilter + ";" + artFilter;
 
@@ -1080,7 +1084,9 @@ public class ShortVideoComposer : IShortVideoComposer
                             task.Clip.Original.IsImage,                             // Pass source type
                             task.Clip.Original.Style ?? VideoStyle.None,            // Pass per-clip style
                             task.Clip.Original.Filter,                              // Pass per-clip filter
-                            task.Clip.Original.Texture                              // Pass per-clip texture
+                            task.Clip.Original.FilterIntensity,                     // Pass per-clip filter intensity
+                            task.Clip.Original.Texture,                             // Pass per-clip texture
+                            task.Clip.Original.TextureOpacity                       // Pass per-clip texture opacity
                         );
 
                         if (File.Exists(task.OutputPath))
@@ -1290,7 +1296,9 @@ public class ShortVideoComposer : IShortVideoComposer
         bool isImageSource = false,
         VideoStyle overrideStyle = VideoStyle.None,
         VideoFilter filter = VideoFilter.None,
-        VideoTexture texture = VideoTexture.None)
+        int filterIntensity = 100,
+        VideoTexture texture = VideoTexture.None,
+        int textureOpacity = 30)
     {
         try
         {
@@ -1367,7 +1375,7 @@ public class ShortVideoComposer : IShortVideoComposer
             if (applyFilter)
             {
                 // artistic filter takes [vout] from bgFilter and outputs [styled]
-                var artFilter = BuildArtisticFilterComplex(effectiveFilter, effectiveTexture, "[vout]", "[styled]", texturePath != null, isVideoTexture, config.Width, config.Height);
+                var artFilter = BuildArtisticFilterComplex(effectiveFilter, filterIntensity, effectiveTexture, textureOpacity, "[vout]", "[styled]", texturePath != null, isVideoTexture, config.Width, config.Height);
                 
                 filterComplex = bgFilter + ";" + artFilter;
             }
@@ -1541,7 +1549,7 @@ public class ShortVideoComposer : IShortVideoComposer
             _ => (VideoFilter.None, VideoTexture.None)
         };
 
-        return BuildArtisticFilterComplex(filter, texture, inputPad, outputPad, hasTexture, isVideoTexture, width, height);
+        return BuildArtisticFilterComplex(filter, 100, texture, 30, inputPad, outputPad, hasTexture, isVideoTexture, width, height);
     }
 
     /// <summary>
@@ -1551,28 +1559,43 @@ public class ShortVideoComposer : IShortVideoComposer
     /// use overlay filter for blending (more efficient than blend for simple opacity).
     /// Supports both image and video textures.
     /// </summary>
-    private string BuildArtisticFilterComplex(VideoFilter filter, VideoTexture texture, string inputPad, string outputPad, bool hasTexture, bool isVideoTexture = false, int? width = null, int? height = null)
+    private string BuildArtisticFilterComplex(VideoFilter filter, int filterIntensity, VideoTexture texture, int textureOpacity, string inputPad, string outputPad, bool hasTexture, bool isVideoTexture = false, int? width = null, int? height = null)
     {
         // Build the base filter chain
-        var filterChain = BuildFilterChain(filter, inputPad, "[filtered]");
+        var filterChain = BuildFilterChain(filter, inputPad, "[filtered_raw]");
         
+        // Intensity blend map
+        // If intensity is < 100, we blend the filtered output with the raw input using the blend filter
+        string blendFilter = "";
+        string filteredNode = "[filtered_raw]";
+        if (filter != VideoFilter.None && filterIntensity < 100)
+        {
+            var intensityFactor = (double)filterIntensity / 100.0;
+            var c0Opacity = intensityFactor.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+            blendFilter = $";[filtered_raw]{inputPad}blend=all_expr='A*{c0Opacity}+B*(1-{c0Opacity})'[filtered_blended]";
+            filteredNode = "[filtered_blended]";
+        }
+        else if (filter == VideoFilter.None)
+        {
+            // if no filter, the raw input pad is the active node
+            filteredNode = inputPad;
+            filterChain = ""; // clear so we don't append it
+        }
+
         // Check global vignette setting
         var vignetteEnabled = _styleSettings.VignetteEnabled;
-        var vignetteFilter = vignetteEnabled ? ",vignette=PI/6:aspect=1" : "";
+        var vignetteFilter = vignetteEnabled ? (filteredNode == inputPad && string.IsNullOrEmpty(filterChain) ? "" : ",") + "vignette=PI/6:aspect=1" : "";
         
         // If no texture, add vignette (if enabled) and return
         if (!hasTexture || texture == VideoTexture.None)
         {
-            // Handle case when filter is None (filterChain doesn't have [filtered] placeholder)
-            if (filter == VideoFilter.None)
-            {
-                if (vignetteEnabled)
-                    return $"{inputPad}vignette=PI/6:aspect=1{outputPad}";
-                else
-                    return $"{inputPad}null{outputPad}";
-            }
-            
-            return filterChain.Replace("[filtered]", $"[vfiltered]") + vignetteFilter + $"{outputPad}";
+            if (filter == VideoFilter.None && !vignetteEnabled)
+                return $"{inputPad}null{outputPad}";
+                
+            if (filter == VideoFilter.None && vignetteEnabled)
+                return $"{inputPad}vignette=PI/6:aspect=1{outputPad}";
+                
+            return filterChain + blendFilter + $"{filteredNode}{vignetteFilter}{outputPad}";
         }
 
         // With texture: apply texture overlay using best practices
@@ -1581,17 +1604,20 @@ public class ShortVideoComposer : IShortVideoComposer
         // 3. Apply opacity using lut filter (faster than colorchannelmixer)
         // 4. Overlay on top of video
         
-        // Opacity value (0-255 for lut filter)
-        var opacityValue = texture switch
+        // Calculate dynamic opacity value (0-255 for lut filter) based on user's TextureOpacity (0-100)
+        // Use the base texture factors as maximum multipliers
+        var baseOpacityFactor = texture switch
         {
-            VideoTexture.Canvas => "102",      // 0.40 * 255
-            VideoTexture.Paper => "77",       // 0.30 * 255
-            VideoTexture.Grunge => "89",      // 0.35 * 255
-            VideoTexture.FilmGrain => "64",   // 0.25 * 255
-            VideoTexture.Dust => "51",        // 0.20 * 255
-            VideoTexture.Scratches => "38",   // 0.15 * 255
-            _ => "77"
+            VideoTexture.Canvas => 0.40,
+            VideoTexture.Paper => 0.30,
+            VideoTexture.Grunge => 0.35,
+            VideoTexture.FilmGrain => 0.25,
+            VideoTexture.Dust => 0.20,
+            VideoTexture.Scratches => 0.15,
+            _ => 0.30
         };
+        var finalOpacityValue = (int)(255 * baseOpacityFactor * (textureOpacity / 100.0));
+        var opacityValue = finalOpacityValue.ToString();
 
         // For image textures, use loop filter to hold the image; video textures use -stream_loop input option
         var loopFilter = !isVideoTexture && texture != VideoTexture.None ? "loop=loop=-1:size=1," : "";
@@ -1599,22 +1625,24 @@ public class ShortVideoComposer : IShortVideoComposer
         // Vignette filter for texture path (without comma prefix)
         var textureVignetteFilter = vignetteEnabled ? "vignette=PI/6:aspect=1" : "null";
 
+        var combinedBaseFilter = string.IsNullOrEmpty(filterChain) ? "" : filterChain + blendFilter + ";";
+
         if (width.HasValue && height.HasValue)
         {
             // Best practice: format=yuva420p|yuva444p|rgba lets ffmpeg choose best available
             // lut=a={opacity} is faster than colorchannelmixer for setting alpha
-            return $"{filterChain};" +
+            return $"{combinedBaseFilter}" +
                    $"[1:v]{loopFilter}scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height}," +
                    $"format=yuva420p|yuva444p|rgba," +
                    $"lut=a={opacityValue}[tex];" + 
-                   $"[filtered][tex]overlay=format=auto:shortest=1[ovout];" +
+                   $"{filteredNode}[tex]overlay=format=auto:shortest=1[ovout];" +
                    $"[ovout]{textureVignetteFilter}{outputPad}";
         }
         else
         {
             // Fallback: use scale2ref to match texture to base video size
-            return $"{filterChain};" +
-                   $"[1:v][filtered]scale2ref[tex][base_ref];" + 
+            return $"{combinedBaseFilter}" +
+                   $"[1:v]{filteredNode}scale2ref[tex][base_ref];" + 
                    $"[tex]{loopFilter}setsar=1,format=yuva420p|yuva444p|rgba,lut=a={opacityValue}[tex_adj];" + 
                    $"[base_ref][tex_adj]overlay=format=auto:shortest=1[ovout];" +
                    $"[ovout]{textureVignetteFilter}{outputPad}";

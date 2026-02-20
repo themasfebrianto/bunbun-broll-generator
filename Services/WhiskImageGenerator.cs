@@ -19,6 +19,12 @@ public class WhiskImageGenerator
         _logger = logger;
     }
 
+    public void UpdateCookie(string newCookie)
+    {
+        _config.Cookie = newCookie;
+        _logger.LogInformation("WhiskImageGenerator cookie updated at runtime.");
+    }
+
     /// <summary>
     /// Generate a single image from prompt
     /// </summary>

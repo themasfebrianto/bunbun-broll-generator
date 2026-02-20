@@ -32,8 +32,14 @@ public class BrollPromptItem
     /// <summary>Artistic filter applied to the video (color/look adjustments)</summary>
     public VideoFilter Filter { get; set; } = VideoFilter.None;
 
+    /// <summary>Intensity of the artistic filter from 0 to 100</summary>
+    public int FilterIntensity { get; set; } = 100;
+
     /// <summary>Texture overlay applied on top of the video</summary>
     public VideoTexture Texture { get; set; } = VideoTexture.None;
+
+    /// <summary>Opacity of the texture overlay from 0 to 100</summary>
+    public int TextureOpacity { get; set; } = 30;
 
     /// <summary>Detected era/context from script/prompt for automatic styling</summary>
     public VideoEra Era { get; set; } = VideoEra.None;
