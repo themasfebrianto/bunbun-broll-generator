@@ -110,15 +110,6 @@
                     <span>Export LRC</span>
                 }
             </button>
-            <div class="relative">
-                <InputFile OnChange="HandleSrtFileSelected" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept=".srt" />
-                <button class="btn-secondary text-sm flex items-center gap-1.5">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                    </svg>
-                    <span>Import SRT</span>
-                </button>
-            </div>
             <button class="btn-primary text-sm" @onclick="OnSendToBroll">Kirim ke B-Roll →</button>
         </div>
     </div>
@@ -279,7 +270,6 @@
     [Parameter] public EventCallback OnRegenerateAll { get; set; }
     [Parameter] public EventCallback OnEditConfig { get; set; }
     [Parameter] public EventCallback OnExportLrc { get; set; }
-    [Parameter] public EventCallback<Microsoft.AspNetCore.Components.Forms.InputFileChangeEventArgs> OnImportSrt { get; set; }
     [Parameter] public EventCallback OnSendToBroll { get; set; }
     [Parameter] public EventCallback<ResultSection> OnRegeneratePhase { get; set; }
     [Parameter] public EventCallback<ResultSection> OnCopyPhaseContent { get; set; }
@@ -382,12 +372,4 @@
     }
 
     private void ToggleSection(ResultSection sec) { sec.IsExpanded = !sec.IsExpanded; }
-
-    private async Task HandleSrtFileSelected(InputFileChangeEventArgs e)
-    {
-        if (OnImportSrt.HasDelegate)
-        {
-            await OnImportSrt.InvokeAsync(e);
-        }
-    }
 }

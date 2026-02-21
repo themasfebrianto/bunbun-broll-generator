@@ -9,6 +9,7 @@ namespace BunbunBroll.Services;
 public interface IScriptProcessor
 {
     List<ScriptSegment> SegmentScript(string rawScript);
+    TextOverlay? ExtractTextOverlay(ref string text);
 }
 
 public class ScriptProcessor : IScriptProcessor
@@ -128,62 +129,112 @@ public class ScriptProcessor : IScriptProcessor
         return segments;
     }
 
-    private TextOverlay? ExtractTextOverlay(ref string text)
+    public TextOverlay? ExtractTextOverlay(ref string text)
     {
         TextOverlay? overlay = null;
-        var lines = text.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(l => l.Trim()).ToList();
-        
         string? typeStr = null;
         string? arabic = null;
         string? reference = null;
+        string? displayText = null;
 
-        var cleanLines = new List<string>();
-
-        foreach (var line in lines)
+        var overlayMatch = System.Text.RegularExpressions.Regex.Match(text, @"\[?OVERLAY:(\w+)\]?", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        
+        if (overlayMatch.Success)
         {
-            if (line.StartsWith("[OVERLAY:", StringComparison.OrdinalIgnoreCase))
+            typeStr = overlayMatch.Groups[1].Value;
+            
+            var arabicMatch = System.Text.RegularExpressions.Regex.Match(text, @"\[?ARABIC\]?:?\s*(.+?)(?=(?:\[?REF\]?|\bREF\b)|\[?TEXT\]?|\[?\d{2}:\d{2}\]?|$)", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Singleline);
+            if (arabicMatch.Success)
             {
-                var endIdx = line.IndexOf(']');
-                if (endIdx > 9)
+                arabic = arabicMatch.Groups[1].Value.Trim();
+                text = text.Replace(arabicMatch.Value, "");
+            }
+
+            var refMatch = System.Text.RegularExpressions.Regex.Match(text, @"(?:\[?REF\]?|\bREF\b)\s*:?\s*(.+?)(?=\[?TEXT\]?|\[?\d{2}:\d{2}\]?|$)", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Singleline);
+            if (refMatch.Success)
+            {
+                reference = refMatch.Groups[1].Value.Trim();
+                text = text.Replace(refMatch.Value, "");
+            }
+
+            // Parse [TEXT] tag for explicit display text (used for KeyPhrase short text)
+            var textTagMatch = System.Text.RegularExpressions.Regex.Match(text, @"\[?TEXT\]?\s*:?\s*(.+?)(?=\[?\d{2}:\d{2}\]?|$)", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Singleline);
+            if (textTagMatch.Success)
+            {
+                displayText = textTagMatch.Groups[1].Value.Trim();
+                text = text.Replace(textTagMatch.Value, "");
+            }
+
+            text = text.Replace(overlayMatch.Value, "");
+            
+            text = System.Text.RegularExpressions.Regex.Replace(text, @"\[?ARABIC\]?:?", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            text = System.Text.RegularExpressions.Regex.Replace(text, @"\[?REF\]?:?", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            text = System.Text.RegularExpressions.Regex.Replace(text, @"\[?TEXT\]?:?", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            
+            text = text.Trim();
+
+            if (!string.IsNullOrEmpty(typeStr) && Enum.TryParse<TextOverlayType>(typeStr, true, out var parsedType))
+            {
+                overlay = new TextOverlay
                 {
-                    typeStr = line.Substring(9, endIdx - 9);
-                }
-                // Skip adding to cleanLines
-            }
-            else if (line.StartsWith("[ARABIC]", StringComparison.OrdinalIgnoreCase))
-            {
-                arabic = line.Substring(8).Trim();
-            }
-            else if (line.StartsWith("[REF]", StringComparison.OrdinalIgnoreCase))
-            {
-                reference = line.Substring(5).Trim();
-            }
-            else
-            {
-                cleanLines.Add(line);
+                    Type = parsedType,
+                    Text = displayText ?? string.Empty,
+                    ArabicText = arabic,
+                    Reference = reference,
+                    Style = parsedType switch
+                    {
+                        TextOverlayType.QuranVerse => TextStyle.Quran,
+                        TextOverlayType.Hadith => TextStyle.Hadith,
+                        TextOverlayType.RhetoricalQuestion => TextStyle.Question,
+                        _ => TextStyle.Default
+                    }
+                };
             }
         }
-
-        text = string.Join("\n", cleanLines);
-
-        if (!string.IsNullOrEmpty(typeStr) && Enum.TryParse<TextOverlayType>(typeStr, true, out var parsedType))
+        else
         {
-            overlay = new TextOverlay
-            {
-                Type = parsedType,
-                ArabicText = arabic,
-                Reference = reference,
-                Style = parsedType switch
-                {
-                    TextOverlayType.QuranVerse => TextStyle.Quran,
-                    TextOverlayType.Hadith => TextStyle.Hadith,
-                    TextOverlayType.RhetoricalQuestion => TextStyle.Question,
-                    _ => TextStyle.Default
-                }
-            };
+            var lines = text.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(l => l.Trim()).ToList();
+            var cleanLines = lines.Where(l => 
+                !l.StartsWith("[OVERLAY:", StringComparison.OrdinalIgnoreCase) &&
+                !l.StartsWith("OVERLAY:", StringComparison.OrdinalIgnoreCase) &&
+                !l.StartsWith("[ARABIC]", StringComparison.OrdinalIgnoreCase) &&
+                !l.StartsWith("ARABIC ", StringComparison.OrdinalIgnoreCase) &&
+                !l.StartsWith("[REF]", StringComparison.OrdinalIgnoreCase) &&
+                !l.StartsWith("REF ", StringComparison.OrdinalIgnoreCase) &&
+                !l.StartsWith("[TEXT]", StringComparison.OrdinalIgnoreCase) &&
+                !l.StartsWith("TEXT ", StringComparison.OrdinalIgnoreCase)
+            ).ToList();
+            text = string.Join("\n", cleanLines).Trim();
         }
 
         return overlay;
+    }
+
+    /// <summary>
+    /// For KeyPhrase overlays without an explicit [TEXT] tag, truncates the fallback
+    /// text to first sentence or max ~60 characters for a punchy display.
+    /// </summary>
+    public static string TruncateForKeyPhrase(string fullText, int maxLength = 60)
+    {
+        if (string.IsNullOrWhiteSpace(fullText)) return fullText;
+        
+        // Try to take the first sentence
+        var sentenceEnd = fullText.IndexOfAny(new[] { '.', '!', '?' });
+        if (sentenceEnd > 0 && sentenceEnd <= maxLength)
+        {
+            return fullText[..(sentenceEnd + 1)].Trim();
+        }
+        
+        // Otherwise truncate at word boundary
+        if (fullText.Length <= maxLength) return fullText.Trim();
+        
+        var truncated = fullText[..maxLength];
+        var lastSpace = truncated.LastIndexOf(' ');
+        if (lastSpace > maxLength / 2)
+        {
+            truncated = truncated[..lastSpace];
+        }
+        return truncated.Trim() + "...";
     }
 
     private List<string> SplitIntoParagraphs(string text)

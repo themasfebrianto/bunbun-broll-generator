@@ -123,9 +123,7 @@ public partial class IntelligenceService
                                             Index = globalIdx,
                                             Timestamp = segments[globalIdx].Timestamp,
                                             ScriptText = segments[globalIdx].ScriptText,
-                                            MediaType = item.MediaType?.ToUpperInvariant() == "IMAGE_GEN"
-                                                ? BrollMediaType.ImageGeneration
-                                                : BrollMediaType.BrollVideo,
+                                            MediaType = BrollMediaType.ImageGeneration,
                                             Prompt = includePrompts ? (item.Prompt ?? string.Empty) : string.Empty
                                         };
 
@@ -257,24 +255,15 @@ public partial class IntelligenceService
         var eraBiasInstruction = BuildEraBiasInstruction(config);
         var customInstructionsSection = BuildCustomInstructionsSection(config);
 
-        return $@"You are a visual content classifier for Islamic video essays. Your job is to analyze script segments and decide the best visual approach for each.
+        return $@"You are a visual prompt generator for Islamic video essays. Your job is to analyze script segments and generate detailed AI image generation prompts for each.
 {eraBiasInstruction}
-For each segment, classify as:
-1. **BROLL** - Use stock footage (Pexels/Pixabay) with ABSOLUTELY NO HUMAN SUBJECTS when the content depicts:
-   - Real-world landscapes, nature, atmospheric shots, cityscapes (empty), urban (architectural), textures
-   - Atmospheric footage (rain, clouds, sunrise, ocean, forest, mountains)
-   - Objects (non-human), technology (abstract), textures, abstract light
-   - ABSOLUTE RULE: NO PEOPLE, NO SILHOUETTES, NO HUMAN ACTIVITY, NO PERSON, NO HANDS, NO FEET, NO CROWDS, NO EYES.
-   - NO MANUAL LABOR: Do not show hands planting, digging, or working. Use NATURE METAPHOR (e.g., 'planting' -> 'seedling growing timelapse').
-   - If the script implies human action, use a NATURE or URBAN METAPHOR (e.g., 'faith grows' -> 'growing plant timelapse', 'people gather' -> 'city skyline aerial')
-
-2. **IMAGE_GEN** - Use AI image generation (Whisk / Imagen) when the content depicts:
+For EVERY segment, generate a detailed Whisk-style prompt for AI image generation (IMAGE_GEN). These images can depict:
    - Historical/ancient scenes (7th century Arabia, ancient civilizations)
    - Prophets or religious figures (requires divine light, no face)
    - Supernatural/eschatological events (Day of Judgment, afterlife, angels)
    - Human characters in specific Islamic historical contexts
    - Abstract spiritual concepts (soul, faith, divine light)
-   - Scenes that stock footage cannot realistically portray
+   - Atmospheric scenes, nature, or cinematic landscapes
 
 {EraLibrary.GetEraSelectionInstructions()}
 
@@ -286,18 +275,6 @@ CHARACTER RULES (ISLAMIC SYAR'I - ONLY for IMAGE_GEN):
 LOCKED VISUAL STYLE (REQUIRED FOR ALL IMAGE_GEN PROMPTS):
 {effectiveStyleSuffix}
 
-BROLL ERA-BASED VISUAL CONTEXT (CRITICAL FOR BROLL ONLY):
-- When the script describes stories of PROPHETS, ANCIENT TIMES, or HISTORICAL ERAS:
-  BROLL must use NATURE-BASED keywords ONLY: desert landscape, sand dunes, mountain range, vast sky, barren land, rocky terrain, ancient ruins without people, oasis, starry desert night, forest canopy, calm sea, sunrise horizon, windswept plains
-- When the script shifts to MODERN TIMES or CONTEMPORARY topics:
-  BROLL must use URBAN keywords: cityscape, modern buildings, skyline, highway, infrastructure, modern architecture, glass tower, empty urban street, traffic lights, bridge structure, aerial city view
-- REGARDLESS OF ERA: NEVER include any human presence in BROLL prompts
-
-For BROLL segments: Generate a concise English search query for cinematic footage (2-5 words).
-ABSOLUTE RULE for BROLL: DO NOT INCLUDE PEOPLE, HUMANS, FACES, SILHOUETTES, PERSON, HANDS, FEET, EYES, or any HUMAN ACTIVITY in the prompt. Use nature, architecture, or abstract metaphors.
-- For actions like planting/sowing: use 'seedling growing' or 'soil texture'. 
-- For actions like traveling: use 'road aerial' or 'moving clouds'.
-- Always prioritize WIDE SHOTS or MACRO (non-human).
 
 For IMAGE_GEN segments: Generate a detailed Whisk-style prompt following this structure:
   [ERA PREFIX] [Detailed scene description: setting, action, lighting, atmosphere, characters]{{LOCKED_STYLE}}
@@ -311,7 +288,7 @@ RESPOND WITH JSON ONLY (no markdown):
 [
   {{
     ""index"": 0,
-    ""mediaType"": ""BROLL"" or ""IMAGE_GEN"",
+    ""mediaType"": ""IMAGE_GEN"",
     ""prompt"": ""the generated prompt""
   }}
 ]
@@ -319,11 +296,7 @@ Note: textOverlay is null/omitted for MOST segments. Only add for truly impactfu
 
 RULES:
 - Translate all prompts to English
-- For BROLL: Keep prompts short (2-5 words), focused on NATURE (for ancient/prophetic) or URBAN (for modern).
-- For BROLL: NEVER mention 'person', 'man', 'woman', 'people', 'crowd', 'face', 'silhouette', 'hands', 'feet', 'shadow person'.
-- For BROLL: ALSO AVOID human-adjacent terms that return human footage: 'mirror', 'reflection', 'shadow', 'window', 'doorway', 'selfie', 'walking', 'standing', 'sitting', 'running', 'praying', 'crying', 'laughing', 'embrace', 'handshake', 'footsteps', 'footprint'.
-  Use nature/urban metaphors instead: 'broken mirror' -> 'cracked earth texture', 'reflection' -> 'water surface', 'shadow' -> 'dark clouds'
-- For IMAGE_GEN: Include era prefix, detailed scene, locked style suffix
+- Include era prefix, detailed scene, locked style suffix
 - Never depict prophet faces
 - Avoid sensitive/haram visual triggers";
     }
@@ -332,16 +305,15 @@ RULES:
     {
         var eraBiasInstruction = BuildEraBiasInstruction(config);
 
-        return $@"You are a visual content classifier for Islamic video essays. Classify each segment as BROLL or IMAGE_GEN.
+        return $@"You are a visual content formatting system for Islamic video essays. Tag each segment as IMAGE_GEN.
 {eraBiasInstruction}
-BROLL - Stock footage (no humans): landscapes, nature, textures, cityscapes, atmospheric shots
-IMAGE_GEN - AI image generation: historical scenes, prophets, supernatural events, specific Islamic historical contexts, abstract spiritual concepts
+IMAGE_GEN - AI image generation
 
 RESPOND WITH JSON ONLY (no markdown):
 [
   {{
     ""index"": 0,
-    ""mediaType"": ""BROLL"" or ""IMAGE_GEN""
+    ""mediaType"": ""IMAGE_GEN""
   }}
 ]
 

@@ -1,0 +1,38 @@
+﻿MSBuild version 17.9.6+a4ecab324 for .NET
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\Services\ShortVideoComposer.cs(1173,66): error CS1003: Syntax error, ',' expected [E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\BunbunBroll.csproj]
+E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\Services\ShortVideoComposer.cs(1173,68): error CS1056: Unexpected character '\' [E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\BunbunBroll.csproj]
+E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\Services\ShortVideoComposer.cs(1173,70): error CS1003: Syntax error, ',' expected [E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\BunbunBroll.csproj]
+E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\Services\ShortVideoComposer.cs(1173,72): error CS1056: Unexpected character '\' [E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\BunbunBroll.csproj]
+E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\Services\ShortVideoComposer.cs(1173,74): error CS1003: Syntax error, ',' expected [E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\BunbunBroll.csproj]
+E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\Services\ShortVideoComposer.cs(1173,76): error CS1056: Unexpected character '\' [E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\BunbunBroll.csproj]
+E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\Services\ShortVideoComposer.cs(1173,81): error CS1003: Syntax error, ',' expected [E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\BunbunBroll.csproj]
+E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\Services\ShortVideoComposer.cs(1173,116): error CS1003: Syntax error, ',' expected [E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\BunbunBroll.csproj]
+E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\Services\ShortVideoComposer.cs(1173,118): error CS1056: Unexpected character '\' [E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\BunbunBroll.csproj]
+E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\Services\ShortVideoComposer.cs(1173,120): error CS1003: Syntax error, ',' expected [E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\BunbunBroll.csproj]
+E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\Services\ShortVideoComposer.cs(1173,122): error CS1056: Unexpected character '\' [E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\BunbunBroll.csproj]
+E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\Services\ShortVideoComposer.cs(1173,124): error CS1003: Syntax error, ',' expected [E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\BunbunBroll.csproj]
+E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\Services\ShortVideoComposer.cs(1173,126): error CS1056: Unexpected character '\' [E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\BunbunBroll.csproj]
+E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\Services\ShortVideoComposer.cs(1173,131): error CS1003: Syntax error, ',' expected [E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\BunbunBroll.csproj]
+
+Build FAILED.
+
+E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\Services\ShortVideoComposer.cs(1173,66): error CS1003: Syntax error, ',' expected [E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\BunbunBroll.csproj]
+E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\Services\ShortVideoComposer.cs(1173,68): error CS1056: Unexpected character '\' [E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\BunbunBroll.csproj]
+E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\Services\ShortVideoComposer.cs(1173,70): error CS1003: Syntax error, ',' expected [E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\BunbunBroll.csproj]
+E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\Services\ShortVideoComposer.cs(1173,72): error CS1056: Unexpected character '\' [E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\BunbunBroll.csproj]
+E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\Services\ShortVideoComposer.cs(1173,74): error CS1003: Syntax error, ',' expected [E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\BunbunBroll.csproj]
+E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\Services\ShortVideoComposer.cs(1173,76): error CS1056: Unexpected character '\' [E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\BunbunBroll.csproj]
+E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\Services\ShortVideoComposer.cs(1173,81): error CS1003: Syntax error, ',' expected [E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\BunbunBroll.csproj]
+E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\Services\ShortVideoComposer.cs(1173,116): error CS1003: Syntax error, ',' expected [E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\BunbunBroll.csproj]
+E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\Services\ShortVideoComposer.cs(1173,118): error CS1056: Unexpected character '\' [E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\BunbunBroll.csproj]
+E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\Services\ShortVideoComposer.cs(1173,120): error CS1003: Syntax error, ',' expected [E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\BunbunBroll.csproj]
+E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\Services\ShortVideoComposer.cs(1173,122): error CS1056: Unexpected character '\' [E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\BunbunBroll.csproj]
+E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\Services\ShortVideoComposer.cs(1173,124): error CS1003: Syntax error, ',' expected [E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\BunbunBroll.csproj]
+E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\Services\ShortVideoComposer.cs(1173,126): error CS1056: Unexpected character '\' [E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\BunbunBroll.csproj]
+E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\Services\ShortVideoComposer.cs(1173,131): error CS1003: Syntax error, ',' expected [E:\VibeCode\ScriptFlow_workspace\bunbun-broll-generator\BunbunBroll.csproj]
+    0 Warning(s)
+    14 Error(s)
+
+Time Elapsed 00:00:01.23
