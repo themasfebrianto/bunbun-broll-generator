@@ -192,7 +192,7 @@ public partial class ScriptGenerator
 
             if (entries.Count == 0)
             {
-                var cleaned = OptimizeForTts(CleanSubtitleText(section.Content));
+                var cleaned = CleanSubtitleText(section.Content);
                 if (!string.IsNullOrWhiteSpace(cleaned))
                 {
                     var durationSec = EstimateDuration(cleaned);
@@ -215,7 +215,7 @@ public partial class ScriptGenerator
                 if (normalizedTime < TimeSpan.Zero) normalizedTime = TimeSpan.Zero;
                 var absoluteTime = globalOffset.Add(normalizedTime);
                 
-                var cleaned = OptimizeForTts(CleanSubtitleText(entry.Text));
+                var cleaned = CleanSubtitleText(entry.Text);
                 if (string.IsNullOrWhiteSpace(cleaned)) continue;
 
                 TimeSpan entryDuration;
@@ -257,6 +257,7 @@ public partial class ScriptGenerator
         const int MaxChars = 450;
         var result = new List<string>();
         
+        // Collapse all whitespace into single line for splitting logic
         var singleLine = System.Text.RegularExpressions.Regex.Replace(
                     text.Replace("\r\n", " ").Replace("\n", " ").Replace("\r", " "), @"\s+", " ").Trim();
 
@@ -264,12 +265,12 @@ public partial class ScriptGenerator
 
         if (singleLine.Length <= MaxChars)
         {
-             result.Add(FormatLrcLine(startTime, singleLine));
+             // Apply TTS newlines inside the text, keep single timestamp
+             result.Add(FormatLrcLine(startTime, OptimizeForTts(singleLine)));
              return result;
         }
 
         // Split into sentences at sentence-ending punctuation (.!?)
-        // Keep the delimiter attached to the preceding sentence
         var sentences = System.Text.RegularExpressions.Regex.Split(singleLine, @"(?<=[.!?])\s+");
 
         // Group sentences into chunks that stay under MaxChars
@@ -280,14 +281,12 @@ public partial class ScriptGenerator
         {
             if (string.IsNullOrWhiteSpace(sentence)) continue;
 
-            // If adding this sentence would exceed limit, flush current chunk first
             if (currentChunk.Length > 0 && currentChunk.Length + sentence.Length + 1 > MaxChars)
             {
                 chunks.Add(currentChunk.ToString().Trim());
                 currentChunk.Clear();
             }
 
-            // If a single sentence itself exceeds MaxChars, split it at word boundaries
             if (sentence.Length > MaxChars)
             {
                 if (currentChunk.Length > 0)
@@ -295,7 +294,6 @@ public partial class ScriptGenerator
                     chunks.Add(currentChunk.ToString().Trim());
                     currentChunk.Clear();
                 }
-
                 var words = sentence.Split(' ');
                 var wordChunk = new System.Text.StringBuilder();
                 foreach (var word in words)
@@ -323,8 +321,8 @@ public partial class ScriptGenerator
         
         foreach (var chunk in chunks)
         {
-            result.Add(FormatLrcLine(currentTime, chunk));
-            
+            // Apply TTS newlines inside each chunk's text
+            result.Add(FormatLrcLine(currentTime, OptimizeForTts(chunk)));
             if (totalChars > 0)
             {
                 var chunkDurationMs = duration.TotalMilliseconds * ((double)chunk.Length / totalChars);
@@ -452,37 +450,43 @@ public partial class ScriptGenerator
     }
 
     /// <summary>
-    /// Optimizes cleaned text for TTS by inserting commas before common Indonesian
-    /// conjunctions when the preceding clause is long (≥60 chars), creating natural pauses.
+    /// Optimizes cleaned text for TTS by inserting newlines at word boundaries
+    /// every ~80 characters, giving TTS natural breathing points.
     /// </summary>
     private static string OptimizeForTts(string text)
     {
         if (string.IsNullOrWhiteSpace(text)) return text;
 
-        // Indonesian clause-separating conjunctions that benefit from a preceding comma pause.
-        // NOTE: Common connecting words (yang, dan, atau, serta) are excluded because
-        // they join parts of the same thought and commas before them sound unnatural.
-        var conjunctions = new[] {
-            "namun", "tetapi", "karena", "sehingga", "maka",
-            "bahwa", "melainkan", "meskipun", "walaupun",
-            "sedangkan", "padahal"
-        };
+        const int TargetLineLength = 80;
 
-        var result = text;
-        foreach (var conj in conjunctions)
+        // Collapse into single line first
+        var singleLine = System.Text.RegularExpressions.Regex.Replace(
+            text.Replace("\r\n", " ").Replace("\n", " ").Replace("\r", " "), @"\s+", " ").Trim();
+
+        if (singleLine.Length <= TargetLineLength) return singleLine;
+
+        var sb = new System.Text.StringBuilder();
+        var words = singleLine.Split(' ');
+        int lineLength = 0;
+
+        foreach (var word in words)
         {
-            // Pattern: no comma/period before this conjunction, and the preceding clause is long
-            var pattern = $@"(?<=[^,\.;:!?]{{60,}})\s+({conj})\b";
-            result = System.Text.RegularExpressions.Regex.Replace(
-                result, pattern, $" ,{conj}",
-                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (lineLength > 0 && lineLength + word.Length + 1 > TargetLineLength)
+            {
+                sb.Append('\n');
+                lineLength = 0;
+            }
+            else if (lineLength > 0)
+            {
+                sb.Append(' ');
+                lineLength++;
+            }
+
+            sb.Append(word);
+            lineLength += word.Length;
         }
 
-        // Final cleanup: normalize spacing around commas
-        result = System.Text.RegularExpressions.Regex.Replace(result, @"\s*,\s*", ", ");
-        result = System.Text.RegularExpressions.Regex.Replace(result, @",\s*,", ",");
-
-        return result.Trim();
+        return sb.ToString();
     }
 
     private class PhaseStatusItem
