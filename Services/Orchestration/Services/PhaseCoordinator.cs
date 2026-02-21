@@ -1,11 +1,11 @@
 using BunbunBroll.Models;
-using BunbunBroll.Orchestration.Context;
-using BunbunBroll.Orchestration.Generators;
-using BunbunBroll.Orchestration.Validators;
+using BunbunBroll.Services.Orchestration.Context;
+using BunbunBroll.Services.Orchestration.Generators;
+using BunbunBroll.Services.Orchestration.Validators;
 using BunbunBroll.Services;
 using Microsoft.Extensions.Logging;
 
-namespace BunbunBroll.Orchestration.Services;
+namespace BunbunBroll.Services.Orchestration.Services;
 
 /// <summary>
 /// Coordinates execution of a single phase with retry logic.

@@ -4,7 +4,7 @@ using BunbunBroll.Models;
 using BunbunBroll.Services;
 using Microsoft.Extensions.Logging;
 
-namespace BunbunBroll.Orchestration.Services;
+namespace BunbunBroll.Services.Orchestration.Services;
 
 /// <summary>
 /// Distributes outline content intelligently across phases using LLM.

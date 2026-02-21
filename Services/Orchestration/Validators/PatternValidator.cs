@@ -1,6 +1,6 @@
 using BunbunBroll.Models;
 
-namespace BunbunBroll.Orchestration.Validators;
+namespace BunbunBroll.Services.Orchestration.Validators;
 
 /// <summary>
 /// Generic validator that runs applicable validation rules

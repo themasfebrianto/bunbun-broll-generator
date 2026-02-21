@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using BunbunBroll.Models;
-using BunbunBroll.Orchestration;
-using BunbunBroll.Orchestration.Events;
+using BunbunBroll.Services.Orchestration;
+using BunbunBroll.Services.Orchestration.Events;
 using Microsoft.Extensions.Logging;
 
 namespace BunbunBroll.Services;

@@ -1,6 +1,6 @@
 using BunbunBroll.Models;
 
-namespace BunbunBroll.Orchestration.Context;
+namespace BunbunBroll.Services.Orchestration.Context;
 
 /// <summary>
 /// Per-phase context for generation

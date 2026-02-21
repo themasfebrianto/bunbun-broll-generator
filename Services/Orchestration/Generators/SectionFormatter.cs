@@ -1,7 +1,7 @@
 using System.Text.RegularExpressions;
 using BunbunBroll.Models;
 
-namespace BunbunBroll.Orchestration.Generators;
+namespace BunbunBroll.Services.Orchestration.Generators;
 
 /// <summary>
 /// Formats generated output to clean markdown.

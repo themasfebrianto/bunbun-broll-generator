@@ -1,14 +1,14 @@
 using System.Text.Json;
 using BunbunBroll.Data;
 using BunbunBroll.Models;
-using BunbunBroll.Orchestration.Events;
-using BunbunBroll.Orchestration.Services;
+using BunbunBroll.Services.Orchestration.Events;
+using BunbunBroll.Services.Orchestration.Services;
 using BunbunBroll.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
-namespace BunbunBroll.Orchestration;
+namespace BunbunBroll.Services.Orchestration;
 
 /// <summary>
 /// Main orchestrator for pattern-based script generation.

@@ -1,6 +1,6 @@
 using BunbunBroll.Models;
 
-namespace BunbunBroll.Orchestration.Validators.Rules;
+namespace BunbunBroll.Services.Orchestration.Validators.Rules;
 
 /// <summary>
 /// Validates that forbidden patterns are not present

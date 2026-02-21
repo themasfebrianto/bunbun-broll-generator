@@ -1,6 +1,6 @@
 using BunbunBroll.Models;
 
-namespace BunbunBroll.Orchestration.Validators.Rules;
+namespace BunbunBroll.Services.Orchestration.Validators.Rules;
 
 /// <summary>
 /// Validates word count is within phase target range

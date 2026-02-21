@@ -1,7 +1,7 @@
 using BunbunBroll.Models;
-using BunbunBroll.Orchestration.Context;
+using BunbunBroll.Services.Orchestration.Context;
 
-namespace BunbunBroll.Orchestration.Generators;
+namespace BunbunBroll.Services.Orchestration.Generators;
 
 /// <summary>
 /// Builds LLM prompts from pattern configuration.

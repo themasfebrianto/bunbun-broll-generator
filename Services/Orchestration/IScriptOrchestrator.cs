@@ -1,7 +1,7 @@
 using BunbunBroll.Models;
-using BunbunBroll.Orchestration.Events;
+using BunbunBroll.Services.Orchestration.Events;
 
-namespace BunbunBroll.Orchestration;
+namespace BunbunBroll.Services.Orchestration;
 
 /// <summary>
 /// Main coordinator for pattern-based script generation.

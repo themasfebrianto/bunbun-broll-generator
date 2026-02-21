@@ -1,4 +1,4 @@
-namespace BunbunBroll.Orchestration.Events;
+namespace BunbunBroll.Services.Orchestration.Events;
 
 public class PhaseProgressEventArgs : EventArgs
 {

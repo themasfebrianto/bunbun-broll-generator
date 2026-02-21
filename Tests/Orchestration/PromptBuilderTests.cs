@@ -1,6 +1,6 @@
 using BunbunBroll.Models;
-using BunbunBroll.Orchestration.Context;
-using BunbunBroll.Orchestration.Generators;
+using BunbunBroll.Services.Orchestration.Context;
+using BunbunBroll.Services.Orchestration.Generators;
 using Xunit;
 
 namespace BunbunBroll.Tests.Orchestration;

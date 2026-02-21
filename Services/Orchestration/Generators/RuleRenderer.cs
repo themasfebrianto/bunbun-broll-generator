@@ -1,6 +1,6 @@
 using BunbunBroll.Models;
 
-namespace BunbunBroll.Orchestration.Generators;
+namespace BunbunBroll.Services.Orchestration.Generators;
 
 /// <summary>
 /// Centralized rule rendering logic.
