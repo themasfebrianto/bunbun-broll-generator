@@ -105,7 +105,7 @@ public class VoSyncService
         return finalVoFile;
     }
 
-    private List<SrtEntry> AlignTimestamps(List<SrtEntry> appSubtitles, List<SrtEntry> capCutSubtitles)
+    public List<SrtEntry> AlignTimestamps(List<SrtEntry> appSubtitles, List<SrtEntry> capCutSubtitles)
     {
         var aligned = new List<SrtEntry>();
         int capCutSearchStartIndex = 0;

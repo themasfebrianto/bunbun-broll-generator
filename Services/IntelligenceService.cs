@@ -294,13 +294,17 @@ public partial class IntelligenceService : IIntelligenceService
     private static BrollPromptItem CreateFallbackItem(
         int index, string timestamp, string scriptText, string defaultPrompt = "")
     {
+        var words = scriptText.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;
+        var duration = Math.Max(3.0, words / 2.5);
+
         return new BrollPromptItem
         {
             Index = index,
             Timestamp = timestamp,
             ScriptText = scriptText,
             MediaType = BrollMediaType.BrollVideo,
-            Prompt = defaultPrompt
+            Prompt = defaultPrompt,
+            EstimatedDurationSeconds = duration
         };
     }
 

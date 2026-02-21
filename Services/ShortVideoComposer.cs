@@ -93,6 +93,7 @@ public class ShortVideoComposer : IShortVideoComposer
     private readonly string _tempDirectory;
     private readonly string _outputDirectory;
     private readonly VoSyncService _voSyncService;
+    private readonly ISrtService _srtService;
     private bool _isInitialized = false;
     
     // Optimization settings
@@ -108,13 +109,15 @@ public class ShortVideoComposer : IShortVideoComposer
         IConfiguration config,
         KenBurnsService kenBurnsService,
         VideoStyleSettings styleSettings,
-        VoSyncService voSyncService)
+        VoSyncService voSyncService,
+        ISrtService srtService)
     {
         _logger = logger;
         _config = config;
         _kenBurnsService = kenBurnsService;
         _styleSettings = styleSettings;
         _voSyncService = voSyncService;
+        _srtService = srtService;
         
         // FFmpeg binaries directory - use absolute paths
         _ffmpegDirectory = Path.GetFullPath(config["FFmpeg:BinaryDirectory"] 
@@ -1025,7 +1028,9 @@ public class ShortVideoComposer : IShortVideoComposer
 
             // Step 3: Calculate clip durations
             progress?.Report(new CompositionProgress { Stage = "Preparing", Percent = 30, Message = "Calculating durations..." });
-            var clipDurations = CalculateClipDurations(localClips, config);
+            var durationResult = CalculateClipDurations(localClips, config);
+            var clipDurations = durationResult.Durations;
+            bool isSrtSynced = durationResult.IsSrtSynced;
 
             // Step 4: Process clips in PARALLEL for speedup
             progress?.Report(new CompositionProgress { Stage = "Processing", Percent = 40, Message = $"Processing {localClips.Count} clips (parallel x{_parallelClips})..." });
@@ -1058,7 +1063,22 @@ public class ShortVideoComposer : IShortVideoComposer
                     string? tempImageVideo = null;
 
                     // Support image-to-video with Ken Burns if it's an image
-                    if (task.Clip.Original.IsImage)
+                if (task.Clip.Original.IsImage)
+                {
+                    // If Draft Preview, skip complex KenBurns and just create a static video
+                    if (config.IsDraftPreview)
+                    {
+                        tempImageVideo = Path.Combine(sessionTempDir, $"static_img_{composeSessionId}_{task.Index}.mp4");
+                        var imgPath = string.IsNullOrEmpty(task.Clip.Original.ImagePath) ? task.Clip.LocalPath : task.Clip.Original.ImagePath;
+                        var ffmpegPathStatic = await FindFFmpegExecutablePathAsync();
+                        
+                        // -loop 1 inputs the image infinitely, -t limits it. High speed encoding.
+                        var staticArgs = $"-loop 1 -i \"{imgPath}\" -t {task.Duration.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)} -c:v libx264 -preset ultrafast -crf 35 -pix_fmt yuv420p -s 480x854 -y \"{tempImageVideo}\"";
+                        var staticProcess = new Process { StartInfo = new ProcessStartInfo { FileName = ffmpegPathStatic, Arguments = staticArgs, UseShellExecute = false, CreateNoWindow = true } };
+                        staticProcess.Start();
+                        await staticProcess.WaitForExitAsync(ct);
+                    }
+                    else
                     {
                         tempImageVideo = await ConvertImageToVideoAsync(
                             task.Clip.Original.ImagePath,
@@ -1067,15 +1087,15 @@ public class ShortVideoComposer : IShortVideoComposer
                             task.Clip.Original.MotionType,
                             ct
                         );
-
-                        if (string.IsNullOrEmpty(tempImageVideo) || !File.Exists(tempImageVideo))
-                        {
-                            _logger.LogWarning("Failed to convert image to video: {Path}", task.Clip.Original.ImagePath);
-                            return;
-                        }
-                        inputPath = tempImageVideo;
                     }
 
+                    if (string.IsNullOrEmpty(tempImageVideo) || !File.Exists(tempImageVideo))
+                    {
+                        _logger.LogWarning("Failed to convert image to video: {Path}", task.Clip.Original.ImagePath);
+                        return;
+                    }
+                    inputPath = tempImageVideo;
+                }
                     if (!string.IsNullOrEmpty(inputPath))
                     {
                         await ProcessSingleClipAsync(
@@ -1144,51 +1164,55 @@ public class ShortVideoComposer : IShortVideoComposer
             await ConcatenateClipsWithTransitionsAsync(orderedClips, outputPath, config, cancellationToken);
 
             // Step 5.5: Voiceover Sync
-            if (!string.IsNullOrEmpty(config.CapCutAudioPath) && File.Exists(config.CapCutAudioPath) &&
-                !string.IsNullOrEmpty(config.CapCutSrtPath) && File.Exists(config.CapCutSrtPath))
+            if (!string.IsNullOrEmpty(config.CapCutAudioPath) && File.Exists(config.CapCutAudioPath))
             {
                 progress?.Report(new CompositionProgress { Stage = "Audio Sync", Percent = 85, Message = "Syncing Voiceover to Timeline..." });
-                
-                string truthSrtPath = Path.Combine(sessionOutputDir, "app_truth.srt");
-                var truthEntries = new List<BunbunBroll.Models.SrtEntry>();
-                TimeSpan current = TimeSpan.Zero;
-                for (int i = 0; i < localClips.Count; i++)
-                {
-                    if (string.IsNullOrEmpty(localClips[i].Original.AssociatedText)) continue;
-                    var dur = clipDurations[i].Duration;
-                    truthEntries.Add(new BunbunBroll.Models.SrtEntry
-                    {
-                        Index = truthEntries.Count + 1,
-                        StartTime = current,
-                        EndTime = current + TimeSpan.FromSeconds(dur),
-                        Text = localClips[i].Original.AssociatedText
-                    });
-                    current += TimeSpan.FromSeconds(dur);
-                }
-                
-                var sb = new System.Text.StringBuilder();
-                foreach (var item in truthEntries)
-                {
-                    sb.AppendLine(item.Index.ToString());
-                    sb.AppendLine($"{item.StartTime.ToString("hh\\:mm\\:ss\\,fff")} --> {item.EndTime.ToString("hh\\:mm\\:ss\\,fff")}");
-                    sb.AppendLine(item.Text);
-                    sb.AppendLine();
-                }
-                File.WriteAllText(truthSrtPath, sb.ToString());
-                
-                string syncedVoPath = await _voSyncService.SyncVoiceoverToAppTimeline(
-                    config.CapCutAudioPath, 
-                    config.CapCutSrtPath, 
-                    truthSrtPath, 
-                    sessionOutputDir);
-                    
                 string finalOutputPath = Path.Combine(sessionOutputDir, $"final_vo_{composeSessionId}.mp4");
                 string ffmpegPath = await FindFFmpegExecutablePathAsync();
                 
-                if (ffmpegPath != null) 
+                if (ffmpegPath != null)
                 {
-                    // Merge synchronized voiceover into the final concatenated video
-                    string args = $"-i \"{outputPath}\" -i \"{syncedVoPath}\" -c:v copy -c:a aac -map 0:v:0 -map 1:a:0 -shortest -y \"{finalOutputPath}\"";
+                    string targetVoPath = config.CapCutAudioPath;
+                    
+                    if (!isSrtSynced && !string.IsNullOrEmpty(config.CapCutSrtPath) && File.Exists(config.CapCutSrtPath))
+                    {
+                        // Fallback: Create app truth SRT and use VoSyncService to stretch audio
+                        string truthSrtPath = Path.Combine(sessionOutputDir, "app_truth.srt");
+                        var truthEntries = new List<BunbunBroll.Models.SrtEntry>();
+                        TimeSpan current = TimeSpan.Zero;
+                        for (int i = 0; i < localClips.Count; i++)
+                        {
+                            if (string.IsNullOrEmpty(localClips[i].Original.AssociatedText)) continue;
+                            var dur = clipDurations[i].Duration;
+                            truthEntries.Add(new BunbunBroll.Models.SrtEntry
+                            {
+                                Index = truthEntries.Count + 1,
+                                StartTime = current,
+                                EndTime = current + TimeSpan.FromSeconds(dur),
+                                Text = localClips[i].Original.AssociatedText
+                            });
+                            current += TimeSpan.FromSeconds(dur);
+                        }
+                        
+                        var sb = new System.Text.StringBuilder();
+                        foreach (var item in truthEntries)
+                        {
+                            sb.AppendLine(item.Index.ToString());
+                            sb.AppendLine($"{item.StartTime.ToString("hh\\:mm\\:ss\\,fff")} --> {item.EndTime.ToString("hh\\:mm\\:ss\\,fff")}");
+                            sb.AppendLine(item.Text);
+                            sb.AppendLine();
+                        }
+                        File.WriteAllText(truthSrtPath, sb.ToString());
+                        
+                        targetVoPath = await _voSyncService.SyncVoiceoverToAppTimeline(
+                            config.CapCutAudioPath, 
+                            config.CapCutSrtPath, 
+                            truthSrtPath, 
+                            sessionOutputDir);
+                    }
+                    
+                    // Merge voiceover into the final concatenated video
+                    string args = $"-i \"{outputPath}\" -i \"{targetVoPath}\" -c:v copy -c:a aac -map 0:v:0 -map 1:a:0 -shortest -y \"{finalOutputPath}\"";
                     var process = new Process { StartInfo = new ProcessStartInfo { FileName = ffmpegPath, Arguments = args, UseShellExecute = false, CreateNoWindow = true } };
                     process.Start();
                     await process.WaitForExitAsync(cancellationToken);
@@ -1330,22 +1354,74 @@ public class ShortVideoComposer : IShortVideoComposer
             .ToList();
     }
 
-    private List<(int ClipIndex, double Start, double Duration)> CalculateClipDurations(
+    private (List<(int ClipIndex, double Start, double Duration)> Durations, bool IsSrtSynced) CalculateClipDurations(
         List<(string LocalPath, VideoClip Original)> clips,
         ShortVideoConfig config)
     {
+        // Try reading SRT first 
+        if (!string.IsNullOrEmpty(config.CapCutSrtPath) && File.Exists(config.CapCutSrtPath))
+        {
+            try 
+            {
+                var srtContent = File.ReadAllText(config.CapCutSrtPath);
+                var capCutSubtitles = _srtService.ParseSrt(srtContent);
+                
+                if (capCutSubtitles.Count > 0)
+                {
+                    var appSubtitles = clips.Select((c, i) => new BunbunBroll.Models.SrtEntry { Index = i, Text = c.Original.AssociatedText ?? "" }).ToList();
+                    var alignedSubtitles = _voSyncService.AlignTimestamps(appSubtitles, capCutSubtitles);
+                    
+                    var result = new List<(int, double, double)>();
+                    TimeSpan timelineEnd = capCutSubtitles.Last().EndTime;
+                    
+                    bool alignmentSuccess = true;
+                    for (int i = 0; i < clips.Count; i++)
+                    {
+                        if (alignedSubtitles[i] == null || (alignedSubtitles[i].StartTime == TimeSpan.Zero && alignedSubtitles[i].EndTime == TimeSpan.Zero))
+                        {
+                            _logger.LogWarning($"Visual sync failed mapping text for clip {i}. Falling back to even division.");
+                            alignmentSuccess = false;
+                            break;
+                        }
+                    }
+
+                    if (alignmentSuccess && clips.Count > 0) 
+                    {
+                        for (int i = 0; i < clips.Count; i++)
+                        {
+                            TimeSpan start = (i == 0) ? TimeSpan.Zero : alignedSubtitles[i].StartTime;
+                            TimeSpan end = (i == clips.Count - 1) ? timelineEnd : alignedSubtitles[i + 1].StartTime;
+                            
+                            double duration = (end - start).TotalSeconds;
+                            duration = Math.Max(1.0, duration); // minimum 1s for FFmpeg safety
+                            
+                            result.Add((i, 0, duration));
+                        }
+                        
+                        _logger.LogInformation("Successfully mapped visual durations perfectly to CapCut VO timeline!");
+                        return (result, true);
+                    }
+                }
+            }
+            catch(Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to align visual clips to CapCut SRT. Falling back to even division.");
+            }
+        }
+
+        // Even division fallback
         // Reserve time for hook if enabled
         var hookDuration = config.AddTextOverlay && !string.IsNullOrEmpty(config.HookText)
             ? config.HookDurationMs / 1000.0
             : 0;
 
         var availableTime = config.TargetDurationSeconds - hookDuration;
-        var perClipDuration = availableTime / clips.Count;
+        var perClipDuration = availableTime / Math.Max(1, clips.Count);
 
         // Ensure minimum duration per clip (3 seconds)
         perClipDuration = Math.Max(3, perClipDuration);
 
-        var result = new List<(int, double, double)>();
+        var fallbackResult = new List<(int, double, double)>();
 
         for (int i = 0; i < clips.Count; i++)
         {
@@ -1354,10 +1430,10 @@ public class ShortVideoComposer : IShortVideoComposer
                 ? Math.Min(perClipDuration, clip.DurationSeconds)
                 : perClipDuration;
 
-            result.Add((i, 0, clipDuration));
+            fallbackResult.Add((i, 0, clipDuration));
         }
 
-        return result;
+        return (fallbackResult, false);
     }
 
     private async Task ProcessSingleClipAsync(
@@ -1385,15 +1461,15 @@ public class ShortVideoComposer : IShortVideoComposer
             }
 
             // Determine effective style: override takes precedence, otherwise fallback to config
-            var effectiveStyle = overrideStyle != VideoStyle.None ? overrideStyle : config.Style;
+        var effectiveStyle = overrideStyle != VideoStyle.None ? overrideStyle : config.Style;
 
-            // Determine effective filter and texture
-            // Explicit filter/texture takes precedence, otherwise convert from style
-            var effectiveFilter = filter;
-            var effectiveTexture = texture;
-            
-            // If filter is None but style is set, convert style to filter/texture
-            if (effectiveFilter == VideoFilter.None && effectiveTexture == VideoTexture.None && effectiveStyle != VideoStyle.None)
+        // Skip all filters and styles if drafting
+        var effectiveFilter = config.IsDraftPreview ? VideoFilter.None : filter;
+        var effectiveTexture = config.IsDraftPreview ? VideoTexture.None : texture;
+        if (config.IsDraftPreview) effectiveStyle = VideoStyle.None;
+        
+        // If filter is None but style is set, convert style to filter/texture
+        if (effectiveFilter == VideoFilter.None && effectiveTexture == VideoTexture.None && effectiveStyle != VideoStyle.None)
             {
                 (effectiveFilter, effectiveTexture) = effectiveStyle switch
                 {
@@ -1433,52 +1509,61 @@ public class ShortVideoComposer : IShortVideoComposer
 
             var inputWidth = videoStream.Width;
             var inputHeight = videoStream.Height;
-            var inputAspect = (double)inputWidth / inputHeight;
-            var outputAspect = (double)config.Width / config.Height;
+            var outputWidth = config.IsDraftPreview ? 480 : config.Width;
+        var outputHeight = config.IsDraftPreview ? 854 : config.Height;
+        
+        var inputAspect = (double)inputWidth / inputHeight;
+        var outputAspect = (double)outputWidth / outputHeight;
 
-            // Build FFmpeg filter for blur background effect
-            var bgFilter = BuildBlurBackgroundFilter(
-                inputWidth, inputHeight, 
-                config.Width, config.Height,
-                inputAspect, outputAspect
-            );
+        // Build FFmpeg filter for blur background effect
+        var bgFilter = BuildBlurBackgroundFilter(
+            inputWidth, inputHeight, 
+            outputWidth, outputHeight,
+            inputAspect, outputAspect
+        );
             
             // Integrate Artistic Style if enabled
-            string filterComplex;
-            if (applyFilter)
-            {
-                // artistic filter takes [vout] from bgFilter and outputs [styled]
-                var artFilter = BuildArtisticFilterComplex(effectiveFilter, filterIntensity, effectiveTexture, textureOpacity, "[vout]", "[styled]", texturePath != null, isVideoTexture, config.Width, config.Height);
-                
-                filterComplex = bgFilter + ";" + artFilter;
-            }
-            else if (effectiveStyle != VideoStyle.None)
-            {
-                // Legacy style support
-                var artFilter = BuildArtisticFilter(effectiveStyle, "[vout]", "[styled]", texturePath != null, isVideoTexture, config.Width, config.Height);
-                filterComplex = bgFilter + ";" + artFilter;
-            }
-            else
-            {
-                filterComplex = bgFilter;
-            }
+        string filterComplex;
+        if (applyFilter)
+        {
+            // artistic filter takes [vout] from bgFilter and outputs [styled]
+            var artFilter = BuildArtisticFilterComplex(effectiveFilter, filterIntensity, effectiveTexture, textureOpacity, "[vout]", "[styled]", texturePath != null, isVideoTexture, outputWidth, outputHeight);
+            
+            filterComplex = bgFilter + ";" + artFilter;
+        }
+        else if (effectiveStyle != VideoStyle.None)
+        {
+            // Legacy style support
+            var artFilter = BuildArtisticFilter(effectiveStyle, "[vout]", "[styled]", texturePath != null, isVideoTexture, outputWidth, outputHeight);
+            filterComplex = bgFilter + ";" + artFilter;
+        }
+        else
+        {
+            filterComplex = bgFilter;
+        }
 
             // Build duration filter - use InvariantCulture to ensure dot as decimal separator
             var durationArg = targetDuration > 0 && targetDuration < mediaInfo.Duration.TotalSeconds
                 ? $"-t {targetDuration.ToString("F2", System.Globalization.CultureInfo.InvariantCulture)}"
                 : "";
 
-            // Use raw FFmpeg command for complex filter
-            var ffmpegPath = await FindFFmpegExecutablePathAsync();
-            if (string.IsNullOrEmpty(ffmpegPath))
-            {
-                _logger.LogError("FFmpeg executable not found");
-                return;
-            }
-
-            // Build FFmpeg arguments - use configurable preset and CRF for speed optimization
-            // -threads 0 = use all available CPU cores
-            // Build inputs
+        // Use raw FFmpeg command for complex filter
+        var ffmpegPath = await FindFFmpegExecutablePathAsync();
+        if (string.IsNullOrEmpty(ffmpegPath))
+        {
+            _logger.LogError("FFmpeg executable not found");
+            return;
+        }
+        
+        string arguments;
+        if (config.IsDraftPreview)
+        {
+            // Draft mode: extremely fast, low quality, forced small resolution, no complex encoding
+            arguments = $"-y -i \"{inputPath}\" {durationArg} -filter_complex \"{filterComplex}\" -map \"[styled]\" -c:v {config.VideoCodec} -preset ultrafast -crf 35 -pix_fmt yuv420p -r 15 \"{outputPath}\"";
+        }
+        else 
+        {
+            // Production Mode
             var inputs = $"-threads 0 -i \"{inputPath}\"";
 
             if (texturePath != null)
@@ -1500,27 +1585,26 @@ public class ShortVideoComposer : IShortVideoComposer
                 ? "-map \"[styled]\"" 
                 : "-map \"[vout]\"";
 
-            var arguments = $"{inputs} -filter_complex \"{filterComplex}\" " +
+            arguments = $"{inputs} -filter_complex \"{filterComplex}\" " +
                            $"{mapOutput} -map 0:a? " +
-                           $"-c:v libx264 -preset {_preset} -crf {_crf} -threads 0 " +
-                           $"-c:a aac -b:a 128k -ac 2 -ar 44100 " +
-                           $"-r 24 {durationArg} " +
+                           $"-c:v {config.VideoCodec} -b:v {config.VideoBitrate}k -preset {(config.VideoCodec == "libx264" ? "fast" : "default")} -pix_fmt yuv420p -r {config.Fps} {durationArg} " +
                            $"-y \"{outputPath}\"";
+        }
 
-            _logger.LogDebug("FFmpeg command for clip processing: {Args}", arguments);
+        _logger.LogDebug("FFmpeg command for clip processing: {Args}", arguments);
 
-            using var process = new Process
+        using var process = new Process
+        {
+            StartInfo = new ProcessStartInfo
             {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = ffmpegPath,
-                    Arguments = arguments,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                }
-            };
+                FileName = ffmpegPath,
+                Arguments = arguments,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            }
+        };
 
             process.Start();
             

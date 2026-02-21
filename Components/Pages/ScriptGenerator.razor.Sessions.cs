@@ -85,8 +85,8 @@ public partial class ScriptGenerator
                     TotalSegments = items.Count,
                     VideoCount = items.Count(i => i.MediaType == BrollMediaType.BrollVideo),
                     ImageGenCount = items.Count(i => i.MediaType == BrollMediaType.ImageGeneration),
-                    VideosSelected = items.Count(i => !string.IsNullOrEmpty(i.SelectedVideoUrl)),
-                    ImagesReady = items.Count(i => i.WhiskStatus == WhiskGenerationStatus.Done),
+                    VideosSelected = items.Count(i => i.MediaType == BrollMediaType.BrollVideo && (!string.IsNullOrEmpty(i.SelectedVideoUrl) || !string.IsNullOrEmpty(i.LocalVideoPath) || !string.IsNullOrEmpty(i.FilteredVideoPath))),
+                    ImagesReady = items.Count(i => i.MediaType == BrollMediaType.ImageGeneration && (!string.IsNullOrEmpty(i.WhiskImagePath) || !string.IsNullOrEmpty(i.WhiskVideoPath) || !string.IsNullOrEmpty(i.FilteredVideoPath))),
                     ThumbnailPaths = items
                         .Where(i => !string.IsNullOrEmpty(i.WhiskImagePath))
                         .Select(i => ResolveLocalPath(i.WhiskImagePath)) // Use resilient resolution

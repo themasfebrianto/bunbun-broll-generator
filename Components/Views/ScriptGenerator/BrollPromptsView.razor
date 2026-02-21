@@ -111,6 +111,19 @@
                                     }
                                     <span>Search</span>
                                 </button>
+                                <button class="btn-secondary text-[10px] h-8 flex justify-center items-center gap-1.5 col-span-2"
+                                        disabled="@IsDownloadingAllVideos" @onclick="OnDownloadAllVideos">
+                                    @if (IsDownloadingAllVideos)
+                                    {
+                                        <svg class="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                        <span>Downloading...</span>
+                                    }
+                                    else
+                                    {
+                                        <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                                        <span>Download All</span>
+                                    }
+                                </button>
                             </div>
                         </div>
                     }
@@ -198,6 +211,25 @@
                                         }
                                     </button>
                                 </div>
+                                
+                                @if (PromptItems.Any(i => i.HasVisualEffect && string.IsNullOrEmpty(i.FilteredVideoPath)))
+                                {
+                                    <div class="mt-2 border-t border-border/50 pt-2">
+                                        <button class="w-full btn-primary text-[10px] h-8 flex justify-center items-center gap-1.5 border-purple-500 bg-purple-600 hover:bg-purple-500"
+                                                disabled="@PromptItems.Any(i => i.IsFilteringVideo)" @onclick="OnApplyFilterAllVideos">
+                                            @if (PromptItems.Any(i => i.IsFilteringVideo))
+                                            {
+                                                <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true" style="width: 12px; height: 12px; border-width: 2px;"></span>
+                                                <span>Rendering FX...</span>
+                                            }
+                                            else
+                                            {
+                                                <i class="bi bi-magic"></i>
+                                                <span>Render All FX (@PromptItems.Count(i => i.HasVisualEffect && string.IsNullOrEmpty(i.FilteredVideoPath)))</span>
+                                            }
+                                        </button>
+                                    </div>
+                                }
                             </div>
                         </div>
                     }
@@ -701,6 +733,7 @@
                     OnRegenPromptOnly="OnRegenPromptOnly"
                     OnRegenImageOnly="OnRegenImageOnly"
                     OnSelectVideo="OnSelectVideo"
+                    OnDownloadVideo="OnDownloadVideo"
                     OnApplyFilter="OnApplyFilter"
                     OnGenerateKenBurns="OnGenerateKenBurns"
                     OnResetSegmentVideo="OnResetSegmentVideo"
@@ -740,6 +773,7 @@
     
     [Parameter] public bool IsSearchingBroll { get; set; }
     [Parameter] public bool IsRegeneratingAllKeywords { get; set; }
+    [Parameter] public bool IsDownloadingAllVideos { get; set; }
     [Parameter] public bool IsGeneratingWhisk { get; set; }
     [Parameter] public int WhiskGeneratedCount { get; set; }
     [Parameter] public int WhiskTotalCount { get; set; }
@@ -748,6 +782,7 @@
     [Parameter] public EventCallback OnReclassify { get; set; }
     [Parameter] public EventCallback OnRegenAllVideoKeywords { get; set; }
     [Parameter] public EventCallback OnSearchAllVideos { get; set; }
+    [Parameter] public EventCallback OnDownloadAllVideos { get; set; }
     [Parameter] public EventCallback OnGenerateAllWhiskImages { get; set; }
     [Parameter] public EventCallback OnGenerateAllKenBurnsVideos { get; set; }
     [Parameter] public EventCallback OnResetAllImageStates { get; set; }
@@ -770,7 +805,9 @@
     [Parameter] public EventCallback<BrollPromptItem> OnRegenPromptOnly { get; set; }
     [Parameter] public EventCallback<BrollPromptItem> OnRegenImageOnly { get; set; }
     [Parameter] public EventCallback<(BrollPromptItem Item, VideoAsset Video)> OnSelectVideo { get; set; }
+    [Parameter] public EventCallback<(BrollPromptItem Item, VideoAsset Video)> OnDownloadVideo { get; set; }
     [Parameter] public EventCallback<BrollPromptItem> OnApplyFilter { get; set; }
+    [Parameter] public EventCallback OnApplyFilterAllVideos { get; set; }
     [Parameter] public EventCallback<BrollPromptItem> OnCookieUpdateRequested { get; set; }
     [Parameter] public EventCallback<BrollPromptItem> OnGenerateKenBurns { get; set; }
     [Parameter] public EventCallback<BrollPromptItem> OnResetSegmentVideo { get; set; }

@@ -28,27 +28,20 @@
                 <p class="text-sm text-muted-foreground mt-1">Upload the generated voiceover audio</p>
             </div>
             
-            @if (IsVoUploading)
-            {
-                <div class="flex items-center gap-2 text-sm text-primary">
-                    <div class="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-                    <span>Uploading...</span>
-                </div>
-            }
-            else if (!string.IsNullOrEmpty(VoPath) && System.IO.File.Exists(VoPath))
-            {
-                <div class="flex items-center gap-2 bg-green-500/10 text-green-500 px-4 py-2 rounded-lg text-sm border border-green-500/20 w-full justify-between">
-                    <span class="truncate">@System.IO.Path.GetFileName(VoPath)</span>
-                    <button class="text-xs hover:text-green-400" @onclick="OnRemoveVo">Remove</button>
-                </div>
-            }
-            else
-            {
-                <div class="relative group cursor-pointer">
-                    <InputFile OnChange="OnVoUpload" accept=".mp3,.wav,.m4a" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                    <button class="btn-secondary w-full">Select Audio File</button>
-                </div>
-            }
+            <div class="@(IsVoUploading ? "flex" : "hidden") items-center gap-2 text-sm text-primary">
+                <div class="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                <span>Uploading...</span>
+            </div>
+
+            <div class="@(IsVoUploading ? "hidden" : (!string.IsNullOrEmpty(VoPath) && System.IO.File.Exists(VoPath) ? "flex" : "hidden")) items-center gap-2 bg-green-500/10 text-green-500 px-4 py-2 rounded-lg text-sm border border-green-500/20 w-full justify-between">
+                <span class="truncate">@System.IO.Path.GetFileName(VoPath)</span>
+                <button class="text-xs hover:text-green-400" @onclick="OnRemoveVo">Remove</button>
+            </div>
+
+            <div class="relative group cursor-pointer @(IsVoUploading || (!string.IsNullOrEmpty(VoPath) && System.IO.File.Exists(VoPath)) ? "hidden" : "block")">
+                <InputFile OnChange="OnVoUpload" accept=".mp3,.wav,.m4a" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                <button class="btn-secondary w-full">Select Audio File</button>
+            </div>
         </div>
 
         <!-- Subtitle Upload -->
@@ -61,25 +54,88 @@
                 <p class="text-sm text-muted-foreground mt-1">Upload the synchronized subtitles</p>
             </div>
 
-            @if (IsSrtUploading)
+            <div class="@(IsSrtUploading ? "flex" : "hidden") items-center gap-2 text-sm text-primary">
+                <div class="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                <span>Uploading...</span>
+            </div>
+
+            <div class="@(IsSrtUploading ? "hidden" : (!string.IsNullOrEmpty(SrtPath) && System.IO.File.Exists(SrtPath) ? "flex" : "hidden")) items-center gap-2 bg-green-500/10 text-green-500 px-4 py-2 rounded-lg text-sm border border-green-500/20 w-full justify-between">
+                <span class="truncate">@System.IO.Path.GetFileName(SrtPath)</span>
+                <button class="text-xs hover:text-green-400" @onclick="OnRemoveSrt">Remove</button>
+            </div>
+
+            <div class="relative group cursor-pointer @(IsSrtUploading || (!string.IsNullOrEmpty(SrtPath) && System.IO.File.Exists(SrtPath)) ? "hidden" : "block")">
+                <InputFile OnChange="OnSrtUpload" accept=".srt,.lrc" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                <button class="btn-secondary w-full">Select Subtitle File</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Verified Segments Summary -->
+    <div class="bg-card rounded-xl border border-border/50 p-6">
+        <div class="flex items-center justify-between mb-4">
+            <div>
+                <h3 class="font-medium text-lg">Verified Segments</h3>
+                <p class="text-sm text-muted-foreground mt-1">Segments with assigned B-Roll video or generated Ken Burns video.</p>
+            </div>
+            <span class="bg-primary/10 text-primary px-3 py-1 rounded-full text-sm font-medium">
+                @GetVerifiedSegments().Count() / @PromptItems.Count Ready
+            </span>
+        </div>
+        
+        <div class="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+            @foreach (var item in GetVerifiedSegments())
             {
-                <div class="flex items-center gap-2 text-sm text-primary">
-                    <div class="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-                    <span>Uploading...</span>
+                <div class="flex items-start gap-4 p-3 rounded-lg border border-border/40 bg-muted/20">
+                    <div class="shrink-0 w-16 h-16 rounded overflow-hidden bg-black flex items-center justify-center">
+                        @if (item.MediaType == BrollMediaType.BrollVideo)
+                        {
+                            <video src="@GetAssetUrl(item.SelectedVideoUrl)" class="w-full h-full object-cover" muted loop preload="metadata"></video>
+                        }
+                        else if (!string.IsNullOrEmpty(item.WhiskVideoPath))
+                        {
+                            <video src="@GetAssetUrl(item.WhiskVideoPath)" class="w-full h-full object-cover" muted loop preload="metadata"></video>
+                        }
+                        else if (!string.IsNullOrEmpty(item.WhiskImagePath))
+                        {
+                            <img src="@GetAssetUrl(item.WhiskImagePath)" class="w-full h-full object-cover" />
+                        }
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm text-foreground line-clamp-2">@item.ScriptText</p>
+                        
+                        @if (item.HasTextOverlay)
+                        {
+                            <div class="mt-2 p-2 bg-emerald-500/10 border border-emerald-500/20 rounded text-xs space-y-1">
+                                <div class="font-semibold text-emerald-400 flex items-center gap-1">
+                                    <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                                    @item.TextOverlay!.Type Overlay
+                                </div>
+                                @if (!string.IsNullOrEmpty(item.TextOverlay.ArabicText))
+                                {
+                                    <div class="text-right text-sm text-amber-300" dir="rtl" style="font-family: 'Amiri', serif;">@item.TextOverlay.ArabicText</div>
+                                }
+                                <div class="text-emerald-50/90 italic">"@item.TextOverlay.Text"</div>
+                            </div>
+                        }
+
+                        <div class="flex gap-2 mt-2">
+                            <span class="text-xs px-2 py-0.5 rounded bg-muted text-muted-foreground border border-border/50">
+                                @(item.MediaType == BunbunBroll.Models.BrollMediaType.BrollVideo ? "B-Roll" : "Generated")
+                            </span>
+                            @if (item.MediaType == BunbunBroll.Models.BrollMediaType.ImageGeneration && !string.IsNullOrEmpty(item.WhiskVideoPath))
+                            {
+                                <span class="text-xs px-2 py-0.5 rounded bg-blue-500/10 text-blue-500 border border-blue-500/20">Ken Burns</span>
+                            }
+                        </div>
+                    </div>
                 </div>
             }
-            else if (!string.IsNullOrEmpty(SrtPath) && System.IO.File.Exists(SrtPath))
+            
+            @if (!GetVerifiedSegments().Any())
             {
-                <div class="flex items-center gap-2 bg-green-500/10 text-green-500 px-4 py-2 rounded-lg text-sm border border-green-500/20 w-full justify-between">
-                    <span class="truncate">@System.IO.Path.GetFileName(SrtPath)</span>
-                    <button class="text-xs hover:text-green-400" @onclick="OnRemoveSrt">Remove</button>
-                </div>
-            }
-            else
-            {
-                <div class="relative group cursor-pointer">
-                    <InputFile OnChange="OnSrtUpload" accept=".srt,.lrc" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                    <button class="btn-secondary w-full">Select Subtitle File</button>
+                <div class="text-center py-6 text-muted-foreground text-sm">
+                    No verified segments found. Please ensure B-Roll clips and images are generated.
                 </div>
             }
         </div>
@@ -137,6 +193,8 @@
 
 @code {
     [Parameter] public string? SessionId { get; set; }
+    [Parameter] public List<BrollPromptItem> PromptItems { get; set; } = new();
+    [Parameter] public Func<string?, string> GetAssetUrl { get; set; } = _ => "";
     [Parameter] public string? VoPath { get; set; }
     [Parameter] public string? SrtPath { get; set; }
     [Parameter] public bool IsVoUploading { get; set; }
@@ -157,4 +215,12 @@
                               !string.IsNullOrEmpty(SrtPath) && 
                               System.IO.File.Exists(VoPath) && 
                               System.IO.File.Exists(SrtPath);
+
+    private IEnumerable<BrollPromptItem> GetVerifiedSegments()
+    {
+        return PromptItems.Where(item => 
+            (item.MediaType == BrollMediaType.BrollVideo && (!string.IsNullOrEmpty(item.SelectedVideoUrl) || !string.IsNullOrEmpty(item.LocalVideoPath) || !string.IsNullOrEmpty(item.FilteredVideoPath))) ||
+            (item.MediaType == BrollMediaType.ImageGeneration && (!string.IsNullOrEmpty(item.WhiskVideoPath) || !string.IsNullOrEmpty(item.WhiskImagePath) || !string.IsNullOrEmpty(item.FilteredVideoPath)))
+        );
+    }
 }

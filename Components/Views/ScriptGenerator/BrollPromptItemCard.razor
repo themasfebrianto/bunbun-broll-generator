@@ -14,6 +14,10 @@
         <div class="flex items-center gap-3">
             <span class="font-mono text-sm font-bold text-foreground bg-muted px-2.5 py-1 rounded">@Item.Timestamp</span>
             <span class="text-sm text-muted-foreground font-medium">#@(Item.Index + 1)</span>
+            <span class="text-xs text-muted-foreground bg-muted/50 px-2 py-0.5 rounded border border-border/30">
+                @TimeSpan.FromSeconds(Item.StartTimeSeconds).ToString(@"mm\:ss") &rarr; @TimeSpan.FromSeconds(Item.EndTimeSeconds).ToString(@"mm\:ss") 
+                <span class="opacity-70 ml-1">(@Item.EstimatedDurationSeconds.ToString("0.0")s)</span>
+            </span>
         </div>
         
         @* Media Type Toggle *@
@@ -163,6 +167,22 @@
                                            @bind:after="async () => { Item.FilteredVideoPath = null; await Save(); }" />
                                     <span class="text-[9px] text-muted-foreground w-6 text-right">@(Item.FilterIntensity)%</span>
                                 </div>
+                                @if (!string.IsNullOrEmpty(Item.WhiskVideoPath))
+                                {
+                                    <button class="btn btn-sm btn-outline-primary ms-2"
+                                            disabled="@(Item.IsFilteringVideo)"
+                                            @onclick="ApplyFilter">
+                                        @if (Item.IsFilteringVideo)
+                                        {
+                                            <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                                            <span>Rendering...</span>
+                                        }
+                                        else
+                                        {
+                                            <i class="bi bi-magic me-1"></i> <span>Add FX / Render</span>
+                                        }
+                                    </button>
+                                }
                             }
                         </div>
                         
@@ -236,6 +256,24 @@
                             <span>Cari Video</span>
                         }
                     </button>
+                    
+                    @if (Item.HasVisualEffect)
+                    {
+                        <div class="h-5 w-px bg-border/50 mx-1"></div>
+                        <button class="btn-primary text-xs h-9 px-4 flex items-center gap-2"
+                                disabled="@(Item.IsFilteringVideo)"
+                                @onclick="ApplyFilter">
+                            @if (Item.IsFilteringVideo)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                                <span>Rendering FX...</span>
+                            }
+                            else
+                            {
+                                <i class="bi bi-magic me-1"></i> <span>Full Render FX</span>
+                            }
+                        </button>
+                    }
                 }
                 else
                 {
@@ -306,6 +344,24 @@
                             </button>
                         }
                     }
+
+                    @if (Item.HasVisualEffect)
+                    {
+                        <div class="h-5 w-px bg-border/50 mx-1"></div>
+                        <button class="btn-primary text-xs h-9 px-4 flex items-center gap-2"
+                                disabled="@(Item.IsFilteringVideo)"
+                                @onclick="ApplyFilter">
+                            @if (Item.IsFilteringVideo)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                                <span>Rendering FX...</span>
+                            }
+                            else
+                            {
+                                <i class="bi bi-magic me-1"></i> <span>Full Render FX</span>
+                            }
+                        </button>
+                    }
                 }
 
                 @if (!isBroll && Item.IsGenerating)
@@ -330,6 +386,7 @@
                 <BrollVideoPreview 
                     Item="Item" 
                     OnSelectVideo="SelectVideo"
+                    OnDownloadVideo="DownloadVideo"
                     GetAssetUrl="GetAssetUrl" />
             }
             else
@@ -357,6 +414,7 @@
     [Parameter] public EventCallback<BrollPromptItem> OnRegenPromptOnly { get; set; }
     [Parameter] public EventCallback<BrollPromptItem> OnRegenImageOnly { get; set; }
     [Parameter] public EventCallback<(BrollPromptItem Item, VideoAsset Video)> OnSelectVideo { get; set; }
+    [Parameter] public EventCallback<(BrollPromptItem Item, VideoAsset Video)> OnDownloadVideo { get; set; }
     [Parameter] public EventCallback<BrollPromptItem> OnApplyFilter { get; set; }
     [Parameter] public EventCallback<BrollPromptItem> OnGenerateKenBurns { get; set; }
     [Parameter] public EventCallback<BrollPromptItem> OnResetSegmentVideo { get; set; }
@@ -373,6 +431,7 @@
     private async Task Search() => await OnSearch.InvokeAsync(Item);
     private async Task RegenKeywords() => await OnRegenKeywords.InvokeAsync(Item);
     private async Task SelectVideo(VideoAsset video) => await OnSelectVideo.InvokeAsync((Item, video));
+    private async Task DownloadVideo(VideoAsset video) => await OnDownloadVideo.InvokeAsync((Item, video));
     private async Task ApplyFilter() => await OnApplyFilter.InvokeAsync(Item);
     private async Task GenerateKenBurns() => await OnGenerateKenBurns.InvokeAsync(Item);
     private async Task ResetSegmentVideo() => await OnResetSegmentVideo.InvokeAsync(Item);

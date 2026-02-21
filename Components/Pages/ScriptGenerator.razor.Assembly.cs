@@ -18,6 +18,39 @@ public partial class ScriptGenerator
     private string? _compositionProgress;
     private string? _finalVideoPath;
 
+    private void HandleGoToAudioAssembly()
+    {
+        _currentView = "audio-assembly";
+        AutoDetectVoAndSrt();
+    }
+
+    private void AutoDetectVoAndSrt()
+    {
+        if (string.IsNullOrEmpty(_sessionId)) return;
+
+        var voDir = Path.Combine(Directory.GetCurrentDirectory(), "output", _sessionId, "vo");
+        if (Directory.Exists(voDir))
+        {
+            var voFiles = Directory.GetFiles(voDir, "*.*")
+                .Where(f => f.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase) || 
+                            f.EndsWith(".wav", StringComparison.OrdinalIgnoreCase) || 
+                            f.EndsWith(".m4a", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            if (voFiles.Any()) _voPath = voFiles.First();
+        }
+
+        var srtDir = Path.Combine(Directory.GetCurrentDirectory(), "output", _sessionId, "srt");
+        if (Directory.Exists(srtDir))
+        {
+            var srtFiles = Directory.GetFiles(srtDir, "*.*")
+                .Where(f => f.EndsWith(".srt", StringComparison.OrdinalIgnoreCase) || 
+                            f.EndsWith(".lrc", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            if (srtFiles.Any()) _srtPath = srtFiles.First();
+        }
+    }
+
+
     private async Task HandleVoUpload(InputFileChangeEventArgs e)
     {
         _isVoUploading = true;
@@ -35,7 +68,7 @@ public partial class ScriptGenerator
             }
 
             // Save to Session Directory
-            var sessionDir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "output", "sessions", _sessionId!);
+            var sessionDir = Path.Combine(Directory.GetCurrentDirectory(), "output", _sessionId!,"vo");
             Directory.CreateDirectory(sessionDir);
             
             var safeFileName = $"vo_{DateTime.Now.Ticks}{ext}";
@@ -75,7 +108,7 @@ public partial class ScriptGenerator
                 return;
             }
 
-            var sessionDir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "output", "sessions", _sessionId!);
+            var sessionDir = Path.Combine(Directory.GetCurrentDirectory(), "output", _sessionId!,"srt");
             Directory.CreateDirectory(sessionDir);
             
             var safeFileName = $"sub_{DateTime.Now.Ticks}{ext}";
@@ -140,19 +173,31 @@ public partial class ScriptGenerator
             var clips = new List<BunbunBroll.Models.VideoClip>();
             foreach(var item in _brollPromptItems)
             {
-                if(item.MediaType == BunbunBroll.Models.BrollMediaType.BrollVideo && !string.IsNullOrEmpty(item.SelectedVideoUrl))
+                if(item.MediaType == BunbunBroll.Models.BrollMediaType.BrollVideo && (!string.IsNullOrEmpty(item.FilteredVideoPath) || !string.IsNullOrEmpty(item.LocalVideoPath) || !string.IsNullOrEmpty(item.SelectedVideoUrl)))
                 {
+                    string finalPath = !string.IsNullOrEmpty(item.FilteredVideoPath) ? item.FilteredVideoPath :
+                                       !string.IsNullOrEmpty(item.LocalVideoPath) ? item.LocalVideoPath : 
+                                       ResolveLocalPath(item.SelectedVideoUrl!);
+
                     clips.Add(new BunbunBroll.Models.VideoClip 
                     { 
-                        SourcePath = ResolveLocalPath(item.SelectedVideoUrl),
+                        SourcePath = finalPath,
                         SourceUrl = item.SelectedVideoUrl,
                         AssociatedText = item.ScriptText
                     });
                 }
                 else if (item.MediaType == BunbunBroll.Models.BrollMediaType.ImageGeneration)
                 {
-                    // Add KenBurns video if generated, otherwise image
-                     if (!string.IsNullOrEmpty(item.WhiskVideoPath))
+                     // Use filtered video if available, then Ken Burns, then static image
+                     if (!string.IsNullOrEmpty(item.FilteredVideoPath))
+                     {
+                          clips.Add(new BunbunBroll.Models.VideoClip 
+                          { 
+                              SourcePath = item.FilteredVideoPath,
+                              AssociatedText = item.ScriptText
+                          });
+                     }
+                     else if (!string.IsNullOrEmpty(item.WhiskVideoPath))
                      {
                           clips.Add(new BunbunBroll.Models.VideoClip 
                           { 

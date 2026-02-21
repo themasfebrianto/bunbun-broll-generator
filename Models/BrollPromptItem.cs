@@ -24,6 +24,15 @@ public class BrollPromptItem
     /// <summary>LLM reasoning for why this media type was chosen</summary>
     public string Reasoning { get; set; } = string.Empty;
 
+    /// <summary>Estimated duration of the segment in seconds based on word count</summary>
+    public double EstimatedDurationSeconds { get; set; }
+
+    /// <summary>Start time of the segment in seconds from the beginning of the video</summary>
+    public double StartTimeSeconds { get; set; }
+
+    /// <summary>End time of the segment in seconds from the beginning of the video</summary>
+    public double EndTimeSeconds { get; set; }
+
     /// <summary>Artistic style for this specific segment (legacy, use Filter + Texture)</summary>
     public VideoStyle Style { get; set; } = VideoStyle.None;
 
@@ -85,6 +94,15 @@ public class BrollPromptItem
     /// <summary>Full cached results from last API call, used for cycling pages</summary>
     [System.Text.Json.Serialization.JsonIgnore]
     public List<VideoAsset> AllSearchResults { get; set; } = new();
+
+    /// <summary>Whether this segment is currently downloading the selected video</summary>
+    public bool IsDownloading { get; set; }
+
+    /// <summary>Download error message if any</summary>
+    public string? DownloadError { get; set; }
+
+    /// <summary>Path to the downloaded video file</summary>
+    public string? LocalVideoPath { get; set; }
 
     // === Phase 2: Whisk Image Generation ===
     

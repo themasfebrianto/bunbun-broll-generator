@@ -471,6 +471,7 @@ public partial class ScriptGenerator
         public string? WhiskImagePath { get; set; }
         public string? WhiskError { get; set; }
         public string? SelectedVideoUrl { get; set; }
+        public string? LocalVideoPath { get; set; }
         public KenBurnsMotionType KenBurnsMotion { get; set; }
         public WhiskGenerationStatus WhiskVideoStatus { get; set; }
         public string? WhiskVideoPath { get; set; }

@@ -103,16 +103,24 @@ public partial class ScriptGenerator
                             }
                         }
 
+                        var words = textForParsing.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;
+                        var duration = Math.Max(3.0, words / 2.5);
+                        var startSeconds = entryOffset.TotalSeconds;
+                        var endSeconds = entryOffset.TotalSeconds + duration;
+
                         _brollPromptItems.Add(new BrollPromptItem
                         {
                             Index = idx++,
                             Timestamp = $"[{mins:D2}:{secs:D2}]",
                             ScriptText = textForParsing,
                             TextOverlay = overlay,
-                            MediaType = overlay != null ? BrollMediaType.BrollVideo : BrollMediaType.ImageGeneration
+                            MediaType = overlay != null ? BrollMediaType.BrollVideo : BrollMediaType.ImageGeneration,
+                            EstimatedDurationSeconds = duration,
+                            StartTimeSeconds = startSeconds,
+                            EndTimeSeconds = endSeconds
                         });
 
-                        entryOffset = entryOffset.Add(TimeSpan.FromSeconds(EstimateDuration(textForParsing)));
+                        entryOffset = entryOffset.Add(TimeSpan.FromSeconds(duration));
                     }
                 }
                 var lastEntry = entries.Last();
@@ -141,16 +149,24 @@ public partial class ScriptGenerator
                                 : textForParsing;
                         }
 
+                        var words = textForParsing.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;
+                        var duration = Math.Max(3.0, words / 2.5);
+                        var startSeconds = globalOffset.TotalSeconds;
+                        var endSeconds = globalOffset.TotalSeconds + duration;
+
                         _brollPromptItems.Add(new BrollPromptItem
                         {
                             Index = idx++,
                             Timestamp = $"[{mins:D2}:{secs:D2}]",
                             ScriptText = textForParsing,
                             TextOverlay = overlay,
-                            MediaType = overlay != null ? BrollMediaType.BrollVideo : BrollMediaType.ImageGeneration
+                            MediaType = overlay != null ? BrollMediaType.BrollVideo : BrollMediaType.ImageGeneration,
+                            EstimatedDurationSeconds = duration,
+                            StartTimeSeconds = startSeconds,
+                            EndTimeSeconds = endSeconds
                         });
                         
-                        globalOffset = globalOffset.Add(TimeSpan.FromSeconds(EstimateDuration(textForParsing)));
+                        globalOffset = globalOffset.Add(TimeSpan.FromSeconds(duration));
                     }
                 }
             }
@@ -192,6 +208,9 @@ public partial class ScriptGenerator
 
         return result;
     }
+
+    private bool _isDownloadingAllVideos = false;
+    private bool _isFilteringAllVideos = false;
 
     private async Task RunClassifyOnly()
     {
@@ -1011,13 +1030,12 @@ public partial class ScriptGenerator
 
         try
         {
-            var duration = EstimateDuration(item.ScriptText);
             var outputDir = Path.GetDirectoryName(item.WhiskImagePath)!;
             var fileName = Path.GetFileNameWithoutExtension(item.WhiskImagePath) + "_kb.mp4";
             var outputPath = Path.Combine(outputDir, fileName);
 
             var success = await KenBurnsService.ConvertImageToVideoAsync(
-                item.WhiskImagePath, outputPath, duration, 1920, 1080, item.KenBurnsMotion);
+                item.WhiskImagePath, outputPath, item.EstimatedDurationSeconds, 1920, 1080, item.KenBurnsMotion);
 
             if (success)
             {
@@ -1260,7 +1278,7 @@ public partial class ScriptGenerator
                 Index = i.Index, Timestamp = i.Timestamp, ScriptText = i.ScriptText,
                 MediaType = i.MediaType, Prompt = i.Prompt, Reasoning = i.Reasoning,
                 WhiskStatus = i.WhiskStatus, WhiskImagePath = i.WhiskImagePath, WhiskError = i.WhiskError,
-                SelectedVideoUrl = i.SelectedVideoUrl, KenBurnsMotion = i.KenBurnsMotion,
+                SelectedVideoUrl = i.SelectedVideoUrl, LocalVideoPath = i.LocalVideoPath, KenBurnsMotion = i.KenBurnsMotion,
                 WhiskVideoStatus = i.WhiskVideoStatus, WhiskVideoPath = i.WhiskVideoPath, WhiskVideoError = i.WhiskVideoError,
                 Style = i.Style, Filter = i.Filter, Texture = i.Texture, FilteredVideoPath = i.FilteredVideoPath,
                 TextOverlay = i.TextOverlay
@@ -1277,27 +1295,6 @@ public partial class ScriptGenerator
         {
             _saveError = $"Gagal menyimpan broll prompts: {ex.Message}";
             Console.Error.WriteLine($"Failed to save broll prompts: {ex.Message}");
-        }
-    }
-
-    private async Task SaveImageConfigToDisk()
-    {
-        var brollPath = GetBrollPromptsFilePath();
-        if (brollPath == null) return;
-
-        var configPath = Path.Combine(Path.GetDirectoryName(brollPath)!, "image-config.json");
-        try
-        {
-            var json = System.Text.Json.JsonSerializer.Serialize(_imagePromptConfig, new System.Text.Json.JsonSerializerOptions
-            {
-                WriteIndented = true,
-                Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
-            });
-            await File.WriteAllTextAsync(configPath, json);
-        }
-        catch (Exception ex)
-        {
-            Console.Error.WriteLine($"Failed to save image config: {ex.Message}");
         }
     }
 
@@ -1328,6 +1325,27 @@ public partial class ScriptGenerator
         }
     }
 
+    private async Task SaveImageConfigToDisk()
+    {
+        var brollPath = GetBrollPromptsFilePath();
+        if (brollPath == null) return;
+
+        var configPath = Path.Combine(Path.GetDirectoryName(brollPath)!, "image-config.json");
+        try
+        {
+            var json = System.Text.Json.JsonSerializer.Serialize(_imagePromptConfig, new System.Text.Json.JsonSerializerOptions
+            {
+                WriteIndented = true,
+                Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+            });
+            await File.WriteAllTextAsync(configPath, json);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Failed to save image config: {ex.Message}");
+        }
+    }
+
     private async Task SaveGlobalContextToDisk()
     {
         var brollPath = GetBrollPromptsFilePath();
@@ -1346,6 +1364,123 @@ public partial class ScriptGenerator
         catch (Exception ex)
         {
             Console.Error.WriteLine($"Failed to save narrative context: {ex.Message}");
+        }
+    }
+
+    private async Task HandleDeleteBrollCache()
+    {
+        try
+        {
+            var cachePath = Path.Combine(Directory.GetCurrentDirectory(), "cache", "broll");
+            if (Directory.Exists(cachePath))
+            {
+                Directory.Delete(cachePath, true);
+                Console.WriteLine("B-Roll cache deleted successfully.");
+            }
+            
+            // Re-fetch segment image urls if possible, but simplest is to just show success
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Failed to delete B-Roll cache: {ex.Message}");
+        }
+    }
+
+    private async Task HandleDownloadVideo((BrollPromptItem Item, VideoAsset Video) args)
+    {
+        var item = args.Item;
+        var video = args.Video;
+
+        if (item.IsDownloading) return;
+
+        try
+        {
+            item.IsDownloading = true;
+            item.DownloadError = null;
+            StateHasChanged();
+
+            var videosDir = !string.IsNullOrEmpty(_resultSession?.OutputDirectory)
+                ? Path.Combine(_resultSession.OutputDirectory, "broll")
+                : Path.Combine(Directory.GetCurrentDirectory(), "output", _sessionId ?? "temp", "broll");
+
+            // We need the DownloaderService to download this specific video.
+            // Using the existing method slightly adapted or just direct download.
+            // But we actually have `DownloaderService.DownloadVideoToDirectoryAsync` 
+            item.LocalVideoPath = await DownloaderService.DownloadVideoToDirectoryAsync(
+                video, videosDir, item.Index, "preview", CancellationToken.None);
+            
+            video.LocalPath = item.LocalVideoPath;
+            await SaveBrollPromptsToDisk();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error downloading video for segment {item.Index}: {ex.Message}");
+            item.DownloadError = "Failed to download";
+        }
+        finally
+        {
+            item.IsDownloading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task HandleDownloadAllVideos()
+    {
+        if (_isDownloadingAllVideos) return;
+
+        try
+        {
+            _isDownloadingAllVideos = true;
+            StateHasChanged();
+
+            var brollItems = _brollPromptItems.Where(i => i.MediaType == BrollMediaType.BrollVideo).ToList();
+            
+            var videosDir = !string.IsNullOrEmpty(_resultSession?.OutputDirectory)
+                ? Path.Combine(_resultSession.OutputDirectory, "broll")
+                : Path.Combine(Directory.GetCurrentDirectory(), "output", _sessionId ?? "temp", "broll");
+
+            var tasks = brollItems.Select(async item => 
+            {
+                if (!string.IsNullOrEmpty(item.LocalVideoPath) && File.Exists(item.LocalVideoPath)) return;
+
+                var video = item.SearchResults.FirstOrDefault(v => v.DownloadUrl == item.SelectedVideoUrl) 
+                            ?? item.SearchResults.FirstOrDefault();
+                
+                if (video == null) return;
+
+                try
+                {
+                    item.IsDownloading = true;
+                    StateHasChanged();
+
+                    item.LocalVideoPath = await DownloaderService.DownloadVideoToDirectoryAsync(
+                        video, videosDir, item.Index, "preview", CancellationToken.None);
+                    
+                    video.LocalPath = item.LocalVideoPath;
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"Batch download failed for segment {item.Index}: {ex.Message}");
+                    item.DownloadError = "Failed to download";
+                }
+                finally
+                {
+                    item.IsDownloading = false;
+                    StateHasChanged();
+                }
+            });
+
+            await Task.WhenAll(tasks);
+            await SaveBrollPromptsToDisk();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error in download all: {ex.Message}");
+        }
+        finally
+        {
+            _isDownloadingAllVideos = false;
+            StateHasChanged();
         }
     }
 
@@ -1397,7 +1532,7 @@ public partial class ScriptGenerator
                     Index = s.Index, Timestamp = s.Timestamp, ScriptText = s.ScriptText,
                     MediaType = s.MediaType, Prompt = s.Prompt, Reasoning = s.Reasoning,
                     WhiskStatus = s.WhiskStatus, WhiskImagePath = s.WhiskImagePath, WhiskError = s.WhiskError,
-                    SelectedVideoUrl = s.SelectedVideoUrl,
+                    SelectedVideoUrl = s.SelectedVideoUrl, LocalVideoPath = s.LocalVideoPath,
                     KenBurnsMotion = (s.MediaType == BrollMediaType.ImageGeneration && s.KenBurnsMotion == KenBurnsMotionType.None)
                         ? BrollPromptItem.GetRandomMotion() : s.KenBurnsMotion,
                     WhiskVideoStatus = s.WhiskVideoStatus, WhiskVideoPath = s.WhiskVideoPath, WhiskVideoError = s.WhiskVideoError,
@@ -1498,7 +1633,7 @@ public partial class ScriptGenerator
             var videoConfig = new ShortVideoConfig { Ratio = AspectRatio.Landscape_16x9 };
 
             var filteredPath = await VideoComposer.ApplyFilterAndTextureToVideoAsync(
-                localPath, item.EffectiveFilter, item.FilterIntensity, item.EffectiveTexture, item.TextureOpacity, videoConfig, CancellationToken.None, isPreview: true);
+                localPath, item.EffectiveFilter, item.FilterIntensity, item.EffectiveTexture, item.TextureOpacity, videoConfig, CancellationToken.None, isPreview: false);
 
             if (!string.IsNullOrEmpty(filteredPath))
             {
@@ -1533,6 +1668,36 @@ public partial class ScriptGenerator
         finally
         {
             item.IsFilteringVideo = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task HandleApplyFilterAllVideos()
+    {
+        if (_isFilteringAllVideos) return;
+
+        var itemsToFilter = _brollPromptItems.Where(i => i.HasVisualEffect && 
+            (string.IsNullOrEmpty(i.FilteredVideoPath) || !File.Exists(i.FilteredVideoPath)) && 
+            !i.IsFilteringVideo).ToList();
+
+        if (itemsToFilter.Count == 0) return;
+
+        try
+        {
+            _isFilteringAllVideos = true;
+            StateHasChanged();
+
+            // Run HandleApplyFilterToVideo in parallel for all eligible items
+            var filterTasks = itemsToFilter.Select(HandleApplyFilterToVideo);
+            await Task.WhenAll(filterTasks);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error applying all filters: {ex.Message}");
+        }
+        finally
+        {
+            _isFilteringAllVideos = false;
             StateHasChanged();
         }
     }

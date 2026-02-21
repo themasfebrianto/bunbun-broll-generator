@@ -83,6 +83,45 @@
 
             <!-- Video Rendering Section -->
             <div class="space-y-4">
+                
+                <!-- Preview Window -->
+                <div class="p-6 rounded-xl border border-border bg-card shadow-sm space-y-4">
+                    <h3 class="font-semibold text-lg border-b pb-2">Preview Overview</h3>
+                    <div class="aspect-[9/16] bg-black rounded-lg overflow-hidden relative flex items-center justify-center border border-border">
+                        @if (_isGeneratingDraft)
+                        {
+                            <div class="text-center space-y-2">
+                                <svg class="animate-spin h-8 w-8 text-primary mx-auto" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                <p class="text-sm text-muted-foreground">@_generateStage (@_generateProgress%)</p>
+                            </div>
+                        }
+                        else if (!string.IsNullOrEmpty(_draftVideoUrl))
+                        {
+                            <video src="@_draftVideoUrl" controls class="w-full h-full object-contain"></video>
+                        }
+                        else
+                        {
+                            <div class="text-center text-muted-foreground space-y-2">
+                                <svg class="w-12 h-12 mx-auto opacity-50" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                <p class="text-sm">No preview generated yet.<br/>Click 'Build Quick Preview' to start.</p>
+                            </div>
+                        }
+                    </div>
+
+                    <button @onclick="GeneratePreviewVideo" disabled="@(_isGenerating || _isGeneratingDraft || GetReadyCount() == 0 || IsJobIncomplete())" class="w-full inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 px-4 py-2 disabled:opacity-50">
+                        <svg class="mr-2 w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                        Build Quick Preview
+                    </button>
+                    
+                    @if (_draftVideoResult?.Success == false)
+                    {
+                        <div class="p-3 mt-2 rounded-md bg-red-500/10 border border-red-500/30">
+                            <p class="text-xs text-red-500">@_draftVideoResult.ErrorMessage</p>
+                        </div>
+                    }
+                </div>
+
+                <!-- Final Render Window -->
                 <div class="p-6 rounded-xl border border-border bg-card shadow-sm space-y-6">
                     <h3 class="font-semibold text-lg border-b pb-2">Compile Video</h3>
 
@@ -104,7 +143,22 @@
                         </div>
                     }
 
-                    <button @onclick="GenerateVideo" disabled="@(_isGenerating || GetReadyCount() == 0)" class="w-full inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none bg-primary text-primary-foreground hover:bg-primary/90 h-12 px-4 py-2 disabled:opacity-50">
+                    @if (IsJobIncomplete())
+                    {
+                        <div class="mb-4 p-3 rounded-md bg-amber-500/10 border border-amber-500/30">
+                            <div class="flex items-center gap-2">
+                                <svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                <p class="text-sm font-medium text-amber-600 dark:text-amber-400">
+                                    Missing Visuals
+                                </p>
+                            </div>
+                            <p class="mt-1 text-xs text-amber-600/80 dark:text-amber-400/80">
+                                @(GetTotalCount() - GetReadyCount()) segments are missing an image or video. Please add visuals to all segments before rendering.
+                            </p>
+                        </div>
+                    }
+
+                    <button @onclick="GenerateVideo" disabled="@(_isGenerating || _isGeneratingDraft || GetReadyCount() == 0 || IsJobIncomplete())" class="w-full inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none bg-primary text-primary-foreground hover:bg-primary/90 h-12 px-4 py-2 disabled:opacity-50">
                         @if (_isGenerating)
                         {
                             <svg class="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
@@ -148,10 +202,13 @@
     
     // Rendering State
     private bool _isGenerating;
+    private bool _isGeneratingDraft;
     private int _generateProgress;
     private string _generateStage = "";
     private string _generateMessage = "";
+    private string _draftVideoUrl = "";
     private BunbunBroll.Models.ShortVideoResult? _shortVideoResult;
+    private BunbunBroll.Models.ShortVideoResult? _draftVideoResult;
     private BunbunBroll.Models.AspectRatio _selectedRatio = BunbunBroll.Models.AspectRatio.Portrait_9x16;
     private string _capcutAudioPath = "";
     private string _capcutSrtPath = "";
@@ -206,16 +263,40 @@
         }
     }
 
+    private int GetTotalCount() => _job?.Segments.SelectMany(s => s.Sentences).Count() ?? 0;
     private int GetReadyCount() => _job?.Segments.SelectMany(s => s.Sentences).Count(s => s.SelectedVideo != null || !string.IsNullOrEmpty(s.WhiskImagePath)) ?? 0;
+    
+    // Returns true if the total number of sentences is greater than the ready sentences (indicating an incomplete job).
+    private bool IsJobIncomplete() => GetTotalCount() > 0 && GetTotalCount() > GetReadyCount();
+
+    private async Task GeneratePreviewVideo()
+    {
+        await GenerateVideoInternal(isDraft: true);
+    }
 
     private async Task GenerateVideo()
     {
+        await GenerateVideoInternal(isDraft: false);
+    }
+    
+    private async Task GenerateVideoInternal(bool isDraft)
+    {
         if (_job == null) return;
         
-        _isGenerating = true;
+        if (isDraft)
+        {
+            _isGeneratingDraft = true;
+            _draftVideoResult = null;
+            _draftVideoUrl = "";
+        }
+        else
+        {
+            _isGenerating = true;
+            _shortVideoResult = null;
+        }
+        
         _generateProgress = 0;
         _generateStage = "Preparing...";
-        _shortVideoResult = null;
         StateHasChanged();
 
         var reporter = new Progress<BunbunBroll.Models.CompositionProgress>(p =>
@@ -232,8 +313,8 @@
             {
                 Ratio = _selectedRatio,
                 CapCutAudioPath = _capcutAudioPath,
-                CapCutSrtPath = _capcutSrtPath
-                // Additional options for Audio overlay can be passed here once Stage 3 is ready
+                CapCutSrtPath = _capcutSrtPath,
+                IsDraftPreview = isDraft
             };
             
             var clips = new List<BunbunBroll.Models.VideoClip>();
@@ -255,25 +336,49 @@
                 }
             }
 
-            _shortVideoResult = await ShortVideoComposer.ComposeAsync(clips, config, _job?.Id, reporter);
+            var result = await ShortVideoComposer.ComposeAsync(clips, config, _job?.Id, reporter);
             
-            if (_shortVideoResult.Success)
+            if (isDraft)
             {
-                ToastService.ShowSuccess("Video Assembly Complete!");
+                _draftVideoResult = result;
+                if (result.Success && !string.IsNullOrEmpty(result.OutputPath))
+                {
+                    // Generate local url to access the file from wwwroot served path structure
+                    // Example outputpath: C:\...ProjectDir...\output\<session>\shorts\<filename>.mp4
+                    // Route maps ProjectId to serve files
+                    _draftVideoUrl = $"/project-assets/{_job!.Id}/short-video/{Path.GetFileName(result.OutputPath)}";
+                }
+                else
+                {
+                    ToastService.ShowError("Draft rendering failed.");
+                }
             }
             else
             {
-                ToastService.ShowError("Video rendering failed.");
+                _shortVideoResult = result;
+                if (result.Success)
+                {
+                    ToastService.ShowSuccess("Final Video Complete!");
+                }
+                else
+                {
+                    ToastService.ShowError("Video rendering failed.");
+                }
             }
         }
         catch (Exception ex)
         {
-            _shortVideoResult = new BunbunBroll.Models.ShortVideoResult { Success = false, ErrorMessage = ex.Message };
+            if (isDraft)
+                _draftVideoResult = new BunbunBroll.Models.ShortVideoResult { Success = false, ErrorMessage = ex.Message };
+            else
+                _shortVideoResult = new BunbunBroll.Models.ShortVideoResult { Success = false, ErrorMessage = ex.Message };
+                
             ToastService.ShowError($"Assembly error: {ex.Message}");
         }
         finally
         {
             _isGenerating = false;
+            _isGeneratingDraft = false;
             StateHasChanged();
         }
     }

@@ -65,6 +65,9 @@ public partial class IntelligenceService
                     {
                         if (batchSegments[i].Overlay != null)
                         {
+                            var words = batchSegments[i].ScriptText.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;
+                            var duration = Math.Max(3.0, words / 2.5);
+
                             var promptItem = new BrollPromptItem
                             {
                                 Index = batchStart + i,
@@ -72,7 +75,8 @@ public partial class IntelligenceService
                                 ScriptText = batchSegments[i].ScriptText,
                                 MediaType = BrollMediaType.BrollVideo,
                                 Prompt = string.Empty,
-                                TextOverlay = batchSegments[i].Overlay
+                                TextOverlay = batchSegments[i].Overlay,
+                                EstimatedDurationSeconds = duration
                             };
                             batchResults.Add(promptItem);
                             continue; // Skip LLM
@@ -118,13 +122,17 @@ public partial class IntelligenceService
                                     if (item.Index >= 0 && item.Index < batchSegments.Count)
                                     {
                                         var globalIdx = batchStart + item.Index;
+                                        var words = segments[globalIdx].ScriptText.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;
+                                        var duration = Math.Max(3.0, words / 2.5);
+
                                         var promptItem = new BrollPromptItem
                                         {
                                             Index = globalIdx,
                                             Timestamp = segments[globalIdx].Timestamp,
                                             ScriptText = segments[globalIdx].ScriptText,
                                             MediaType = BrollMediaType.ImageGeneration,
-                                            Prompt = includePrompts ? (item.Prompt ?? string.Empty) : string.Empty
+                                            Prompt = includePrompts ? (item.Prompt ?? string.Empty) : string.Empty,
+                                            EstimatedDurationSeconds = duration
                                         };
 
                                         // Optionally, the LLM might hallucinate overlays if it's acting up.

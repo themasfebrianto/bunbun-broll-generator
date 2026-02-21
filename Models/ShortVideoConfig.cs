@@ -101,6 +101,12 @@ public record ShortVideoConfig
     /// Artistic style filter to apply to B-roll videos.
     /// </summary>
     public VideoStyle Style { get; init; } = VideoStyle.None;
+
+    // === Draft Preview ===
+    /// <summary>
+    /// If true, uses ultrafast presets, disables FX, and locks low resolution for an instant UI preview render.
+    /// </summary>
+    public bool IsDraftPreview { get; init; } = false;
 }
 
 /// <summary>

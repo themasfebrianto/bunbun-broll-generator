@@ -88,7 +88,7 @@
                         @(_currentView == "audio-assembly"
                             ? "bg-primary/15 text-primary shadow-sm border border-primary/30"
                             : "text-muted-foreground hover:text-foreground hover:bg-muted/50")"
-                        @onclick='() => _currentView = "audio-assembly"'>
+                        @onclick="HandleGoToAudioAssembly">
                     <span class="flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold
                             @(_currentView == "audio-assembly"
                                 ? "bg-primary text-primary-foreground"
@@ -217,6 +217,7 @@
             ClassifyCompletedSegments="_classifyCompletedSegments"
             ClassifyError="@_classifyError"
             IsSearchingBroll="_isSearchingBroll"
+            IsDownloadingAllVideos="_isDownloadingAllVideos"
             IsRegeneratingAllKeywords="_isRegeneratingAllKeywords"
             IsGeneratingWhisk="_isGeneratingWhisk"
             WhiskGeneratedCount="_whiskGeneratedCount"
@@ -225,6 +226,7 @@
             OnReclassify='() => RequestConfirmation("Reclassify All Prompts", "⚠️ DESTRUCTIVE: Ini akan me-reset SEMUA prompt dan klasifikasi media type (Video/Image) yang sudah ada. Apakah Anda yakin?", HandleReclassifyBroll)'
             OnRegenAllVideoKeywords='() => RequestConfirmation("Regen All Video Keywords", "Ini akan me-regenerate semua keyword untuk segment B-Roll Video via LLM. Prompt yang sudah ada akan diganti. Lanjutkan?", HandleRegenAllVideoKeywords)'
             OnSearchAllVideos='() => RequestConfirmation("Search All Videos", "Ini akan melakukan pencarian ulang untuk SEMUA segment video. Video yang sudah dipilih mungkin terganti. Apakah Anda yakin?", SearchBrollForAllSegmentsAsync)'
+            OnDownloadAllVideos="HandleDownloadAllVideos"
             OnGenerateAllWhiskImages="HandleGenerateAllWhiskImages"
             OnGenerateAllKenBurnsVideos="HandleGenerateAllKenBurnsVideos"
             OnResetAllImageStates='() => RequestConfirmation("Reset All Images", "🗑️ DESTRUCTIVE: Ini akan menghapus SEMUA image dan video. Anda harus men-generate ulang semuanya. Yakin?", HandleResetAllImageStates)'
@@ -243,10 +245,11 @@
             OnToggleMediaType="HandleToggleMediaType"
             OnSearchSegment="HandleSearchSingleSegment"
             OnRegenSegmentKeywords="HandleRegenSegmentKeywords"
-            OnRegenPromptOnly="HandleRegenPromptOnly"
             OnRegenImageOnly="HandleRegenImageOnly"
             OnSelectVideo="HandleSelectVideo"
+            OnDownloadVideo="HandleDownloadVideo"
             OnApplyFilter="HandleApplyFilterToVideo"
+            OnApplyFilterAllVideos="HandleApplyFilterAllVideos"
             OnGenerateKenBurns="HandleGenerateKenBurnsVideo"
             OnResetSegmentVideo="HandleResetVideoStateForSegment"
             OnSave="SaveBrollPromptsToDisk"
@@ -263,6 +266,8 @@
     {
         <AudioAssemblyView 
             SessionId="@_sessionId"
+            PromptItems="_brollPromptItems"
+            GetAssetUrl="GetAssetUrl"
             VoPath="@_voPath"
             SrtPath="@_srtPath"
             IsVoUploading="_isVoUploading"
