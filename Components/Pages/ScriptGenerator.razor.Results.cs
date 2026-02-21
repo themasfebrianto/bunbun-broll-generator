@@ -450,40 +450,53 @@ public partial class ScriptGenerator
     }
 
     /// <summary>
-    /// Optimizes cleaned text for TTS by inserting newlines at word boundaries
+    /// Optimizes cleaned text for TTS by inserting commas at word boundaries
     /// every ~80 characters, giving TTS natural breathing points.
     /// </summary>
     private static string OptimizeForTts(string text)
     {
         if (string.IsNullOrWhiteSpace(text)) return text;
 
-        const int TargetLineLength = 80;
+        const int TargetBreathLength = 80;
 
         // Collapse into single line first
         var singleLine = System.Text.RegularExpressions.Regex.Replace(
             text.Replace("\r\n", " ").Replace("\n", " ").Replace("\r", " "), @"\s+", " ").Trim();
 
-        if (singleLine.Length <= TargetLineLength) return singleLine;
+        if (singleLine.Length <= TargetBreathLength) return singleLine;
 
         var sb = new System.Text.StringBuilder();
         var words = singleLine.Split(' ');
-        int lineLength = 0;
+        int segmentLength = 0;
 
         foreach (var word in words)
         {
-            if (lineLength > 0 && lineLength + word.Length + 1 > TargetLineLength)
+            if (segmentLength > 0 && segmentLength + word.Length + 1 > TargetBreathLength)
             {
-                sb.Append('\n');
-                lineLength = 0;
+                // Insert comma for TTS pause, only if last char isn't already punctuation
+                var lastChar = sb[sb.Length - 1];
+                if (lastChar != ',' && lastChar != '.' && lastChar != '!' && lastChar != '?' && lastChar != ';')
+                {
+                    sb.Append(',');
+                }
+                sb.Append(' ');
+                segmentLength = 0;
             }
-            else if (lineLength > 0)
+            else if (segmentLength > 0)
             {
                 sb.Append(' ');
-                lineLength++;
+                segmentLength++;
             }
 
             sb.Append(word);
-            lineLength += word.Length;
+            segmentLength += word.Length;
+
+            // Reset counter after natural punctuation (TTS already pauses there)
+            var endChar = word[word.Length - 1];
+            if (endChar == '.' || endChar == ',' || endChar == '!' || endChar == '?' || endChar == ';')
+            {
+                segmentLength = 0;
+            }
         }
 
         return sb.ToString();
