@@ -265,8 +265,7 @@ public partial class ScriptGenerator
 
         if (singleLine.Length <= MaxChars)
         {
-             // Apply TTS newlines inside the text, keep single timestamp
-             result.Add(FormatLrcLine(startTime, OptimizeForTts(singleLine)));
+             result.Add(FormatLrcLine(startTime, singleLine));
              return result;
         }
 
@@ -321,8 +320,7 @@ public partial class ScriptGenerator
         
         foreach (var chunk in chunks)
         {
-            // Apply TTS newlines inside each chunk's text
-            result.Add(FormatLrcLine(currentTime, OptimizeForTts(chunk)));
+            result.Add(FormatLrcLine(currentTime, chunk));
             if (totalChars > 0)
             {
                 var chunkDurationMs = duration.TotalMilliseconds * ((double)chunk.Length / totalChars);
@@ -449,58 +447,6 @@ public partial class ScriptGenerator
         return result.Trim();
     }
 
-    /// <summary>
-    /// Optimizes cleaned text for TTS by inserting commas at word boundaries
-    /// every ~80 characters, giving TTS natural breathing points.
-    /// </summary>
-    private static string OptimizeForTts(string text)
-    {
-        if (string.IsNullOrWhiteSpace(text)) return text;
-
-        const int TargetBreathLength = 80;
-
-        // Collapse into single line first
-        var singleLine = System.Text.RegularExpressions.Regex.Replace(
-            text.Replace("\r\n", " ").Replace("\n", " ").Replace("\r", " "), @"\s+", " ").Trim();
-
-        if (singleLine.Length <= TargetBreathLength) return singleLine;
-
-        var sb = new System.Text.StringBuilder();
-        var words = singleLine.Split(' ');
-        int segmentLength = 0;
-
-        foreach (var word in words)
-        {
-            if (segmentLength > 0 && segmentLength + word.Length + 1 > TargetBreathLength)
-            {
-                // Insert comma for TTS pause, only if last char isn't already punctuation
-                var lastChar = sb[sb.Length - 1];
-                if (lastChar != ',' && lastChar != '.' && lastChar != '!' && lastChar != '?' && lastChar != ';')
-                {
-                    sb.Append(',');
-                }
-                sb.Append(' ');
-                segmentLength = 0;
-            }
-            else if (segmentLength > 0)
-            {
-                sb.Append(' ');
-                segmentLength++;
-            }
-
-            sb.Append(word);
-            segmentLength += word.Length;
-
-            // Reset counter after natural punctuation (TTS already pauses there)
-            var endChar = word[word.Length - 1];
-            if (endChar == '.' || endChar == ',' || endChar == '!' || endChar == '?' || endChar == ';')
-            {
-                segmentLength = 0;
-            }
-        }
-
-        return sb.ToString();
-    }
 
     private class PhaseStatusItem
     {
