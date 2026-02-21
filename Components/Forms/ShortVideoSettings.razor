@@ -1,0 +1,126 @@
+@using BunbunBroll.Models
+
+<div class="space-y-4">
+    <!-- Duration Slider -->
+    <div class="space-y-2">
+        <div class="flex justify-between items-center">
+            <label class="text-sm font-medium leading-none">Target Duration</label>
+            <span class="text-sm font-mono text-muted-foreground">@TargetDuration s</span>
+        </div>
+        <input type="range" 
+               min="15" max="60" step="5"
+               value="@TargetDuration"
+               @onchange="OnDurationChange"
+               class="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-foreground" />
+        <div class="flex justify-between text-[10px] text-muted-foreground">
+            <span>15s</span>
+            <span>30s</span>
+            <span>45s</span>
+            <span>60s</span>
+        </div>
+    </div>
+
+    <!-- Options Grid -->
+    <div class="grid grid-cols-2 gap-3">
+        <ToggleSwitch Label="Auto Cut"
+                      IsChecked="AutoCut"
+                      IsCheckedChanged="HandleAutoCutChanged" />
+
+        <ToggleSwitch Label="Transitions"
+                      IsChecked="AddTransitions"
+                      IsCheckedChanged="HandleTransitionsChanged" />
+
+        <ToggleSwitch Label="Text Overlay"
+                      IsChecked="AddTextOverlay"
+                      IsCheckedChanged="HandleTextOverlayChanged" />
+
+        <ToggleSwitch Label="Background Music"
+                      IsChecked="AddBackgroundMusic"
+                      IsCheckedChanged="HandleBackgroundMusicChanged" />
+    </div>
+
+    <!-- Hook Text (Optional) -->
+    @if (AddTextOverlay)
+    {
+        <div class="space-y-2">
+            <label class="text-sm font-medium leading-none">Hook Text (Opening)</label>
+            <input type="text" 
+                   class="input"
+                   @bind="HookText" 
+                   @bind:event="oninput"
+                   placeholder="e.g. Tahukah kamu? 🤔" />
+            <p class="text-xs text-muted-foreground">Displayed at the start of the video for 2 seconds.</p>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int TargetDuration { get; set; } = 30;
+
+    [Parameter]
+    public EventCallback<int> TargetDurationChanged { get; set; }
+
+    [Parameter]
+    public bool AutoCut { get; set; } = true;
+
+    [Parameter]
+    public EventCallback<bool> AutoCutChanged { get; set; }
+
+    [Parameter]
+    public bool AddTransitions { get; set; } = true;
+
+    [Parameter]
+    public EventCallback<bool> AddTransitionsChanged { get; set; }
+
+    [Parameter]
+    public bool AddTextOverlay { get; set; } = true;
+
+    [Parameter]
+    public EventCallback<bool> AddTextOverlayChanged { get; set; }
+
+    [Parameter]
+    public bool AddBackgroundMusic { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> AddBackgroundMusicChanged { get; set; }
+
+    [Parameter]
+    public string HookText { get; set; } = "";
+
+    [Parameter]
+    public EventCallback<string> HookTextChanged { get; set; }
+
+    private void OnDurationChange(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var duration))
+        {
+            TargetDuration = duration;
+            TargetDurationChanged.InvokeAsync(duration);
+        }
+    }
+
+    private async Task HandleAutoCutChanged(bool value)
+    {
+        AutoCut = value;
+        await AutoCutChanged.InvokeAsync(value);
+    }
+
+    private async Task HandleTransitionsChanged(bool value)
+    {
+        AddTransitions = value;
+        await AddTransitionsChanged.InvokeAsync(value);
+    }
+
+    private async Task HandleTextOverlayChanged(bool value)
+    {
+        AddTextOverlay = value;
+        await AddTextOverlayChanged.InvokeAsync(value);
+    }
+
+    private async Task HandleBackgroundMusicChanged(bool value)
+    {
+        AddBackgroundMusic = value;
+        await AddBackgroundMusicChanged.InvokeAsync(value);
+    }
+}

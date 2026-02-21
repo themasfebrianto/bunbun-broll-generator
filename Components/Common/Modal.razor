@@ -1,0 +1,75 @@
+@namespace BunbunBroll.Components.Common
+
+@if (IsVisible)
+{
+    <div class="fixed inset-0 z-[100] flex items-center justify-center p-4 @GetBackdropClasses()"
+         @onclick="HandleBackdropClick">
+        <div class="w-full @GetSizeClasses() bg-background border border-border rounded-xl shadow-2xl @GetAnimationClasses() overflow-hidden flex flex-col max-h-[90vh]"
+             @onclick:stopPropagation="true">
+
+            @if (!string.IsNullOrEmpty(Title) || HeaderContent != null)
+            {
+                <div class="p-4 border-b border-border/50 bg-muted/30 flex justify-between items-center shrink-0">
+                    @if (HeaderContent != null)
+                    {
+                        @HeaderContent
+                    }
+                    else
+                    {
+                        <h3 class="text-lg font-semibold">@Title</h3>
+                    }
+                    @if (ShowCloseButton)
+                    {
+                        <button class="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md hover:bg-muted"
+                                @onclick="OnClose">
+                            <Icon Name="close" Size="18" />
+                        </button>
+                    }
+                </div>
+            }
+
+            <div class="@GetBodyClasses()">
+                @ChildContent
+            </div>
+
+            @if (FooterContent != null)
+            {
+                <div class="p-4 border-t border-border/50 bg-muted/30 flex justify-end gap-3 shrink-0">
+                    @FooterContent
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsVisible { get; set; }
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public string Size { get; set; } = "md"; // sm, md, lg, xl
+    [Parameter] public bool ShowCloseButton { get; set; } = true;
+    [Parameter] public bool DismissOnBackdrop { get; set; } = true;
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public RenderFragment? HeaderContent { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public RenderFragment? FooterContent { get; set; }
+
+    private string GetBackdropClasses() => "bg-black/60 backdrop-blur-sm";
+
+    private string GetSizeClasses() => Size.ToLowerInvariant() switch
+    {
+        "sm" => "max-w-sm",
+        "lg" => "max-w-2xl",
+        "xl" => "max-w-4xl",
+        "full" => "max-w-[90vw]",
+        _ => "max-w-lg"
+    };
+
+    private string GetAnimationClasses() => "animate-in zoom-in-95";
+    private string GetBodyClasses() => "p-6 space-y-4 overflow-y-auto";
+
+    private async Task HandleBackdropClick()
+    {
+        if (DismissOnBackdrop && OnClose.HasDelegate)
+            await OnClose.InvokeAsync();
+    }
+}

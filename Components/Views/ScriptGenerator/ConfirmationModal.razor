@@ -1,25 +1,21 @@
 @namespace BunbunBroll.Components.Views.ScriptGenerator
 
-@if (IsVisible)
-{
-    <div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in-0" 
-         @onclick="OnCancel">
-        <div class="w-full max-w-sm bg-background border border-border rounded-lg shadow-lg p-6 space-y-4 animate-in zoom-in-95" 
-             @onclick:stopPropagation="true">
-            <div class="flex flex-col gap-1">
-                <h3 class="text-lg font-semibold">@Title</h3>
-                <p class="text-sm text-muted-foreground">@Message</p>
-            </div>
-            <div class="flex justify-end gap-2 pt-2">
-                <button class="btn-ghost text-sm px-4" @onclick="OnCancel">Batal</button>
-                <button class="px-4 py-2 bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-md text-sm font-medium transition-colors" 
-                        @onclick="OnConfirm">
-                    Ya, Lanjutkan
-                </button>
-            </div>
-        </div>
-    </div>
-}
+<Modal IsVisible="IsVisible"
+       Title="@Title"
+       Size="sm"
+       ShowCloseButton="false"
+       OnClose="OnCancel">
+    <ChildContent>
+        <p class="text-sm text-muted-foreground">@Message</p>
+    </ChildContent>
+    <FooterContent>
+        <button class="btn-ghost text-sm px-4" @onclick="OnCancel">Batal</button>
+        <button class="px-4 py-2 bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-md text-sm font-medium transition-colors"
+                @onclick="OnConfirm">
+            Ya, Lanjutkan
+        </button>
+    </FooterContent>
+</Modal>
 
 @code {
     [Parameter] public bool IsVisible { get; set; }

@@ -315,37 +315,27 @@
     OnConfirm="ExecuteConfirm" />
 
 @* ============ Update Whisk Cookie Modal ============ *@
-@if (_showCookieModal)
-{
-    <div class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-background rounded-xl border border-border/50 shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
-            <div class="p-4 border-b border-border/50 bg-muted/30 flex justify-between items-center">
-                <h3 class="text-lg font-semibold flex items-center gap-2">
-                    <span class="text-amber-500">🍪</span> Update Whisk Cookie
-                </h3>
-            </div>
-            
-            <div class="p-6 space-y-4 overflow-y-auto">
-                <p class="text-sm text-muted-foreground">
-                    Your Google account cookie for Whisk image generation has expired or is invalid. 
-                    Please paste a new one below to resume generation.
-                </p>
-                <div class="space-y-2">
-                    <label class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">New Cookie String</label>
-                    <textarea class="input w-full min-h-[100px] text-sm font-mono bg-muted/30" 
-                              @bind="_newWhiskCookie"
-                              placeholder="Paste the full cookie string here..."></textarea>
-                </div>
-            </div>
-
-            <div class="p-4 border-t border-border/50 bg-muted/30 flex justify-end gap-3 rounded-b-xl">
-                <button class="btn-ghost" @onclick="CloseCookieModal">Cancel</button>
-                <button class="btn-primary" 
-                        disabled="@string.IsNullOrWhiteSpace(_newWhiskCookie)"
-                        @onclick="SubmitCookieUpdate">
-                    Update & Retry
-                </button>
-            </div>
+<Modal IsVisible="_showCookieModal"
+       Title="🍪 Update Whisk Cookie"
+       OnClose="CloseCookieModal">
+    <ChildContent>
+        <p class="text-sm text-muted-foreground">
+            Your Google account cookie for Whisk image generation has expired or is invalid. 
+            Please paste a new one below to resume generation.
+        </p>
+        <div class="space-y-2">
+            <label class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">New Cookie String</label>
+            <textarea class="input w-full min-h-[100px] text-sm font-mono bg-muted/30" 
+                      @bind="_newWhiskCookie"
+                      placeholder="Paste the full cookie string here..."></textarea>
         </div>
-    </div>
-}
+    </ChildContent>
+    <FooterContent>
+        <button class="btn-ghost" @onclick="CloseCookieModal">Cancel</button>
+        <button class="btn-primary" 
+                disabled="@string.IsNullOrWhiteSpace(_newWhiskCookie)"
+                @onclick="SubmitCookieUpdate">
+            Update & Retry
+        </button>
+    </FooterContent>
+</Modal>
