@@ -437,10 +437,8 @@ public partial class ScriptGenerator
         result = result.Replace("[", "").Replace("]", "");
         // Ellipses → comma for TTS natural pause
         result = result.Replace(".. .", ",").Replace("...", ",");
-        // Em-dash/en-dash → comma for TTS pause
-        result = result.Replace("—", ", ").Replace("–", ", ");
-        // Remove standalone dashes but preserve hyphens in compound words (e.g. berabad-abad)
-        result = System.Text.RegularExpressions.Regex.Replace(result, @"(?<!\w)-|-(?!\w)", " ");
+        // Em-dash/en-dash → comma for TTS pause; regular dashes → space
+        result = result.Replace("—", ", ").Replace("–", ", ").Replace("-", " ");
         // Normalize whitespace
         result = System.Text.RegularExpressions.Regex.Replace(result, @"\s+", " ");
         // Fix common TTS mispronunciations
