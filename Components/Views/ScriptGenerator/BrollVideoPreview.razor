@@ -75,7 +75,7 @@ else if (Item.SearchResults.Count > 0)
                 <video src="@previewSrc"
                        poster="@selectedVideo.ThumbnailUrl"
                        class="w-full h-full object-cover"
-                       controls muted loop preload="metadata"
+                       controls muted loop preload="none"
                        playsinline>
                 </video>
                 
@@ -135,7 +135,7 @@ else if (Item.SearchResults.Count > 0)
                             <video src="@video.DownloadUrl"
                                    poster="@video.ThumbnailUrl"
                                    class="w-full h-full object-cover"
-                                   muted loop preload="metadata" playsinline
+                                   muted loop preload="none" playsinline
                                    onmouseover="this.play()"
                                    onmouseout="this.pause();this.currentTime=0;">
                             </video>

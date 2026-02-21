@@ -37,6 +37,8 @@ else if (Item.WhiskStatus == WhiskGenerationStatus.Done && !string.IsNullOrEmpty
                         : GetAssetUrl(Item.WhiskVideoPath);
                 }
                 <video src="@videoSrc" 
+                       poster="@GetAssetUrl(Item.WhiskImagePath)"
+                       preload="none"
                        class="w-full h-full object-cover" controls loop muted playsinline></video>
 
                 @* Filter Progress Overlay *@
