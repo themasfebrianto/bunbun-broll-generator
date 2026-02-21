@@ -159,3 +159,22 @@ async function downloadAsZip(zipFilename, files) {
         total: total
     };
 }
+
+/**
+ * Get current time of an audio element by its ID
+ */
+function getAudioCurrentTime(elementId) {
+    const audio = document.getElementById(elementId);
+    return audio ? audio.currentTime : 0;
+}
+
+/**
+ * Scroll the active subtitle into view
+ */
+function scrollToActiveSubtitle(containerId, activeId) {
+    const container = document.getElementById(containerId);
+    const active = document.getElementById(activeId);
+    if (container && active) {
+        active.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+}

@@ -49,6 +49,11 @@ public class AppDbContext : DbContext
                   .WithOne(p => p.Session)
                   .HasForeignKey(p => p.SessionId)
                   .OnDelete(DeleteBehavior.Cascade);
+
+            // These are runtime-only complex objects, not DB entities
+            entity.Ignore(e => e.ExpansionStatistics);
+            entity.Ignore(e => e.SliceValidationResult);
+            entity.Ignore(e => e.VoSegments);
         });
 
         modelBuilder.Entity<ScriptGenerationPhase>(entity =>

@@ -170,6 +170,12 @@ coverage/
 *.wmv
 *.avchd
 
+# Common audio formats
+*.mp3
+*.wav
+*.MP3
+*.WAV
+
 # =========================
 # Misc
 # =========================

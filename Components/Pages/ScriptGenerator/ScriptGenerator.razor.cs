@@ -15,6 +15,7 @@ namespace BunbunBroll.Components.Pages.ScriptGenerator;
 
 public partial class ScriptGenerator
 {
+    [Inject] private ILogger<ScriptGenerator> _logger { get; set; } = null!;
 
     // Query parameters for deep linking (e.g. from /video page)
     [SupplyParameterFromQuery(Name = "sessionId")]

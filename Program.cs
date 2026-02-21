@@ -51,6 +51,8 @@ builder.Services.AddSingleton<GenerationEventBus>();
 builder.Services.AddSingleton<BackgroundGenerationService>();
 builder.Services.AddSingleton<SessionSyncService>();
 builder.Services.AddScoped<ISrtService, SrtService>();
+builder.Services.AddScoped<ISrtExpansionService, SrtExpansionService>();
+builder.Services.AddScoped<IVoSlicingService, VoSlicingService>();
 builder.Services.AddScoped<VoSyncService>();
 
 // Broll orchestration services (extracted from ScriptGenerator)
@@ -345,6 +347,29 @@ using (var scope = app.Services.CreateScope())
             ";
             await alterCommand.ExecuteNonQueryAsync();
             Console.WriteLine("Added OutlineDistributionJson column to ScriptGenerationSessions.");
+        }
+
+        // Check if VO/Expansion columns exist in ScriptGenerationSessions
+        var voColumns = new Dictionary<string, string>
+        {
+            { "FinalVideoPath", "TEXT" },
+            { "ExpandedSrtPath", "TEXT" },
+            { "VoSegmentsDirectory", "TEXT" },
+            { "StitchedVoPath", "TEXT" },
+            { "ExpandedAt", "TEXT" },
+        };
+
+        foreach (var (colName, colType) in voColumns)
+        {
+            command.CommandText = $"SELECT COUNT(*) FROM pragma_table_info('ScriptGenerationSessions') WHERE name='{colName}'";
+            result = await command.ExecuteScalarAsync();
+            if (Convert.ToInt32(result) == 0)
+            {
+                using var alterCmd = connection.CreateCommand();
+                alterCmd.CommandText = $"ALTER TABLE ScriptGenerationSessions ADD COLUMN {colName} {colType};";
+                await alterCmd.ExecuteNonQueryAsync();
+                Console.WriteLine($"Added {colName} column to ScriptGenerationSessions.");
+            }
         }
 
         await connection.CloseAsync();

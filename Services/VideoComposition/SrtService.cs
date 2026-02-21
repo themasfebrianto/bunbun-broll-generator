@@ -8,6 +8,10 @@ public interface ISrtService
 {
     List<SrtEntry> ParseSrt(string content);
     List<(string Timestamp, string Text)> MergeToSegments(List<SrtEntry> entries, double maxDurationSeconds = 20.0);
+    List<SrtEntry> ExpandSrtEntries(List<SrtEntry> originalEntries, double targetSegmentDuration = 12.0);
+    string FormatExpandedSrt(List<SrtEntry> entries);
+    Dictionary<int, double> CalculatePauseDurations(List<SrtEntry> entries);
+    ExpansionStats CalculateExpansionStats(List<SrtEntry> original, List<SrtEntry> expanded, Dictionary<int, double> pauses);
 }
 
 public class SrtService : ISrtService
@@ -155,6 +159,178 @@ public class SrtService : ISrtService
         }
 
         return result;
+    }
+
+    public List<SrtEntry> ExpandSrtEntries(List<SrtEntry> originalEntries, double targetSegmentDuration = 12.0)
+    {
+        var result = new List<SrtEntry>();
+        if (originalEntries == null || originalEntries.Count == 0) return result;
+
+        foreach (var entry in originalEntries)
+        {
+            var text = entry.Text.Trim();
+            if (string.IsNullOrWhiteSpace(text)) continue;
+
+            // Split into sentences (preserving punctuation)
+            var sentences = Regex.Split(text, @"(?<=[.!?])\s+", RegexOptions.Compiled)
+                .Where(s => !string.IsNullOrWhiteSpace(s))
+                .ToList();
+
+            if (sentences.Count == 0)
+            {
+                result.Add(entry);
+                continue;
+            }
+
+            var originalDuration = entry.Duration.TotalSeconds;
+
+            // Count total words across all sentences for proportional distribution
+            var wordCounts = sentences.Select(s => s.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length).ToList();
+            var totalWords = wordCounts.Sum();
+            if (totalWords == 0) totalWords = 1; // safety
+
+            // Check if any sentence needs further subdivision
+            TimeSpan currentTime = entry.StartTime;
+
+            for (int si = 0; si < sentences.Count; si++)
+            {
+                var sentence = sentences[si];
+                // Proportional duration based on word count
+                var sentenceDuration = originalDuration * ((double)wordCounts[si] / totalWords);
+
+                // If sentence is too long, subdivide by word chunks
+                if (sentenceDuration > targetSegmentDuration)
+                {
+                    var words = sentence.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                    var chunks = new List<string>();
+                    var currentChunk = new StringBuilder();
+
+                    // Target ~15 words per chunk
+                    foreach (var word in words)
+                    {
+                        currentChunk.Append(word).Append(' ');
+                        if (currentChunk.ToString().Split(' ', StringSplitOptions.RemoveEmptyEntries).Length >= 15)
+                        {
+                            chunks.Add(currentChunk.ToString().Trim());
+                            currentChunk.Clear();
+                        }
+                    }
+                    if (currentChunk.Length > 0) chunks.Add(currentChunk.ToString().Trim());
+
+                    // Distribute chunk duration proportionally by word count
+                    var chunkWordCounts = chunks.Select(c => c.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length).ToList();
+                    var chunkTotalWords = chunkWordCounts.Sum();
+                    if (chunkTotalWords == 0) chunkTotalWords = 1;
+
+                    foreach (var (chunk, ci) in chunks.Select((c, i) => (c, i)))
+                    {
+                        var chunkDuration = Math.Max(1.0, sentenceDuration * ((double)chunkWordCounts[ci] / chunkTotalWords));
+                        result.Add(new SrtEntry
+                        {
+                            Index = result.Count + 1,
+                            StartTime = currentTime,
+                            EndTime = currentTime.Add(TimeSpan.FromSeconds(chunkDuration)),
+                            Text = chunk
+                        });
+                        currentTime = currentTime.Add(TimeSpan.FromSeconds(chunkDuration));
+                    }
+                }
+                else
+                {
+                    var safeDuration = Math.Max(0.5, sentenceDuration);
+                    result.Add(new SrtEntry
+                    {
+                        Index = result.Count + 1,
+                        StartTime = currentTime,
+                        EndTime = currentTime.Add(TimeSpan.FromSeconds(safeDuration)),
+                        Text = sentence.Trim()
+                    });
+                    currentTime = currentTime.Add(TimeSpan.FromSeconds(safeDuration));
+                }
+            }
+        }
+
+        return result;
+    }
+
+    public string FormatExpandedSrt(List<SrtEntry> entries)
+    {
+        var sb = new StringBuilder();
+        foreach (var entry in entries)
+        {
+            sb.AppendLine(entry.Index.ToString());
+            sb.AppendLine($"{entry.StartTime.ToString("hh\\:mm\\:ss\\,fff")} --> {entry.EndTime.ToString("hh\\:mm\\:ss\\,fff")}");
+            sb.AppendLine(entry.Text);
+            sb.AppendLine();
+        }
+        return sb.ToString();
+    }
+
+    public Dictionary<int, double> CalculatePauseDurations(List<SrtEntry> entries)
+    {
+        var pauses = new Dictionary<int, double>();
+
+        for (int i = 0; i < entries.Count; i++)
+        {
+            // No pause after the very last entry
+            if (i == entries.Count - 1) break;
+
+            var text = entries[i].Text.Trim();
+
+            // Special content: extra long pauses
+            if (text.Contains("QS.", StringComparison.OrdinalIgnoreCase) ||
+                text.Contains("[OVERLAY:QuranVerse]", StringComparison.OrdinalIgnoreCase))
+            {
+                pauses[i] = 2.0;
+            }
+            else if (text.StartsWith("HR.", StringComparison.OrdinalIgnoreCase) ||
+                     text.Contains("[OVERLAY:Hadith]", StringComparison.OrdinalIgnoreCase))
+            {
+                pauses[i] = 1.5;
+            }
+            else if (text.EndsWith("?"))
+            {
+                pauses[i] = 1.0;
+            }
+            else if (text.EndsWith("..."))
+            {
+                pauses[i] = 0.8;
+            }
+            else if (text.EndsWith(".") || text.EndsWith("!"))
+            {
+                pauses[i] = 0.6;
+            }
+            else if (text.EndsWith(",") || text.EndsWith(";") || text.EndsWith(":"))
+            {
+                pauses[i] = 0.3; // Comma = brief pause
+            }
+            else
+            {
+                // No punctuation (typical CapCut SRT) = natural phrase break
+                pauses[i] = 0.5;
+            }
+        }
+
+        return pauses;
+    }
+
+    public ExpansionStats CalculateExpansionStats(List<SrtEntry> original, List<SrtEntry> expanded, Dictionary<int, double> pauses)
+    {
+        return new ExpansionStats
+        {
+            OriginalEntryCount = original.Count,
+            ExpandedEntryCount = expanded.Count,
+            ExpansionRatio = expanded.Count > 0 ? (double)expanded.Count / original.Count : 0,
+            TotalDurationSeconds = expanded.Sum(e => e.Duration.TotalSeconds),
+            AverageSegmentDuration = expanded.Count > 0 ? expanded.Average(e => e.Duration.TotalSeconds) : 0,
+            QuranVerseCount = expanded.Count(e => e.Text.Contains("[OVERLAY:QuranVerse]", StringComparison.OrdinalIgnoreCase) ||
+                                                     e.Text.Contains("QS.", StringComparison.OrdinalIgnoreCase)),
+            HadithCount = expanded.Count(e => e.Text.Contains("[OVERLAY:Hadith]", StringComparison.OrdinalIgnoreCase) ||
+                                                 e.Text.StartsWith("HR.", StringComparison.OrdinalIgnoreCase)),
+            KeyPhraseCount = expanded.Count(e => e.Text.Contains("[OVERLAY:KeyPhrase]", StringComparison.OrdinalIgnoreCase)),
+            TotalPauseCount = pauses.Count,
+            TotalPauseDuration = pauses.Values.Sum()
+        };
     }
 
     private bool TryParseTimestamp(string timestampStr, out TimeSpan result)

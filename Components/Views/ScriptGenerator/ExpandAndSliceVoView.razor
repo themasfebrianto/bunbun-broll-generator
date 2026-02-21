@@ -1,0 +1,292 @@
+@using BunbunBroll.Models
+
+<div class="space-y-6">
+    <div class="card p-6 bg-card/50">
+        <h3 class="text-xl font-semibold mb-2">Step 2: Expand & Slice VO</h3>
+        <p class="text-muted-foreground mb-6">
+            Upload the original VO file. This will use the CapCut SRT to expand sentences and slice the VO to match.
+            The results will be restitched with pauses for testing.
+        </p>
+
+        @if (!string.IsNullOrEmpty(ErrorMessage))
+        {
+            <div class="bg-destructive/20 border border-destructive text-destructive p-4 rounded-lg mb-6 flex items-start gap-3">
+                <svg class="w-5 h-5 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>@ErrorMessage</span>
+            </div>
+        }
+
+        <div class="space-y-6">
+            @* VO File Upload *@
+            <div class="space-y-2">
+                <label class="font-medium text-sm">Original VO Audio</label>
+                <div class="flex items-center gap-4">
+                    <InputFile accept="audio/mp3,audio/wav,audio/*"
+                               class="file-input w-full max-w-md"
+                               OnChange="HandleVoInputFileChange"
+                               disabled="@(IsExpanding || IsSlicing)" />
+                </div>
+                @if (!string.IsNullOrEmpty(UploadedVoPath))
+                {
+                    <p class="text-xs text-green-500 mt-1 flex items-center gap-1">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                        VO audio loaded
+                    </p>
+                }
+            </div>
+
+            @* SRT File Upload *@
+            <div class="space-y-2">
+                <label class="font-medium text-sm">CapCut SRT File</label>
+                <div class="flex items-center gap-4">
+                    <InputFile accept=".srt"
+                               class="file-input w-full max-w-md"
+                               OnChange="HandleSrtInputFileChange"
+                               disabled="@(IsExpanding || IsSlicing)" />
+                </div>
+                @if (!string.IsNullOrEmpty(UploadedSrtPath))
+                {
+                    <p class="text-xs text-green-500 mt-1 flex items-center gap-1">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                        SRT file loaded
+                    </p>
+                }
+            </div>
+
+            @* Actions *@
+            <div class="pt-4 border-t border-border/50">
+                <button class="btn-primary w-full sm:w-auto flex items-center justify-center gap-2"
+                        disabled="@(!CanProcess || IsProcessing)"
+                        @onclick="OnProcessClicked">
+                    @if (IsProcessing)
+                    {
+                        <div class="w-4 h-4 rounded-full border-2 border-primary-foreground border-t-transparent animate-spin"></div>
+                        <span>Processing...</span>
+                    }
+                    else
+                    {
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>Process VO (Expand, Slice, & Stitch)</span>
+                    }
+                </button>
+                @if (!CanProcess)
+                {
+                    <p class="text-xs text-muted-foreground mt-2">Upload both VO audio and SRT file to proceed.</p>
+                }
+            </div>
+        </div>
+    </div>
+
+    @* Results / Preview Area *@
+    @if (ShowResults && ValidationResult != null)
+    {
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            @* Left: Stats & Errors *@
+            <div class="card p-6 bg-card/50 space-y-6">
+                <h3 class="text-lg font-semibold flex items-center gap-2">
+                    <svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                    Processing Statistics
+                </h3>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-muted/50 p-4 rounded-lg">
+                        <p class="text-xs text-muted-foreground uppercase tracking-wider mb-1">Accuracy Score</p>
+                        <p class="text-2xl font-bold @(ValidationResult.AccuracyScore >= 90 ? "text-green-500" : "text-yellow-500")">
+                            @ValidationResult.AccuracyScore.ToString("F1")%
+                        </p>
+                    </div>
+                    <div class="bg-muted/50 p-4 rounded-lg">
+                        <p class="text-xs text-muted-foreground uppercase tracking-wider mb-1">Total Segments</p>
+                        <p class="text-2xl font-bold">@Stats?.ExpandedEntryCount</p>
+                    </div>
+                </div>
+
+                @if (ValidationResult.Issues.Any())
+                {
+                    <div class="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                        <h4 class="font-medium text-sm text-yellow-500 sticky top-0 bg-card py-2">Validation Issues (@ValidationResult.Issues.Count)</h4>
+                        @foreach (var issue in ValidationResult.Issues)
+                        {
+                            <div class="text-sm p-3 rounded bg-muted/30 border-l-2 @(issue.Severity == "Error" ? "border-destructive text-destructive-foreground/90" : "border-yellow-500 text-yellow-500/90")">
+                                <div class="flex justify-between font-mono text-xs mb-1 opacity-70">
+                                    <span>Seg #@issue.SegmentIndex</span>
+                                    <span>@issue.Severity</span>
+                                </div>
+                                <p class="mb-1">@issue.Issue</p>
+                                <p class="text-xs italic truncate">"@issue.Text"</p>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="p-4 bg-green-500/10 border border-green-500/20 text-green-500 rounded-lg flex items-center gap-3">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span class="font-medium">All segments sliced perfectly!</span>
+                    </div>
+                }
+
+                <div class="pt-4 border-t border-border/50">
+                    <button class="btn-primary w-full" @onclick="OnCompleteClicked" disabled="@(!ValidationResult.IsValid)">
+                        Looks Good, Proceed
+                    </button>
+                    @if (!ValidationResult.IsValid)
+                    {
+                        <p class="text-xs text-yellow-500 text-center mt-2">Cannot proceed with low accuracy or errors.</p>
+                    }
+                </div>
+            </div>
+
+            @* Right: Player & Subtitles *@
+            <div class="card p-6 bg-card/50 flex flex-col h-[500px]">
+                <h3 class="text-lg font-semibold flex items-center gap-2 mb-4">
+                    <svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    Test Run Preview
+                </h3>
+
+                @if (!string.IsNullOrEmpty(StitchedVoUrl))
+                {
+                    <div class="mb-4">
+                        <audio id="stitched-player" src="@StitchedVoUrl" controls class="w-full"></audio>
+                    </div>
+
+                    <div class="flex-1 overflow-y-auto px-2 custom-scrollbar space-y-3 relative" id="subtitle-container">
+                        @if (ExpandedEntries != null)
+                        {
+                            @foreach (var entry in ExpandedEntries)
+                            {
+                                bool isActive = _currentTime >= entry.StartTime.TotalSeconds && _currentTime <= entry.EndTime.TotalSeconds;
+
+                                <div class="p-3 rounded-lg transition-all duration-200 @(isActive ? "bg-primary text-primary-foreground scale-[1.02] shadow-lg shadow-primary/20" : "bg-muted/30 text-muted-foreground")"
+                                     id="sub-@entry.Index">
+                                    <div class="flex justify-between items-center mb-1 opacity-60 text-xs font-mono">
+                                        <span>@entry.StartTime.ToString(@"hh\:mm\:ss\.fff")</span>
+                                        <span>@entry.Duration.TotalSeconds.ToString("F1")s</span>
+                                    </div>
+                                    <p class="text-lg @(isActive ? "font-semibold" : "")">@entry.Text</p>
+                                </div>
+                            }
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="flex-1 flex items-center justify-center text-muted-foreground text-sm border-2 border-dashed border-border/50 rounded-xl">
+                        Awaiting stitched VO generation...
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+@code {
+    [Parameter] public string? ErrorMessage { get; set; }
+    [Parameter] public string? UploadedVoPath { get; set; }
+    [Parameter] public string? UploadedSrtPath { get; set; }
+    [Parameter] public bool IsExpanding { get; set; }
+    [Parameter] public bool IsSlicing { get; set; }
+    [Parameter] public bool ShowResults { get; set; }
+    [Parameter] public VoSliceValidationResult? ValidationResult { get; set; }
+    [Parameter] public ExpansionStats? Stats { get; set; }
+    [Parameter] public List<SrtEntry>? ExpandedEntries { get; set; }
+    [Parameter] public string? StitchedVoUrl { get; set; }
+
+    [Parameter] public EventCallback<InputFileChangeEventArgs> OnVoSelected { get; set; }
+    [Parameter] public EventCallback<InputFileChangeEventArgs> OnSrtSelected { get; set; }
+    [Parameter] public EventCallback OnProcess { get; set; }
+    [Parameter] public EventCallback OnComplete { get; set; }
+
+    private bool IsProcessing => IsExpanding || IsSlicing;
+    private bool CanProcess => !string.IsNullOrEmpty(UploadedVoPath) && !string.IsNullOrEmpty(UploadedSrtPath);
+    private double _currentTime = 0;
+    private int _lastActiveIndex = -1;
+    private System.Threading.Timer? _pollTimer;
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender || (_pollTimer == null && !string.IsNullOrEmpty(StitchedVoUrl)))
+        {
+            StartPolling();
+        }
+    }
+
+    private void StartPolling()
+    {
+        _pollTimer?.Dispose();
+        _pollTimer = new System.Threading.Timer(async _ =>
+        {
+            try
+            {
+                var time = await JS.InvokeAsync<double>("getAudioCurrentTime", "stitched-player");
+                if (Math.Abs(time - _currentTime) > 0.05)
+                {
+                    _currentTime = time;
+                    await InvokeAsync(() =>
+                    {
+                        StateHasChanged();
+                        ScrollToActive();
+                    });
+                }
+            }
+            catch { /* component disposed or JS not ready */ }
+        }, null, 500, 250); // start after 500ms, poll every 250ms
+    }
+
+    private async void ScrollToActive()
+    {
+        if (ExpandedEntries == null) return;
+        for (int i = 0; i < ExpandedEntries.Count; i++)
+        {
+            var entry = ExpandedEntries[i];
+            if (_currentTime >= entry.StartTime.TotalSeconds && _currentTime <= entry.EndTime.TotalSeconds)
+            {
+                if (i != _lastActiveIndex)
+                {
+                    _lastActiveIndex = i;
+                    try
+                    {
+                        await JS.InvokeVoidAsync("scrollToActiveSubtitle", "subtitle-container", $"sub-{entry.Index}");
+                    }
+                    catch { }
+                }
+                break;
+            }
+        }
+    }
+
+    private async Task HandleVoInputFileChange(InputFileChangeEventArgs e)
+    {
+        await OnVoSelected.InvokeAsync(e);
+    }
+
+    private async Task HandleSrtInputFileChange(InputFileChangeEventArgs e)
+    {
+        await OnSrtSelected.InvokeAsync(e);
+    }
+
+    private Task OnProcessClicked() => OnProcess.InvokeAsync();
+    private Task OnCompleteClicked() => OnComplete.InvokeAsync();
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_pollTimer != null)
+        {
+            await _pollTimer.DisposeAsync();
+        }
+    }
+}

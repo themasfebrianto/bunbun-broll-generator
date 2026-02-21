@@ -154,6 +154,8 @@ public partial class ScriptGenerator
 
                 Console.WriteLine($"[DEBUG] Done loading. Switching view to results...");
                 _currentView = "results";
+                _currentStep = 0;
+                _canProceedToStep2 = true; // Script is complete, allow proceeding to Expand & Slice VO
                 // _ = AutoSearchMissingBrollSegments();
             }
             else if (session.Status == SessionStatus.Running || session.Status == SessionStatus.Failed || BgService.IsRunning(session.Id))

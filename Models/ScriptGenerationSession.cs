@@ -18,6 +18,18 @@ public class ScriptGenerationSession
     [MaxLength(500)]
     public string Topic { get; set; } = string.Empty;
 
+    public string? FinalVideoPath { get; set; }
+
+    public string? ExpandedSrtPath { get; set; }
+    public string? VoSegmentsDirectory { get; set; }  // Directory containing sliced VO segments
+    public string? StitchedVoPath { get; set; } // The final stitched VO path
+    public List<VoSegment>? VoSegments { get; set; }
+    public bool HasExpandedVersion => !string.IsNullOrEmpty(ExpandedSrtPath) && File.Exists(ExpandedSrtPath);
+    public bool HasSlicedVo => VoSegments?.Count > 0;
+    public DateTime? ExpandedAt { get; set; }
+    public ExpansionStats? ExpansionStatistics { get; set; }
+    public VoSliceValidationResult? SliceValidationResult { get; set; }
+
     public string? Outline { get; set; }
 
     /// <summary>
