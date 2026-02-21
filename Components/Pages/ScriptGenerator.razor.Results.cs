@@ -396,6 +396,20 @@ public partial class ScriptGenerator
         if (string.IsNullOrWhiteSpace(text)) return string.Empty;
         var result = text;
 
+        // Strip overlay tags and their content entirely (these are visual overlay markers, not narration)
+        // Remove [OVERLAY:Type] or OVERLAY:Type tags
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"\[?OVERLAY:\w+\]?", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        // Remove [ARABIC] and everything until the next tag or end of line
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"\[?ARABIC\]?:?\s*.*?(?=\[?(?:REF|TEXT|OVERLAY)\]?|$)", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Singleline);
+        // Remove [REF] and its content
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"(?:\[?REF\]?|\bREF\b)\s*:?\s*.*?(?=\[?(?:TEXT|OVERLAY)\]?|$)", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Singleline);
+        // Remove [TEXT] and its content
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"\[?TEXT\]?\s*:?\s*.*?(?=\[?\d{2}:\d{2}\]?|$)", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Singleline);
+        // Clean up any remaining standalone tag remnants
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"\[?ARABIC\]?:?", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"\[?REF\]?:?", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"\[?TEXT\]?:?", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
         result = System.Text.RegularExpressions.Regex.Replace(result, @"^#+\s+.*$", "", System.Text.RegularExpressions.RegexOptions.Multiline);
         result = System.Text.RegularExpressions.Regex.Replace(result, @"^\s*(?:Opening Hook|Kontekstualisasi|Multi-Dimensi|Climax|Eschatology|Contextualization|Content|Segment \d+):?\s*$", "", System.Text.RegularExpressions.RegexOptions.Multiline | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
         result = System.Text.RegularExpressions.Regex.Replace(result, @"\[\d{1,3}:\d{2}(?::\d{2})?\]", "");
