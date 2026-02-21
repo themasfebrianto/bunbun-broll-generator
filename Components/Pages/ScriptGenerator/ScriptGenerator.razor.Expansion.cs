@@ -13,6 +13,8 @@ public partial class ScriptGenerator
     private bool _isValidating = false;
     private string? _expansionError = null;
     private bool _showExpansionDetails = false;
+    private string? _processingStatus = null;
+    private int _processingProgress = 0;
 
     // File paths
     private string? _voFilePath = null;
@@ -51,6 +53,32 @@ public partial class ScriptGenerator
             if (File.Exists(srtPath))
             {
                 _srtFilePath = srtPath;
+            }
+        }
+
+        // Detect previous processing results
+        var stitchedPath = Path.Combine(outputDir, "stitched_vo.mp3");
+        var expandedSrtDir = Path.Combine(outputDir, _sessionId ?? "");
+        var expandedSrtPath = Path.Combine(expandedSrtDir, "expanded.srt");
+
+        if (File.Exists(stitchedPath) && File.Exists(expandedSrtPath) && _expandedEntries == null)
+        {
+            try
+            {
+                // Reload expanded SRT entries
+                var srtContent = File.ReadAllText(expandedSrtPath);
+                _expandedEntries = SrtService.ParseSrt(srtContent);
+
+                // Recalculate pause durations from entries
+                _pauseDurations = SrtService.CalculatePauseDurations(_expandedEntries);
+
+                // Set player URL
+                _stitchedVoUrl = $"/project-assets/{_sessionId}/stitched_vo.mp3";
+                _showExpansionDetails = true;
+            }
+            catch
+            {
+                // If reload fails, user can re-process
             }
         }
     }
@@ -142,8 +170,8 @@ public partial class ScriptGenerator
 
         try
         {
-            
             // 1. Expand SRT
+            SetProgress("Expanding SRT entries...", 10);
             var expansionResult = await SrtExpansionService.ExpandCapCutSrtAsync(
                 capCutSrtPath,
                 _sessionId ?? Guid.NewGuid().ToString(),
@@ -168,6 +196,7 @@ public partial class ScriptGenerator
             }
 
             // 2. Slice VO
+            SetProgress("Slicing VO into segments...", 30);
             var sliceResult = await VoSlicingService.SliceVoAsync(
                 _voFilePath,
                 _expandedEntries,
@@ -189,6 +218,7 @@ public partial class ScriptGenerator
             }
 
             // 3. Stitch VO back together with pauses
+            SetProgress("Stitching segments with pauses...", 60);
             var stitchedPath = await VoSlicingService.StitchVoAsync(_voSegments, _pauseDurations, sliceResult.OutputDirectory);
             if (!string.IsNullOrEmpty(stitchedPath))
             {
@@ -208,7 +238,9 @@ public partial class ScriptGenerator
             }
 
             // 4. Validate
+            SetProgress("Validating sliced segments...", 85);
             await HandleValidateSlices();
+            SetProgress("Done!", 100);
             _showExpansionDetails = true;
         }
         catch (Exception ex)
@@ -219,6 +251,8 @@ public partial class ScriptGenerator
         {
             _isExpanding = false;
             _isSlicing = false;
+            _processingStatus = null;
+            _processingProgress = 0;
             StateHasChanged();
         }
     }
@@ -251,5 +285,12 @@ public partial class ScriptGenerator
             _isValidating = false;
             StateHasChanged();
         }
+    }
+
+    private void SetProgress(string status, int progress)
+    {
+        _processingStatus = status;
+        _processingProgress = progress;
+        InvokeAsync(StateHasChanged);
     }
 }

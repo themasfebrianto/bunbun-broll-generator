@@ -245,7 +245,9 @@
             OnVoSelected="HandleVoFileUpload"
             OnSrtSelected="HandleSrtFileUpload"
             OnProcess="HandleProcessVo"
-            OnComplete="OnExpansionComplete" />
+            OnComplete="OnExpansionComplete"
+            ProcessingStatus="@_processingStatus"
+            ProcessingProgress="@_processingProgress" />
     }
 
     @* ============ VIEW 4: B-Roll Prompts ============ *@

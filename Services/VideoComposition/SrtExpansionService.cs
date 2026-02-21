@@ -38,10 +38,47 @@ public class SrtExpansionService : ISrtExpansionService
             // Expand entries
             result.ExpandedEntries = _srtService.ExpandSrtEntries(originalEntries, targetSegmentDuration: 12.0);
 
-            // Calculate pauses
+            // Preserve original timestamps for VO slicing before they get shifted by pauses
+            foreach (var entry in result.ExpandedEntries)
+            {
+                entry.OriginalStartTime = entry.StartTime;
+                entry.OriginalEndTime = entry.EndTime;
+            }
+
+            // Calculate padding for each entry identically to the slicing logic
+            for (int i = 0; i < result.ExpandedEntries.Count; i++)
+            {
+                var entry = result.ExpandedEntries[i];
+                double startTime = entry.OriginalStartTime.TotalSeconds;
+                double endTime = entry.OriginalEndTime.TotalSeconds;
+
+                // Add small padding to prevent tight VAD cutting off the start/end of words
+                double paddingStart = 0.05; // 50ms padding at the start
+                double paddingEnd = 0.150;  // 150ms padding at the end
+
+                if (i > 0)
+                {
+                    double prevEndTime = result.ExpandedEntries[i - 1].OriginalEndTime.TotalSeconds;
+                    double maxStartPadding = Math.Max(0, startTime - prevEndTime);
+                    paddingStart = Math.Min(paddingStart, maxStartPadding * 0.9);
+                }
+                paddingStart = Math.Min(paddingStart, startTime);
+
+                if (i < result.ExpandedEntries.Count - 1)
+                {
+                    double nextStartTime = result.ExpandedEntries[i + 1].OriginalStartTime.TotalSeconds;
+                    double maxEndPadding = Math.Max(0, nextStartTime - endTime);
+                    paddingEnd = Math.Min(paddingEnd, maxEndPadding * 0.9);
+                }
+                
+                entry.PaddingStart = TimeSpan.FromSeconds(paddingStart);
+                entry.PaddingEnd = TimeSpan.FromSeconds(paddingEnd);
+            }
+
+            // Calculate pauses taking into account the natural padding gaps
             result.PauseDurations = _srtService.CalculatePauseDurations(result.ExpandedEntries);
 
-            // Apply pauses to re-time the segments
+            // Apply pauses to re-time the segments contiguously from 0.0s, fully synced to stitched audio
             ApplyPausesToRetimeEntries(result.ExpandedEntries, result.PauseDurations);
 
             // Calculate statistics
@@ -77,20 +114,23 @@ public class SrtExpansionService : ISrtExpansionService
 
     private void ApplyPausesToRetimeEntries(List<SrtEntry> entries, Dictionary<int, double> pauseDurations)
     {
-        TimeSpan accumulatedPause = TimeSpan.Zero;
+        TimeSpan currentTime = TimeSpan.Zero;
 
         for (int i = 0; i < entries.Count; i++)
         {
             var entry = entries[i];
             
-            // Shift start and end time by accumulated pause
-            entry.StartTime = entry.StartTime.Add(accumulatedPause);
-            entry.EndTime = entry.EndTime.Add(accumulatedPause);
+            // The segment duration is the original speech PLUS the paddings we are adding in slicing
+            var paddedDuration = (entry.OriginalEndTime - entry.OriginalStartTime) + entry.PaddingStart + entry.PaddingEnd;
 
-            // Add the pause for THIS segment to the accumulated pause for the NEXT segments
+            entry.StartTime = currentTime;
+            entry.EndTime = currentTime.Add(paddedDuration);
+
+            currentTime = entry.EndTime;
+
             if (pauseDurations.TryGetValue(i, out double pauseSeconds))
             {
-                accumulatedPause = accumulatedPause.Add(TimeSpan.FromSeconds(pauseSeconds));
+                currentTime = currentTime.Add(TimeSpan.FromSeconds(pauseSeconds));
             }
         }
     }

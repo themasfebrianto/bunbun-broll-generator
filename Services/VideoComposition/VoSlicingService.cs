@@ -102,74 +102,94 @@ public class VoSlicingService : IVoSlicingService
             var sourceDuration = await GetAudioDurationAsync(voPath);
             _logger.LogInformation("Source VO duration: {Duration}s", sourceDuration);
 
-            // We need to keep track of the original start times from the CapCut SRT. 
-            // The expandedEntries have already been re-timed in SrtExpansionService for the final video.
-            // Oh wait, for slicing, we MUST use the ORIGINAL time of the text in the VO.
-            // SrtExpansionService MUST NOT mutate the StartTime/EndTime for the purpose of slicing if it already did.
-            // Actually, SrtExpansionService mutated it. Let's assume for slicing we need to calculate it properly.
-            // Wait, expanding CapCut SRTs should just provide segments. Since the VO matches CapCut SRT perfectly, 
-            // the VO has NO pauses yet. So the time in VO is purely contiguous.
-            
-            double currentVoTime = 0.0;
+            // Determine concurrency limit (leave 2 threads for UI/OS if possible, min 1)
+            int maxConcurrency = Math.Max(1, Environment.ProcessorCount - 2);
+            using var semaphore = new SemaphoreSlim(maxConcurrency);
 
-            // Slice VO for each expanded SRT entry
+            var segmentsBag = new System.Collections.Concurrent.ConcurrentBag<VoSegment>();
+            var localWarnings = new System.Collections.Concurrent.ConcurrentBag<string>();
+            var localErrors = new System.Collections.Concurrent.ConcurrentBag<string>();
+
+            var slicingTasks = new List<Task>();
+
+            // Slice VO for each expanded SRT entry using its original, un-shifted timestamp from CapCut
             for (int i = 0; i < expandedEntries.Count; i++)
             {
                 var entry = expandedEntries[i];
-                var duration = entry.Duration.TotalSeconds; // This duration is correct (it doesn't include the pause)
-                
-                var startTime = currentVoTime;
-                var endTime = currentVoTime + duration;
+                var index = i; // capture loop variable
 
-                // Validate timing is within source VO
-                if (endTime > sourceDuration)
+                slicingTasks.Add(Task.Run(async () =>
                 {
-                    result.Warnings.Add($"Entry {i + 1} ends at {endTime}s but VO is only {sourceDuration}s long");
-                    // Adjust to available duration
-                    endTime = sourceDuration;
-                    duration = endTime - startTime;
-                }
+                    await semaphore.WaitAsync();
+                    try
+                    {
+                        var startTime = entry.OriginalStartTime.TotalSeconds;
+                        var endTime = entry.OriginalEndTime.TotalSeconds;
 
-                var outputPath = Path.Combine(segmentsDir, $"segment_{i + 1:D3}.mp3");
+                        startTime -= entry.PaddingStart.TotalSeconds;
+                        endTime += entry.PaddingEnd.TotalSeconds;
 
-                // Use FFmpeg to slice the audio
-                var ffmpegArgs = string.Format(CultureInfo.InvariantCulture, "-ss {0:F3} -i \"{1}\" -t {2:F3} -c:a libmp3lame -q:a 2 -y \"{3}\"", startTime, voPath, duration, outputPath);
+                        var duration = endTime - startTime;
 
-                var ffmpegResult = await RunCommandAsync(_ffmpegPath, ffmpegArgs);
+                        // Validate timing is within source VO
+                        if (endTime > sourceDuration)
+                        {
+                            localWarnings.Add($"Entry {index + 1} ends at {endTime}s but VO is only {sourceDuration}s long");
+                            // Adjust to available duration
+                            endTime = sourceDuration;
+                            duration = endTime - startTime;
+                        }
 
-                if (!ffmpegResult.IsSuccess)
-                {
-                    result.Errors.Add($"Failed to slice segment {i + 1}: {ffmpegResult.Error}");
-                    currentVoTime += duration; // Skip ahead
-                    continue;
-                }
+                        var outputPath = Path.Combine(segmentsDir, $"segment_{index + 1:D3}.wav");
 
-                // Get actual duration of sliced segment
-                var actualDuration = await GetAudioDurationAsync(outputPath);
-                var durationDiff = Math.Abs(actualDuration - duration) * 1000; // in ms
+                        // Slice to WAV (lossless, no encoder delay), put -ss AFTER -i for sample-accurate output seeking in MP3
+                        var ffmpegArgs = string.Format(CultureInfo.InvariantCulture, "-i \"{1}\" -ss {0:F3} -t {2:F3} -c:a pcm_s16le -ar 44100 -ac 2 -y \"{3}\"", startTime, voPath, duration, outputPath);
 
-                var segment = new VoSegment
-                {
-                    Index = i + 1,
-                    AudioPath = outputPath,
-                    StartTime = entry.StartTime, // Keep the mutated start time for metadata, but slicing uses currentVoTime
-                    EndTime = entry.EndTime,
-                    DurationSeconds = duration,
-                    Text = entry.Text,
-                    IsValid = Math.Abs(durationDiff) < 100, // Valid if within 100ms
-                    ActualDurationSeconds = actualDuration,
-                    DurationDifferenceMs = durationDiff
-                };
+                        var ffmpegResult = await RunCommandAsync(_ffmpegPath, ffmpegArgs);
 
-                if (!segment.IsValid)
-                {
-                    segment.ValidationError = $"Duration mismatch: expected {duration:F3}s, got {actualDuration:F3}s";
-                }
+                        if (!ffmpegResult.IsSuccess)
+                        {
+                            localErrors.Add($"Failed to slice segment {index + 1}: {ffmpegResult.Error}");
+                            return;
+                        }
 
-                result.Segments.Add(segment);
-                
-                currentVoTime += duration;
+                        // Get actual duration of sliced segment
+                        var actualDuration = await GetAudioDurationAsync(outputPath);
+                        var durationDiff = Math.Abs(actualDuration - duration) * 1000; // in ms
+
+                        var segment = new VoSegment
+                        {
+                            Index = index + 1,
+                            AudioPath = outputPath,
+                            StartTime = entry.StartTime, // Keep the mutated start time for metadata, but slicing uses OriginalStartTime
+                            EndTime = entry.EndTime,
+                            DurationSeconds = duration,
+                            Text = entry.Text,
+                            IsValid = Math.Abs(durationDiff) < 100, // Valid if within 100ms
+                            ActualDurationSeconds = actualDuration,
+                            DurationDifferenceMs = durationDiff
+                        };
+
+                        if (!segment.IsValid)
+                        {
+                            segment.ValidationError = $"Duration mismatch: expected {duration:F3}s, got {actualDuration:F3}s";
+                        }
+
+                        segmentsBag.Add(segment);
+                    }
+                    finally
+                    {
+                        semaphore.Release();
+                    }
+                }));
             }
+
+            await Task.WhenAll(slicingTasks);
+
+            // Reassemble findings
+            result.Segments = segmentsBag.OrderBy(s => s.Index).ToList();
+            foreach (var w in localWarnings) result.Warnings.Add(w);
+            foreach (var e in localErrors) result.Errors.Add(e);
 
             result.TotalSegments = result.Segments.Count(s => s.IsValid);
             result.TotalDurationSeconds = result.Segments.Sum(s => s.ActualDurationSeconds);
@@ -200,10 +220,10 @@ public class VoSlicingService : IVoSlicingService
             
             foreach (var pause in distinctPauses)
             {
-                var silencePath = Path.Combine(segmentsDir, $"silence_{pause}s.mp3");
+                var silencePath = Path.Combine(segmentsDir, $"silence_{pause}s.wav");
                 if (!File.Exists(silencePath))
                 {
-                    var ffmpegArgs = string.Format(CultureInfo.InvariantCulture, "-f lavfi -i anullsrc=r=44100:cl=stereo -t {0:F3} -q:a 9 -acodec libmp3lame -y \"{1}\"", pause, silencePath);
+                    var ffmpegArgs = string.Format(CultureInfo.InvariantCulture, "-f lavfi -i anullsrc=r=44100:cl=stereo -t {0:F3} -c:a pcm_s16le -y \"{1}\"", pause, silencePath);
                     await RunCommandAsync(_ffmpegPath, ffmpegArgs);
                 }
                 silenceFiles[pause] = silencePath;
@@ -231,8 +251,9 @@ public class VoSlicingService : IVoSlicingService
             await File.WriteAllTextAsync(concatListPath, sb.ToString());
 
             // 3. Concatenate using FFmpeg demuxer
+            // Re-encode WAV segments into final MP3 (single encode = no cumulative drift)
             var stitchedPath = Path.Combine(outputDirectory, "stitched_vo.mp3");
-            var concatArgs = $"-f concat -safe 0 -i \"{concatListPath}\" -c copy -y \"{stitchedPath}\"";
+            var concatArgs = $"-f concat -safe 0 -i \"{concatListPath}\" -c:a libmp3lame -q:a 2 -y \"{stitchedPath}\"";
             
             var result = await RunCommandAsync(_ffmpegPath, concatArgs);
             
@@ -269,7 +290,11 @@ public class VoSlicingService : IVoSlicingService
                 var segment = segments[i];
                 var entry = expandedEntries[i];
 
-                var expectedDuration = entry.Duration.TotalSeconds;
+                // Since we added padding during slicing, the expected actual length of the WAV
+                // is NOT entry.Duration.TotalSeconds, but rather the padded duration.
+                // We should compare the actual sliced length against `segment.DurationSeconds` 
+                // which contains the exact slice target duration from ffmpeg.
+                var expectedDuration = segment.DurationSeconds;
                 var actualDuration = segment.ActualDurationSeconds;
                 var diffMs = Math.Abs(expectedDuration - actualDuration) * 1000;
                 var diffPercent = (diffMs / expectedDuration) * 100;

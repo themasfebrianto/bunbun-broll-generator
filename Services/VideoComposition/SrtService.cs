@@ -275,40 +275,56 @@ public class SrtService : ISrtService
             // No pause after the very last entry
             if (i == entries.Count - 1) break;
 
-            var text = entries[i].Text.Trim();
+            var current = entries[i];
+            var next = entries[i + 1];
+
+            // Calculate original natural gap from CapCut SRT
+            double originalGap = (next.OriginalStartTime - current.OriginalEndTime).TotalSeconds;
+            
+            // Calculate padded gap (what will physically be missing between the WAV slices)
+            double paddedGap = originalGap - current.PaddingEnd.TotalSeconds - next.PaddingStart.TotalSeconds;
+            if (paddedGap < 0) paddedGap = 0;
+
+            var text = current.Text.Trim();
+            double requestedPause = 0.0;
 
             // Special content: extra long pauses
             if (text.Contains("QS.", StringComparison.OrdinalIgnoreCase) ||
                 text.Contains("[OVERLAY:QuranVerse]", StringComparison.OrdinalIgnoreCase))
             {
-                pauses[i] = 2.0;
+                requestedPause = 2.0;
             }
             else if (text.StartsWith("HR.", StringComparison.OrdinalIgnoreCase) ||
                      text.Contains("[OVERLAY:Hadith]", StringComparison.OrdinalIgnoreCase))
             {
-                pauses[i] = 1.5;
+                requestedPause = 1.5;
             }
             else if (text.EndsWith("?"))
             {
-                pauses[i] = 1.0;
+                requestedPause = 1.0;
             }
             else if (text.EndsWith("..."))
             {
-                pauses[i] = 0.8;
+                requestedPause = 0.8;
             }
             else if (text.EndsWith(".") || text.EndsWith("!"))
             {
-                pauses[i] = 0.6;
+                requestedPause = 0.6;
             }
             else if (text.EndsWith(",") || text.EndsWith(";") || text.EndsWith(":"))
             {
-                pauses[i] = 0.3; // Comma = brief pause
+                requestedPause = 0.3; // Comma = brief pause
             }
             else
             {
-                // No punctuation (typical CapCut SRT) = natural phrase break
-                pauses[i] = 0.5;
+                // No punctuation (typical CapCut SRT or mid-sentence chunks) = no artificial pause needed, 
+                // just rely on the natural break that was captured in paddedGap.
+                requestedPause = 0.0; 
             }
+
+            // The required artificial silence we must concatenate is whichever is larger: 
+            // the required punctuation pause OR the natural empty space leftover after padding.
+            pauses[i] = Math.Round(Math.Max(paddedGap, requestedPause), 3);
         }
 
         return pauses;
