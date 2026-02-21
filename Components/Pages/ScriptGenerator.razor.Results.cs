@@ -459,12 +459,13 @@ public partial class ScriptGenerator
     {
         if (string.IsNullOrWhiteSpace(text)) return text;
 
-        // Indonesian conjunctions that benefit from a preceding comma pause
+        // Indonesian clause-separating conjunctions that benefit from a preceding comma pause.
+        // NOTE: Common connecting words (yang, dan, atau, serta) are excluded because
+        // they join parts of the same thought and commas before them sound unnatural.
         var conjunctions = new[] {
-            "yang", "dan", "namun", "tetapi", "serta", "atau", "karena",
-            "sehingga", "maka", "agar", "supaya", "bahwa", "ketika",
-            "dimana", "di mana", "melainkan", "meskipun", "walaupun",
-            "sedangkan", "padahal", "justru", "hingga"
+            "namun", "tetapi", "karena", "sehingga", "maka",
+            "bahwa", "melainkan", "meskipun", "walaupun",
+            "sedangkan", "padahal"
         };
 
         var result = text;
