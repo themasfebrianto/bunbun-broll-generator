@@ -192,7 +192,7 @@ public partial class ScriptGenerator
 
             if (entries.Count == 0)
             {
-                var cleaned = CleanSubtitleText(section.Content);
+                var cleaned = OptimizeForTts(CleanSubtitleText(section.Content));
                 if (!string.IsNullOrWhiteSpace(cleaned))
                 {
                     var durationSec = EstimateDuration(cleaned);
@@ -215,7 +215,7 @@ public partial class ScriptGenerator
                 if (normalizedTime < TimeSpan.Zero) normalizedTime = TimeSpan.Zero;
                 var absoluteTime = globalOffset.Add(normalizedTime);
                 
-                var cleaned = CleanSubtitleText(entry.Text);
+                var cleaned = OptimizeForTts(CleanSubtitleText(entry.Text));
                 if (string.IsNullOrWhiteSpace(cleaned)) continue;
 
                 TimeSpan entryDuration;
@@ -254,7 +254,7 @@ public partial class ScriptGenerator
 
     private List<string> SplitAndTimestampText(string text, TimeSpan startTime, TimeSpan duration)
     {
-        const int MaxChars = 450; // Safer limit well below 490
+        const int MaxChars = 450;
         var result = new List<string>();
         
         var singleLine = System.Text.RegularExpressions.Regex.Replace(
@@ -268,14 +268,27 @@ public partial class ScriptGenerator
              return result;
         }
 
-        var words = singleLine.Split(' ');
+        // Split into sentences at sentence-ending punctuation (.!?)
+        // Keep the delimiter attached to the preceding sentence
+        var sentences = System.Text.RegularExpressions.Regex.Split(singleLine, @"(?<=[.!?])\s+");
+
+        // Group sentences into chunks that stay under MaxChars
         var chunks = new List<string>();
         var currentChunk = new System.Text.StringBuilder();
 
-        foreach (var word in words)
+        foreach (var sentence in sentences)
         {
-            // If a single word is excessively long, split it forcefully
-            if (word.Length > MaxChars)
+            if (string.IsNullOrWhiteSpace(sentence)) continue;
+
+            // If adding this sentence would exceed limit, flush current chunk first
+            if (currentChunk.Length > 0 && currentChunk.Length + sentence.Length + 1 > MaxChars)
+            {
+                chunks.Add(currentChunk.ToString().Trim());
+                currentChunk.Clear();
+            }
+
+            // If a single sentence itself exceeds MaxChars, split it at word boundaries
+            if (sentence.Length > MaxChars)
             {
                 if (currentChunk.Length > 0)
                 {
@@ -283,22 +296,24 @@ public partial class ScriptGenerator
                     currentChunk.Clear();
                 }
 
-                var remainingWord = word;
-                while (remainingWord.Length > MaxChars)
+                var words = sentence.Split(' ');
+                var wordChunk = new System.Text.StringBuilder();
+                foreach (var word in words)
                 {
-                    chunks.Add(remainingWord.Substring(0, MaxChars));
-                    remainingWord = remainingWord.Substring(MaxChars);
+                    if (wordChunk.Length > 0 && wordChunk.Length + word.Length + 1 > MaxChars)
+                    {
+                        chunks.Add(wordChunk.ToString().Trim());
+                        wordChunk.Clear();
+                    }
+                    wordChunk.Append(word).Append(" ");
                 }
-                currentChunk.Append(remainingWord).Append(" ");
-                continue;
+                if (wordChunk.Length > 0)
+                    currentChunk.Append(wordChunk.ToString().TrimEnd()).Append(" ");
             }
-
-            if (currentChunk.Length + word.Length + 1 > MaxChars)
+            else
             {
-                chunks.Add(currentChunk.ToString().Trim());
-                currentChunk.Clear();
+                currentChunk.Append(sentence).Append(" ");
             }
-            currentChunk.Append(word).Append(" ");
         }
         if (currentChunk.Length > 0) chunks.Add(currentChunk.ToString().Trim());
 
@@ -310,8 +325,6 @@ public partial class ScriptGenerator
         {
             result.Add(FormatLrcLine(currentTime, chunk));
             
-            // Interpolate next start time
-            // Duration of this chunk = TotalDuration * (ChunkLen / TotalLen)
             if (totalChars > 0)
             {
                 var chunkDurationMs = duration.TotalMilliseconds * ((double)chunk.Length / totalChars);
@@ -416,16 +429,60 @@ public partial class ScriptGenerator
         result = System.Text.RegularExpressions.Regex.Replace(result, @"\b\d{1,3}:\d{2}(?::\d{2})?\b", "");
         result = System.Text.RegularExpressions.Regex.Replace(result, @"\[(?:Visual|Musik|Music|Efek|Effect|SFX|Audio|PAUSE)[^\]]*\]", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
         result = System.Text.RegularExpressions.Regex.Replace(result, @"\([^)]*\)", "");
-        result = result.Replace("\"", "").Replace("'", "");
+        // Remove double-quotes; preserve mid-word apostrophes (e.g. a'lam, Qur'an)
+        result = result.Replace("\"", "");
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"(?<!\w)'|'(?!\w)", "");
         result = result.Replace("*", "").Replace("_", "");
         result = System.Text.RegularExpressions.Regex.Replace(result, @"#\S+", "");
         result = result.Replace("[", "").Replace("]", "");
-        result = result.Replace(".. .", "").Replace("...", "");
-        result = result.Replace("—", " ").Replace("–", " ").Replace("-", " ");
+        // Ellipses → comma for TTS natural pause
+        result = result.Replace(".. .", ",").Replace("...", ",");
+        // Em-dash/en-dash → comma for TTS pause
+        result = result.Replace("—", ", ").Replace("–", ", ");
+        // Remove standalone dashes but preserve hyphens in compound words (e.g. berabad-abad)
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"(?<!\w)-|-(?!\w)", " ");
+        // Normalize whitespace
         result = System.Text.RegularExpressions.Regex.Replace(result, @"\s+", " ");
+        // Fix common TTS mispronunciations
         result = result.Replace("Wallahuam bissawab", "Wallahu a'lam bish-shawab");
         result = result.Replace("Wallahualam bissawab", "Wallahu a'lam bish-shawab");
+        // Clean up double punctuation artifacts
+        result = System.Text.RegularExpressions.Regex.Replace(result, @",\s*,", ",");
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"\s+,", ",");
         
+        return result.Trim();
+    }
+
+    /// <summary>
+    /// Optimizes cleaned text for TTS by inserting commas before common Indonesian
+    /// conjunctions when the preceding clause is long (≥60 chars), creating natural pauses.
+    /// </summary>
+    private static string OptimizeForTts(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return text;
+
+        // Indonesian conjunctions that benefit from a preceding comma pause
+        var conjunctions = new[] {
+            "yang", "dan", "namun", "tetapi", "serta", "atau", "karena",
+            "sehingga", "maka", "agar", "supaya", "bahwa", "ketika",
+            "dimana", "di mana", "melainkan", "meskipun", "walaupun",
+            "sedangkan", "padahal", "justru", "hingga"
+        };
+
+        var result = text;
+        foreach (var conj in conjunctions)
+        {
+            // Pattern: no comma/period before this conjunction, and the preceding clause is long
+            var pattern = $@"(?<=[^,\.;:!?]{{60,}})\s+({conj})\b";
+            result = System.Text.RegularExpressions.Regex.Replace(
+                result, pattern, $" ,{conj}",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        }
+
+        // Final cleanup: normalize spacing around commas
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"\s*,\s*", ", ");
+        result = System.Text.RegularExpressions.Regex.Replace(result, @",\s*,", ",");
+
         return result.Trim();
     }
 
