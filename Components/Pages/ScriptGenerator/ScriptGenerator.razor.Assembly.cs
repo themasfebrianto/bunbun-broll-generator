@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 
-namespace BunbunBroll.Components.Pages;
+namespace BunbunBroll.Components.Pages.ScriptGenerator;
 
 public partial class ScriptGenerator
 {

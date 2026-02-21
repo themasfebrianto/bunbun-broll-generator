@@ -11,7 +11,7 @@ using BunbunBroll.Services;
 using BunbunBroll.Orchestration;
 using BunbunBroll.Components.Views.ScriptGenerator;
 
-namespace BunbunBroll.Components.Pages;
+namespace BunbunBroll.Components.Pages.ScriptGenerator;
 
 public partial class ScriptGenerator
 {

@@ -53,6 +53,11 @@ builder.Services.AddSingleton<SessionSyncService>();
 builder.Services.AddScoped<ISrtService, SrtService>();
 builder.Services.AddScoped<VoSyncService>();
 
+// Broll orchestration services (extracted from ScriptGenerator)
+builder.Services.AddScoped<IBrollPersistenceService, BrollPersistenceService>();
+builder.Services.AddScoped<IBrollVideoService, BrollVideoService>();
+builder.Services.AddScoped<IBrollImageService, BrollImageService>();
+
 // Toast notification service
 builder.Services.AddScoped<BunbunBroll.Services.ToastService>();
 
