@@ -127,14 +127,15 @@ OUTPUT (Just the prompt, no quotes):";
         string topic,
         ImagePromptConfig? config = null,
         Func<int, Task>? onProgress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool resumeOnly = false)
     {
         await GeneratePromptsBatchCoreAsync(
             items, targetType,
             promptGenerator: item => GeneratePromptForTypeAsync(
                 item.ScriptText, targetType, topic, config, cancellationToken, item.Index)
                 .ContinueWith(t => (string?)t.Result),
-            onProgress, cancellationToken);
+            onProgress, cancellationToken, resumeOnly);
     }
 
     /// <summary>
@@ -146,35 +147,84 @@ OUTPUT (Just the prompt, no quotes):";
         BrollMediaType targetType,
         Func<BrollPromptItem, Task<string?>> promptGenerator,
         Func<int, Task>? onProgress,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool resumeOnly = false)
     {
         var targetItems = items.Where(i => i.MediaType == targetType).ToList();
+        
+        // In resume mode, skip segments that already have prompts
+        if (resumeOnly)
+        {
+            targetItems = targetItems.Where(i => string.IsNullOrWhiteSpace(i.Prompt)).ToList();
+            _logger.LogInformation("Resume mode: {Count} segments need prompts", targetItems.Count);
+        }
+
         if (targetItems.Count == 0) return;
 
         var stopwatch = Stopwatch.StartNew();
-        var semaphore = new SemaphoreSlim(3, 3);
+        var semaphore = new SemaphoreSlim(5, 5);
         int completedCount = 0;
+        const int maxRetries = 3;
+
+        // Shared CTS: cancel all remaining tasks when any segment fails
+        using var failureCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        string? firstFailureMessage = null;
 
         var tasks = targetItems.Select(async item =>
         {
-            await semaphore.WaitAsync(cancellationToken);
+            await semaphore.WaitAsync(failureCts.Token);
             try
             {
-                var generatedPrompt = await promptGenerator(item);
-                    
-                item.Prompt = generatedPrompt ?? (targetType == BrollMediaType.BrollVideo ? "cinematic footage" : "islamic historical scene");
+                failureCts.Token.ThrowIfCancellationRequested();
 
-                // Auto-detect era for IMAGE_GEN
+                string? generatedPrompt = null;
+
+                for (int attempt = 1; attempt <= maxRetries; attempt++)
+                {
+                    generatedPrompt = await promptGenerator(item);
+
+                    if (!string.IsNullOrWhiteSpace(generatedPrompt))
+                        break;
+
+                    _logger.LogWarning(
+                        "Prompt generation attempt {Attempt}/{Max} failed for segment #{Index}. {Action}",
+                        attempt, maxRetries, item.Index,
+                        attempt < maxRetries ? "Retrying in 2s..." : "STOPPING — all retries exhausted.");
+
+                    if (attempt < maxRetries)
+                        await Task.Delay(2000, failureCts.Token);
+                }
+
+                if (string.IsNullOrWhiteSpace(generatedPrompt))
+                {
+                    // Signal all other tasks to stop
+                    var completed = Interlocked.CompareExchange(ref firstFailureMessage,
+                        $"Prompt generation failed for segment #{item.Index} after {maxRetries} attempts. Use 'Resume' to continue.",
+                        null);
+                    failureCts.Cancel();
+                    return;
+                }
+
+                item.Prompt = generatedPrompt;
+
                 if (targetType == BrollMediaType.ImageGeneration)
                     EraLibrary.AutoAssignEraStyle(item);
 
                 var count = Interlocked.Increment(ref completedCount);
                 if (onProgress != null) await onProgress(count);
             }
+            catch (OperationCanceledException) { /* Expected when failureCts is triggered */ }
             finally { semaphore.Release(); }
         });
 
         await Task.WhenAll(tasks);
+
+        // If any segment failed, throw so the UI shows the error
+        if (firstFailureMessage != null)
+        {
+            throw new InvalidOperationException(
+                $"{firstFailureMessage} Completed {completedCount}/{targetItems.Count}.");
+        }
 
         _logger.LogInformation("GeneratePromptsBatch: Generated {Count} {Type} prompts in {Ms}ms",
             targetItems.Count, targetType, stopwatch.ElapsedMilliseconds);

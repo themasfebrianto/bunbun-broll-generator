@@ -76,7 +76,8 @@ public interface IIntelligenceService
         string topic,
         ImagePromptConfig? config = null,
         Func<int, Task>? onProgress = null,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        bool resumeOnly = false);
 
     /// <summary>
     /// Forces generation of a specific prompt type (B-Roll or Image Gen) for a given segment.
@@ -111,7 +112,8 @@ public interface IIntelligenceService
         ImagePromptConfig? config = null,
         Func<int, Task>? onProgress = null,
         int windowSize = 2,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        bool resumeOnly = false);
 
     /// <summary>
     /// Generate a single prompt with context awareness.

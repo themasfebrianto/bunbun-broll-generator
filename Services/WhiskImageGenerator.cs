@@ -107,12 +107,10 @@ public class WhiskImageGenerator
                     var newFileName = $"{filePrefix}{Path.GetExtension(imageFile)}";
                     var newPath = Path.Combine(outputDirectory, newFileName);
 
-                    var retryCount = 0;
-                    while (File.Exists(newPath) && retryCount < 100)
+                    // If regenerating, delete the old file so the new one takes its place
+                    if (File.Exists(newPath))
                     {
-                        newFileName = $"{filePrefix}-{retryCount + 1}{Path.GetExtension(imageFile)}";
-                        newPath = Path.Combine(outputDirectory, newFileName);
-                        retryCount++;
+                        try { File.Delete(newPath); } catch { }
                     }
 
                     File.Move(imageFile, newPath);
@@ -179,10 +177,53 @@ public class WhiskImageGenerator
 
     private string BuildEnhancedPrompt(string originalPrompt)
     {
-        if (!string.IsNullOrEmpty(_config.StylePrefix))
-            return $"{_config.StylePrefix.Trim()}: {originalPrompt}";
+        var prompt = originalPrompt;
 
-        return originalPrompt;
+        // STEP 1: Sanitize - strip words that cause black bars/letterboxing
+        var blackBarTriggers = new[] {
+            "cinematic bars", "letterbox", "pillarbox", "widescreen bars",
+            "black bars", "black border", "black frame", "dark border",
+            "cinematic black", "film strip", "movie frame"
+        };
+        foreach (var trigger in blackBarTriggers)
+        {
+            prompt = System.Text.RegularExpressions.Regex.Replace(
+                prompt, System.Text.RegularExpressions.Regex.Escape(trigger), "", 
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        }
+
+        // Clean up double spaces from removals
+        prompt = System.Text.RegularExpressions.Regex.Replace(prompt, @"\s{2,}", " ").Trim();
+
+        if (!string.IsNullOrEmpty(_config.StylePrefix))
+            prompt = $"{_config.StylePrefix.Trim()}: {prompt}";
+
+        // STEP 2: PREPEND anti-black-bar rule (image generators prioritize early text)
+        var fullBleedPrefix = "FULL BLEED image filling entire canvas edge-to-edge, NO black bars, NO borders, NO letterboxing. ";
+
+        // Append other constraints at the end
+        var constraints = new List<string>();
+
+        // Anti weird/distorted images
+        constraints.Add("NO distorted facial features, NO surreal body modifications, NO reflections or objects embedded inside human skin or faces, NO uncanny valley effects. All human anatomy must appear natural and anatomically correct.");
+
+        // Prophet face light enforcement
+        if (prompt.Contains("Prophet", StringComparison.OrdinalIgnoreCase) ||
+            prompt.Contains("Nabi", StringComparison.OrdinalIgnoreCase) ||
+            prompt.Contains("Musa", StringComparison.OrdinalIgnoreCase) ||
+            prompt.Contains("Muhammad", StringComparison.OrdinalIgnoreCase) ||
+            prompt.Contains("divine light", StringComparison.OrdinalIgnoreCase))
+        {
+            constraints.Add("CRITICAL: Any prophet or nabi figure MUST have their ENTIRE face and head COMPLETELY replaced by an intense, solid, opaque white-golden divine radiant light. There must be ZERO visible facial features whatsoever - no eyes, no nose, no mouth, no skin texture. The light must be a solid bright glow that entirely obscures the head and face area, making it impossible to discern any human feature underneath.");
+        }
+
+        if (constraints.Count > 0)
+        {
+            prompt += " " + string.Join(" ", constraints);
+        }
+
+        // Prefix goes FIRST so image generator sees it first
+        return fullBleedPrefix + prompt;
     }
 
     private string BuildWhiskArguments(string prompt, string outputDirectory)

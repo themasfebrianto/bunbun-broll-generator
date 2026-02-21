@@ -162,10 +162,11 @@ ERA SELECTION (use these exact era names):
         ImagePromptConfig? config = null,
         Func<int, Task>? onProgress = null,
         int windowSize = 2,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool resumeOnly = false)
     {
-        _logger.LogInformation("GeneratePromptsWithContext: {Count} {Type} items with context (window=±{W})",
-            items.Count(i => i.MediaType == targetType), targetType, windowSize);
+        _logger.LogInformation("GeneratePromptsWithContext: {Count} {Type} items with context (window=±{W}), resume={Resume}",
+            items.Count(i => i.MediaType == targetType), targetType, windowSize, resumeOnly);
 
         await GeneratePromptsBatchCoreAsync(
             items, targetType,
@@ -175,7 +176,7 @@ ERA SELECTION (use these exact era names):
                     item, items, topic, globalContext, config, windowSize, cancellationToken);
                 return !string.IsNullOrWhiteSpace(prompt) ? prompt : null;
             },
-            onProgress, cancellationToken);
+            onProgress, cancellationToken, resumeOnly);
     }
 
     public async Task<string> GeneratePromptWithContextAsync(

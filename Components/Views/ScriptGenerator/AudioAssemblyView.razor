@@ -1,0 +1,160 @@
+@using BunbunBroll.Models
+@using BunbunBroll.Components.Views.ScriptGenerator
+@using Microsoft.AspNetCore.Components.Forms
+
+<div class="space-y-6">
+    <div class="flex items-center justify-between border-b border-border/50 pb-4">
+        <div>
+            <h2 class="text-xl font-bold tracking-tight">Audio & Assembly</h2>
+            <p class="text-sm text-muted-foreground">Upload your Voiceover and Subtitles to compose the final video</p>
+        </div>
+        <div class="flex items-center gap-2">
+            <button class="btn-ghost" @onclick="OnBackToPrompts">
+                <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                Back to B-Roll
+            </button>
+        </div>
+    </div>
+
+    <!-- Upload Section -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Voiceover Upload -->
+        <div class="bg-card rounded-xl border border-border/50 p-6 flex flex-col items-center justify-center text-center space-y-4">
+            <div class="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+            </div>
+            <div>
+                <h3 class="font-medium text-lg">Voiceover (MP3/WAV)</h3>
+                <p class="text-sm text-muted-foreground mt-1">Upload the generated voiceover audio</p>
+            </div>
+            
+            @if (IsVoUploading)
+            {
+                <div class="flex items-center gap-2 text-sm text-primary">
+                    <div class="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                    <span>Uploading...</span>
+                </div>
+            }
+            else if (!string.IsNullOrEmpty(VoPath) && System.IO.File.Exists(VoPath))
+            {
+                <div class="flex items-center gap-2 bg-green-500/10 text-green-500 px-4 py-2 rounded-lg text-sm border border-green-500/20 w-full justify-between">
+                    <span class="truncate">@System.IO.Path.GetFileName(VoPath)</span>
+                    <button class="text-xs hover:text-green-400" @onclick="OnRemoveVo">Remove</button>
+                </div>
+            }
+            else
+            {
+                <div class="relative group cursor-pointer">
+                    <InputFile OnChange="OnVoUpload" accept=".mp3,.wav,.m4a" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                    <button class="btn-secondary w-full">Select Audio File</button>
+                </div>
+            }
+        </div>
+
+        <!-- Subtitle Upload -->
+        <div class="bg-card rounded-xl border border-border/50 p-6 flex flex-col items-center justify-center text-center space-y-4">
+            <div class="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" /></svg>
+            </div>
+            <div>
+                <h3 class="font-medium text-lg">Subtitles (SRT/LRC)</h3>
+                <p class="text-sm text-muted-foreground mt-1">Upload the synchronized subtitles</p>
+            </div>
+
+            @if (IsSrtUploading)
+            {
+                <div class="flex items-center gap-2 text-sm text-primary">
+                    <div class="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                    <span>Uploading...</span>
+                </div>
+            }
+            else if (!string.IsNullOrEmpty(SrtPath) && System.IO.File.Exists(SrtPath))
+            {
+                <div class="flex items-center gap-2 bg-green-500/10 text-green-500 px-4 py-2 rounded-lg text-sm border border-green-500/20 w-full justify-between">
+                    <span class="truncate">@System.IO.Path.GetFileName(SrtPath)</span>
+                    <button class="text-xs hover:text-green-400" @onclick="OnRemoveSrt">Remove</button>
+                </div>
+            }
+            else
+            {
+                <div class="relative group cursor-pointer">
+                    <InputFile OnChange="OnSrtUpload" accept=".srt,.lrc" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                    <button class="btn-secondary w-full">Select Subtitle File</button>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Error Display -->
+    @if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <div class="bg-red-500/10 border border-red-500/20 text-red-500 px-4 py-3 rounded-lg text-sm flex items-start gap-3">
+            <svg class="w-5 h-5 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+            <span>@ErrorMessage</span>
+        </div>
+    }
+
+    <!-- Action Section -->
+    <div class="flex justify-end pt-4 border-t border-border/50">
+        <button class="btn-primary" 
+                disabled="@(!CanCompose || IsComposing)" 
+                @onclick="OnComposeVideo">
+            @if (IsComposing)
+            {
+                <div class="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2"></div>
+                <span>Composing Video...</span>
+            }
+            else
+            {
+                <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <span>Compose Final Video</span>
+            }
+        </button>
+    </div>
+    
+    @if(IsComposing && !string.IsNullOrEmpty(CompositionProgress))
+    {
+        <div class="mt-4 p-4 bg-muted/30 rounded-lg border border-border/40 text-sm font-mono text-muted-foreground">
+            @CompositionProgress
+        </div>
+    }
+
+    @if(!string.IsNullOrEmpty(ResultVideoPath) && System.IO.File.Exists(ResultVideoPath))
+    {
+        <div class="mt-6 border border-border/50 rounded-xl overflow-hidden bg-black/20">
+            <div class="p-3 bg-muted/50 border-b border-border/50 flex justify-between items-center">
+                <h3 class="font-medium text-sm">Final Video</h3>
+                <a href="/output/shorts/@System.IO.Path.GetFileName(ResultVideoPath)" download class="btn-secondary py-1 px-3 text-xs">
+                    Download
+                </a>
+            </div>
+            <div class="aspect-[9/16] max-h-[600px] w-full max-w-sm mx-auto bg-black flex items-center justify-center">
+                <video src="/output/shorts/@System.IO.Path.GetFileName(ResultVideoPath)" controls class="max-h-full max-w-full" />
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string? SessionId { get; set; }
+    [Parameter] public string? VoPath { get; set; }
+    [Parameter] public string? SrtPath { get; set; }
+    [Parameter] public bool IsVoUploading { get; set; }
+    [Parameter] public bool IsSrtUploading { get; set; }
+    [Parameter] public bool IsComposing { get; set; }
+    [Parameter] public string? ErrorMessage { get; set; }
+    [Parameter] public string? CompositionProgress { get; set; }
+    [Parameter] public string? ResultVideoPath { get; set; }
+    
+    [Parameter] public EventCallback<InputFileChangeEventArgs> OnVoUpload { get; set; }
+    [Parameter] public EventCallback<InputFileChangeEventArgs> OnSrtUpload { get; set; }
+    [Parameter] public EventCallback OnRemoveVo { get; set; }
+    [Parameter] public EventCallback OnRemoveSrt { get; set; }
+    [Parameter] public EventCallback OnBackToPrompts { get; set; }
+    [Parameter] public EventCallback OnComposeVideo { get; set; }
+
+    private bool CanCompose => !string.IsNullOrEmpty(VoPath) && 
+                              !string.IsNullOrEmpty(SrtPath) && 
+                              System.IO.File.Exists(VoPath) && 
+                              System.IO.File.Exists(SrtPath);
+}

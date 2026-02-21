@@ -1,0 +1,138 @@
+{
+  "PrimaryLocations": [
+    "Sinai Desert",
+    "Red Sea coast",
+    "Mount Sinai",
+    "Padang Tih (Wandering Desert)"
+  ],
+  "IdentifiedCharacters": [
+    {
+      "Name": "Prophet Musa",
+      "Description": "solitary, burdened leader, face hidden by divine light",
+      "FirstAppearanceSegment": null
+    },
+    {
+      "Name": "Bani Israel",
+      "Description": "massive crowd of wanderers, weary, fearful, carrying remnants of Egyptian culture",
+      "FirstAppearanceSegment": null
+    },
+    {
+      "Name": "Samiri",
+      "Description": "cunning manipulator, crafting the golden calf",
+      "FirstAppearanceSegment": null
+    }
+  ],
+  "EraTimeline": [
+    {
+      "StartSegment": 0,
+      "EndSegment": 52,
+      "Era": "Lost ancient civilization ruins era",
+      "Description": "Ancient Exodus, Red Sea crossing, and early Sinai desert wandering"
+    },
+    {
+      "StartSegment": 53,
+      "EndSegment": 57,
+      "Era": "21st century modern urban era",
+      "Description": "Comparison to modern political revolutions and societal collapse"
+    },
+    {
+      "StartSegment": 58,
+      "EndSegment": 83,
+      "Era": "Lost ancient civilization ruins era",
+      "Description": "Return to the ancient desert, the 40-year quarantine, and generational death"
+    },
+    {
+      "StartSegment": 84,
+      "EndSegment": 89,
+      "Era": "21st century modern urban era",
+      "Description": "Final philosophical reflection on modern psychological slavery"
+    }
+  ],
+  "MoodBeats": [
+    {
+      "StartSegment": 0,
+      "EndSegment": 13,
+      "Mood": "epic yet tragic",
+      "Description": "Miraculous salvation followed by immediate psychological regression and disappointment",
+      "VisualKeywords": [
+        "parted sea",
+        "desert shores",
+        "broken chains"
+      ],
+      "SuggestedLighting": "DramaticHighContrast",
+      "SuggestedPalette": "GoldenDesert",
+      "SuggestedAngle": "CinematicWide",
+      "VisualRationale": "Epic scale of the Red Sea crossing contrasts with the vast, isolating desert, requiring wide cinematic shots."
+    },
+    {
+      "StartSegment": 14,
+      "EndSegment": 38,
+      "Mood": "melancholic",
+      "Description": "Deep psychological analysis of slave mentality, longing for the past, and the burden of freedom",
+      "VisualKeywords": [
+        "shadows",
+        "footprints in sand",
+        "weary faces"
+      ],
+      "SuggestedLighting": "MoodyDark",
+      "SuggestedPalette": "WarmEarthy",
+      "SuggestedAngle": "CloseUp",
+      "VisualRationale": "Intimate psychological analysis requires close-ups and moody lighting to emphasize internal struggle and mental paralysis."
+    },
+    {
+      "StartSegment": 39,
+      "EndSegment": 52,
+      "Mood": "tense",
+      "Description": "Betrayal, the creation of the golden calf, and the crushing emotional weight on the leader",
+      "VisualKeywords": [
+        "golden idol",
+        "smoke",
+        "solitary figure on mountain"
+      ],
+      "SuggestedLighting": "MoodyDark",
+      "SuggestedPalette": "Monochrome",
+      "SuggestedAngle": "WideShot",
+      "VisualRationale": "The betrayal of the masses and the isolation of the Prophet needs wide shots with dark, oppressive lighting, highlighted by the false gold."
+    },
+    {
+      "StartSegment": 53,
+      "EndSegment": 76,
+      "Mood": "bleak",
+      "Description": "Refusal to enter the holy land, the 40-year punishment, and the slow death of a generation",
+      "VisualKeywords": [
+        "harsh sun",
+        "barren wasteland",
+        "fading footprints"
+      ],
+      "SuggestedLighting": "DramaticHighContrast",
+      "SuggestedPalette": "GoldenDesert",
+      "SuggestedAngle": "BirdsEye",
+      "VisualRationale": "A bird\u0027s eye view emphasizes the aimless wandering and the harsh, inescapable reality of the desert quarantine."
+    },
+    {
+      "StartSegment": 77,
+      "EndSegment": 89,
+      "Mood": "contemplative",
+      "Description": "Philosophical reflection on modern mental slavery, spiritual freedom, and closing thoughts",
+      "VisualKeywords": [
+        "soft light",
+        "modern silhouettes",
+        "dust particles"
+      ],
+      "SuggestedLighting": "SoftAmbient",
+      "SuggestedPalette": "WarmEarthy",
+      "SuggestedAngle": "CloseUp",
+      "VisualRationale": "Closing reflections require soft, intimate lighting to connect the historical lesson to the viewer\u0027s personal life and modern context."
+    }
+  ],
+  "RecurringVisuals": [
+    "vast desert dunes",
+    "broken chains",
+    "golden calf idol",
+    "footprints in the sand",
+    "solitary leader figure on a hill"
+  ],
+  "ColorProgression": "Starts with epic high-contrast golden tones of the Exodus, shifts to oppressive earthy shadows during the psychological rebellion, darkens during the golden calf betrayal, and resolves into soft, warm ambient tones for modern reflection.",
+  "Topic": "Beginilah Keadaan Mental Nabi Musa Setelah 40 Tahun Menghadapi Pembangkangan Kaumnya",
+  "ExtractedAt": "2026-02-21T03:55:11.9851203Z"
+}

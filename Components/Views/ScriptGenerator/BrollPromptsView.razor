@@ -139,6 +139,7 @@
                                         <button class="text-[10px] font-medium bg-red-500/10 hover:bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded transition-colors" @onclick="OnResetAllVideoStates" title="Hapus Video B-Roll FX">Hapus FX</button>
                                     }
                                     <button class="text-[10px] font-medium bg-red-500/10 hover:bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded transition-colors" @onclick="OnResetAllImageStates" title="Hard Reset AI Media">Reset</button>
+                                    <button class="text-[10px] font-medium bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 px-1.5 py-0.5 rounded transition-colors" @onclick="OnClearAllPrompts" title="Hapus semua prompt text">Clear Prompts</button>
                                     <span class="text-[10px] font-medium bg-purple-500/10 text-purple-400 px-1.5 py-0.5 rounded ml-1">@imageSegCount</span>
                                 </div>
                             </div>
@@ -157,6 +158,12 @@
                                         <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                                         <span>Generate Image Prompt</span>
                                     }
+                                </button>
+                                <button class="w-full btn-secondary text-[10px] h-8 flex justify-center items-center gap-1.5 border-amber-500/30 hover:border-amber-500/50 hover:bg-amber-500/10 text-amber-400"
+                                        disabled="@(imageNoPrompt == 0 || IsGeneratingImagePrompts)"
+                                        @onclick="OnResumeImagePrompts">
+                                    <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                    <span>Resume (@imageNoPrompt empty)</span>
                                 </button>
                                 @if (IsGeneratingImagePrompts && ImagePromptTotalCount > 0)
                                 {
@@ -691,13 +698,15 @@
                     OnToggleMediaType="OnToggleMediaType"
                     OnSearch="OnSearchSegment"
                     OnRegenKeywords="OnRegenSegmentKeywords"
-                    OnRegenPromptAndImage="OnRegenPromptAndImage"
+                    OnRegenPromptOnly="OnRegenPromptOnly"
+                    OnRegenImageOnly="OnRegenImageOnly"
                     OnSelectVideo="OnSelectVideo"
                     OnApplyFilter="OnApplyFilter"
                     OnGenerateKenBurns="OnGenerateKenBurns"
                     OnResetSegmentVideo="OnResetSegmentVideo"
                     OnSave="OnSave"
                     ResolveLocalPath="ResolveLocalPath"
+                    GetAssetUrl="GetAssetUrl"
                     OnCookieUpdateRequested="OnCookieUpdateRequested"
                     OnAddTextOverlay="HandleAddTextOverlay"
                     OnEditTextOverlay="HandleEditTextOverlay"
@@ -742,9 +751,11 @@
     [Parameter] public EventCallback OnGenerateAllWhiskImages { get; set; }
     [Parameter] public EventCallback OnGenerateAllKenBurnsVideos { get; set; }
     [Parameter] public EventCallback OnResetAllImageStates { get; set; }
+    [Parameter] public EventCallback OnClearAllPrompts { get; set; }
     [Parameter] public EventCallback OnResetAllVideoStates { get; set; }
     [Parameter] public EventCallback OnGeneratePrompts { get; set; }
     [Parameter] public EventCallback OnGenerateImagePrompts { get; set; }
+    [Parameter] public EventCallback OnResumeImagePrompts { get; set; }
     [Parameter] public EventCallback OnGenerateKeywords { get; set; }
     [Parameter] public bool IsGeneratingImagePrompts { get; set; }
     [Parameter] public int ImagePromptGeneratedCount { get; set; }
@@ -756,7 +767,8 @@
     [Parameter] public EventCallback<BrollPromptItem> OnToggleMediaType { get; set; }
     [Parameter] public EventCallback<BrollPromptItem> OnSearchSegment { get; set; }
     [Parameter] public EventCallback<BrollPromptItem> OnRegenSegmentKeywords { get; set; }
-    [Parameter] public EventCallback<BrollPromptItem> OnRegenPromptAndImage { get; set; }
+    [Parameter] public EventCallback<BrollPromptItem> OnRegenPromptOnly { get; set; }
+    [Parameter] public EventCallback<BrollPromptItem> OnRegenImageOnly { get; set; }
     [Parameter] public EventCallback<(BrollPromptItem Item, VideoAsset Video)> OnSelectVideo { get; set; }
     [Parameter] public EventCallback<BrollPromptItem> OnApplyFilter { get; set; }
     [Parameter] public EventCallback<BrollPromptItem> OnCookieUpdateRequested { get; set; }
@@ -764,6 +776,7 @@
     [Parameter] public EventCallback<BrollPromptItem> OnResetSegmentVideo { get; set; }
     [Parameter] public EventCallback OnSave { get; set; }
     
+    [Parameter] public Func<string, string> GetAssetUrl { get; set; } = _ => "";
     [Parameter] public Func<string?, string> ResolveLocalPath { get; set; } = _ => "";
     [Parameter] public ImagePromptConfig PromptConfig { get; set; } = new();
     [Parameter] public GlobalScriptContext? GlobalContext { get; set; }

@@ -24,6 +24,7 @@ public partial class ScriptGenerator
         {
             await LoadBrollPromptsFromDisk();
             await LoadImageConfigFromDisk();
+            await LoadGlobalContextFromDisk();
         }
 
         // If it's STILL empty (no file on disk), parse from the current script
@@ -277,6 +278,7 @@ public partial class ScriptGenerator
 
                 _globalContext = await IntelligenceService.ExtractGlobalContextAsync(
                     _brollPromptItems, _resultSession.Topic);
+                if (_globalContext != null) await SaveGlobalContextToDisk();
             }
 
             if (_globalContext != null)
@@ -289,6 +291,7 @@ public partial class ScriptGenerator
                     {
                         _imagePromptGeneratedCount = count;
                         await InvokeAsync(StateHasChanged);
+                        await SaveBrollPromptsToDisk();
                     },
                     windowSize: 2);
             }
@@ -302,12 +305,81 @@ public partial class ScriptGenerator
                     {
                         _imagePromptGeneratedCount = count;
                         await InvokeAsync(StateHasChanged);
+                        await SaveBrollPromptsToDisk();
                     });
             }
         }
         catch (Exception ex)
         {
             _classifyError = $"Gagal generate image prompts: {ex.Message}";
+        }
+        finally
+        {
+            _isGeneratingImagePrompts = false;
+            StateHasChanged();
+        }
+
+        await SaveBrollPromptsToDisk();
+        await SaveImageConfigToDisk();
+    }
+
+    private async Task RunResumeImagePrompts()
+    {
+        if (_resultSession == null || _brollPromptItems.Count == 0) return;
+
+        var emptyPromptItems = _brollPromptItems
+            .Where(i => i.MediaType == BrollMediaType.ImageGeneration && string.IsNullOrWhiteSpace(i.Prompt))
+            .ToList();
+        if (emptyPromptItems.Count == 0) return;
+
+        _isGeneratingImagePrompts = true;
+        _imagePromptTotalCount = emptyPromptItems.Count;
+        _imagePromptGeneratedCount = 0;
+        StateHasChanged();
+
+        try
+        {
+            // Ensure global context exists
+            if (_globalContext == null || _globalContext.Topic != _resultSession.Topic)
+            {
+                _classifyError = null;
+                StateHasChanged();
+
+                _globalContext = await IntelligenceService.ExtractGlobalContextAsync(
+                    _brollPromptItems, _resultSession.Topic);
+                if (_globalContext != null) await SaveGlobalContextToDisk();
+            }
+
+            if (_globalContext != null)
+            {
+                await IntelligenceService.GeneratePromptsWithContextAsync(
+                    _brollPromptItems, BrollMediaType.ImageGeneration,
+                    _resultSession.Topic, _globalContext, _imagePromptConfig,
+                    onProgress: async count =>
+                    {
+                        _imagePromptGeneratedCount = count;
+                        await InvokeAsync(StateHasChanged);
+                        await SaveBrollPromptsToDisk();
+                    },
+                    windowSize: 2, resumeOnly: true);
+            }
+            else
+            {
+                await IntelligenceService.GeneratePromptsForTypeBatchAsync(
+                    _brollPromptItems, BrollMediaType.ImageGeneration,
+                    _resultSession.Topic, _imagePromptConfig,
+                    onProgress: async count =>
+                    {
+                        _imagePromptGeneratedCount = count;
+                        await InvokeAsync(StateHasChanged);
+                        await SaveBrollPromptsToDisk();
+                    },
+                    resumeOnly: true);
+            }
+        }
+        catch (Exception ex)
+        {
+            _classifyError = $"Resume gagal: {ex.Message}";
         }
         finally
         {
@@ -341,6 +413,7 @@ public partial class ScriptGenerator
 
                 _globalContext = await IntelligenceService.ExtractGlobalContextAsync(
                     _brollPromptItems, _resultSession.Topic);
+                if (_globalContext != null) await SaveGlobalContextToDisk();
             }
 
             if (_globalContext != null)
@@ -584,6 +657,10 @@ public partial class ScriptGenerator
             {
                 _classifyError = "Failed to extract global context. Please try again.";
             }
+            else
+            {
+                await SaveGlobalContextToDisk();
+            }
         }
         catch (Exception ex)
         {
@@ -605,6 +682,13 @@ public partial class ScriptGenerator
         try
         {
             string? brollKeywords;
+
+            if (_globalContext == null || _globalContext.Topic != _resultSession.Topic)
+            {
+                _globalContext = await IntelligenceService.ExtractGlobalContextAsync(
+                    _brollPromptItems, _resultSession.Topic);
+                if (_globalContext != null) await SaveGlobalContextToDisk();
+            }
 
             if (_globalContext != null)
             {
@@ -767,24 +851,32 @@ public partial class ScriptGenerator
         }
     }
 
-    private async Task HandleRegenPromptAndImage(BrollPromptItem item)
+    private async Task HandleRegenPromptOnly(BrollPromptItem item)
     {
         if (_resultSession == null) return;
 
         item.IsGenerating = true;
         item.CombinedRegenProgress = 10;
-        item.WhiskError = null;
-        item.WhiskVideoStatus = WhiskGenerationStatus.Pending;
-        item.WhiskVideoPath = null;
-        item.WhiskVideoError = null;
         StateHasChanged();
 
         try
         {
-            item.CombinedRegenProgress = 20;
+            item.CombinedRegenProgress = 30;
             StateHasChanged();
 
             string? imagePrompt;
+
+            if (_globalContext == null || _globalContext.Topic != _resultSession.Topic)
+            {
+                item.CombinedRegenProgress = 40;
+                StateHasChanged();
+                _globalContext = await IntelligenceService.ExtractGlobalContextAsync(
+                    _brollPromptItems, _resultSession.Topic);
+                if (_globalContext != null) await SaveGlobalContextToDisk();
+            }
+
+            item.CombinedRegenProgress = 60;
+            StateHasChanged();
 
             if (_globalContext != null)
             {
@@ -803,16 +895,40 @@ public partial class ScriptGenerator
                 item.Prompt = imagePrompt;
                 item.Reasoning = "Regenerated image prompt" + (_globalContext != null ? " (with context)" : "");
                 item.KenBurnsMotion = BrollPromptItem.GetRandomMotion();
+                item.CombinedRegenProgress = 100;
             }
             else
             {
                 throw new Exception("AI disconnected or failed to generate a new prompt. Please try again or check logs.");
             }
-
-            item.CombinedRegenProgress = 50;
+        }
+        catch (Exception ex)
+        {
+            item.WhiskError = $"Regen Prompt Failed: {ex.Message}";
+        }
+        finally
+        {
+            item.CombinedRegenProgress = 0;
+            item.IsGenerating = false;
             StateHasChanged();
+        }
+    }
 
-            item.CombinedRegenProgress = 70;
+    private async Task HandleRegenImageOnly(BrollPromptItem item)
+    {
+        if (_resultSession == null || string.IsNullOrWhiteSpace(item.Prompt)) return;
+
+        item.IsGenerating = true;
+        item.CombinedRegenProgress = 10;
+        item.WhiskError = null;
+        item.WhiskVideoStatus = WhiskGenerationStatus.Pending;
+        item.WhiskVideoPath = null;
+        item.WhiskVideoError = null;
+        StateHasChanged();
+
+        try
+        {
+            item.CombinedRegenProgress = 50;
             StateHasChanged();
 
             await GenerateWhiskImageForItem(item);
@@ -820,21 +936,25 @@ public partial class ScriptGenerator
         }
         catch (Exception ex)
         {
-            item.WhiskStatus = WhiskGenerationStatus.Failed;
-            item.WhiskError = ex.Message;
+            item.WhiskError = $"Generate Image Failed: {ex.Message}";
         }
         finally
         {
-            item.IsGenerating = false;
             await SaveBrollPromptsToDisk();
+            item.CombinedRegenProgress = 0;
+            item.IsGenerating = false;
             StateHasChanged();
         }
     }
 
     private async Task HandleGenerateAllWhiskImages()
     {
+        // Only generate for ImageGeneration segments that have a prompt and are not yet done
         var imageGenItems = _brollPromptItems
-            .Where(i => i.MediaType == BrollMediaType.ImageGeneration && i.WhiskStatus != WhiskGenerationStatus.Done)
+            .Where(i => i.MediaType == BrollMediaType.ImageGeneration
+                     && i.WhiskStatus != WhiskGenerationStatus.Done
+                     && !string.IsNullOrWhiteSpace(i.Prompt))
+            .OrderBy(i => i.Index)
             .ToList();
 
         if (imageGenItems.Count == 0) return;
@@ -844,20 +964,32 @@ public partial class ScriptGenerator
         _whiskGeneratedCount = 0;
         StateHasChanged();
 
+        // Generate sequentially to prevent file collision in the output directory.
+        // With concurrent generation, FindGeneratedImages could pick up another segment's output file.
         foreach (var item in imageGenItems)
         {
+            Console.WriteLine($"[WHISK] Generating image for segment #{item.Index} (prefix: seg-{item.Index:D3})");
+            Console.WriteLine($"[WHISK] Prompt: {item.Prompt[..Math.Min(80, item.Prompt.Length)]}...");
+
             item.IsGenerating = true;
             StateHasChanged();
 
             try
             {
                 await GenerateWhiskImageForItem(item);
+                Console.WriteLine($"[WHISK] Segment #{item.Index} => {item.WhiskImagePath ?? "FAILED"} (Status: {item.WhiskStatus})");
             }
             finally
             {
                 item.IsGenerating = false;
                 _whiskGeneratedCount++;
                 StateHasChanged();
+
+                // Save after each successful generation to persist progress
+                if (item.WhiskStatus == WhiskGenerationStatus.Done)
+                {
+                    await SaveBrollPromptsToDisk();
+                }
             }
         }
 
@@ -916,6 +1048,17 @@ public partial class ScriptGenerator
             await Task.Delay(50);
             await HandleApplyFilterToVideo(item);
         }
+    }
+
+    private async Task HandleClearAllPrompts()
+    {
+        foreach (var item in _brollPromptItems.Where(i => i.MediaType == BrollMediaType.ImageGeneration))
+        {
+            item.Prompt = string.Empty;
+        }
+
+        await SaveBrollPromptsToDisk();
+        StateHasChanged();
     }
 
     private async Task HandleResetAllImageStates()
@@ -1013,7 +1156,8 @@ public partial class ScriptGenerator
             Directory.CreateDirectory(outputDir);
 
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(120));
-            var result = await WhiskGenerator.GenerateImageAsync(item.Prompt, outputDir, cancellationToken: cts.Token);
+            var filePrefix = $"seg-{item.Index:D3}";
+            var result = await WhiskGenerator.GenerateImageAsync(item.Prompt, outputDir, filePrefix, cancellationToken: cts.Token);
             if (result.Success)
             {
                 item.WhiskStatus = WhiskGenerationStatus.Done;
@@ -1181,6 +1325,54 @@ public partial class ScriptGenerator
         catch (Exception ex)
         {
             Console.Error.WriteLine($"Failed to load image config: {ex.Message}");
+        }
+    }
+
+    private async Task SaveGlobalContextToDisk()
+    {
+        var brollPath = GetBrollPromptsFilePath();
+        if (brollPath == null || _globalContext == null) return;
+
+        var contextPath = Path.Combine(Path.GetDirectoryName(brollPath)!, "narrative-context.json");
+        try
+        {
+            var json = System.Text.Json.JsonSerializer.Serialize(_globalContext, new System.Text.Json.JsonSerializerOptions
+            {
+                WriteIndented = true,
+                Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+            });
+            await File.WriteAllTextAsync(contextPath, json);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Failed to save narrative context: {ex.Message}");
+        }
+    }
+
+    private async Task LoadGlobalContextFromDisk()
+    {
+        var brollPath = GetBrollPromptsFilePath();
+        if (brollPath == null) return;
+
+        var contextPath = Path.Combine(Path.GetDirectoryName(brollPath)!, "narrative-context.json");
+        if (!File.Exists(contextPath)) return;
+
+        try
+        {
+            var json = await File.ReadAllTextAsync(contextPath);
+            var loaded = System.Text.Json.JsonSerializer.Deserialize<GlobalScriptContext>(json, new System.Text.Json.JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true,
+                Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+            });
+            if (loaded != null)
+            {
+                _globalContext = loaded;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Failed to load narrative context: {ex.Message}");
         }
     }
 

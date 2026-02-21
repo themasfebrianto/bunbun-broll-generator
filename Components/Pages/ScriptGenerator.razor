@@ -42,7 +42,7 @@
     </nav>
 
     @* ============ Project Stepper Navigation ============ *@
-    @if (_currentView == "results" || _currentView == "broll-prompts")
+    @if (_currentView == "results" || _currentView == "broll-prompts" || _currentView == "audio-assembly")
     {
         <div class="mb-6">
             <div class="flex items-center gap-0 bg-muted/30 rounded-xl p-1.5 border border-border/50 w-fit">
@@ -77,6 +77,24 @@
                                 : "bg-muted text-muted-foreground")">2</span>
                     <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
                     <span>B-Roll Prompts</span>
+                </button>
+                @* Connector 2 *@
+                <div class="flex items-center px-1">
+                    <svg class="h-4 w-4 text-muted-foreground/40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                </div>
+
+                @* Step 3: Audio & Assembly *@
+                <button class="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all duration-200
+                        @(_currentView == "audio-assembly"
+                            ? "bg-primary/15 text-primary shadow-sm border border-primary/30"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted/50")"
+                        @onclick='() => _currentView = "audio-assembly"'>
+                    <span class="flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold
+                            @(_currentView == "audio-assembly"
+                                ? "bg-primary text-primary-foreground"
+                                : "bg-muted text-muted-foreground")">3</span>
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" /></svg>
+                    <span>Audio & Assembly</span>
                 </button>
             </div>
         </div>
@@ -210,10 +228,12 @@
             OnGenerateAllWhiskImages="HandleGenerateAllWhiskImages"
             OnGenerateAllKenBurnsVideos="HandleGenerateAllKenBurnsVideos"
             OnResetAllImageStates='() => RequestConfirmation("Reset All Images", "🗑️ DESTRUCTIVE: Ini akan menghapus SEMUA image dan video. Anda harus men-generate ulang semuanya. Yakin?", HandleResetAllImageStates)'
+            OnClearAllPrompts='() => RequestConfirmation("Clear All Prompts", "⚠️ Ini akan menghapus SEMUA prompt text untuk segment Image Gen. Anda bisa regenerate atau resume setelahnya. Lanjutkan?", HandleClearAllPrompts)'
             OnResetAllVideoStates='() => RequestConfirmation("Reset KB Videos", "⚠️ Ini akan menghapus semua video Ken Burns yang sudah jadi. Image asli tetap aman. Lanjutkan?", HandleResetAllVideoStates)'
             OnGeneratePrompts="RunClassifyOnly"
-            OnGenerateImagePrompts="RunGenerateImagePrompts"
-            OnGenerateKeywords="RunGenerateKeywords"
+            OnGenerateImagePrompts='() => RequestConfirmation("Regenerate All Image Prompts", "⚠️ Ini akan me-regenerate SEMUA image prompt. Prompt yang sudah ada akan ditimpa. Lanjutkan?", RunGenerateImagePrompts)'
+            OnResumeImagePrompts="RunResumeImagePrompts"
+            OnGenerateKeywords='() => RequestConfirmation("Regenerate All Keywords", "⚠️ Ini akan me-regenerate semua keyword untuk segment B-Roll Video. Keyword yang sudah ada akan ditimpa. Lanjutkan?", RunGenerateKeywords)'
             IsGeneratingImagePrompts="_isGeneratingImagePrompts"
             ImagePromptGeneratedCount="_imagePromptGeneratedCount"
             ImagePromptTotalCount="_imagePromptTotalCount"
@@ -223,17 +243,40 @@
             OnToggleMediaType="HandleToggleMediaType"
             OnSearchSegment="HandleSearchSingleSegment"
             OnRegenSegmentKeywords="HandleRegenSegmentKeywords"
-            OnRegenPromptAndImage="HandleRegenPromptAndImage"
+            OnRegenPromptOnly="HandleRegenPromptOnly"
+            OnRegenImageOnly="HandleRegenImageOnly"
             OnSelectVideo="HandleSelectVideo"
             OnApplyFilter="HandleApplyFilterToVideo"
             OnGenerateKenBurns="HandleGenerateKenBurnsVideo"
             OnResetSegmentVideo="HandleResetVideoStateForSegment"
             OnSave="SaveBrollPromptsToDisk"
             ResolveLocalPath="ResolveLocalPath"
+            GetAssetUrl="GetAssetUrl"
             PromptConfig="_imagePromptConfig"
             GlobalContext="_globalContext"
             OnRegenerateContext="HandleRegenerateGlobalContext"
             OnCookieUpdateRequested="HandleCookieUpdateRequested" />
+    }
+
+    @* ============ VIEW 5: Audio & Assembly ============ *@
+    @if (_currentView == "audio-assembly")
+    {
+        <AudioAssemblyView 
+            SessionId="@_sessionId"
+            VoPath="@_voPath"
+            SrtPath="@_srtPath"
+            IsVoUploading="_isVoUploading"
+            IsSrtUploading="_isSrtUploading"
+            IsComposing="_isComposingVideo"
+            ErrorMessage="@_assemblyError"
+            CompositionProgress="@_compositionProgress"
+            ResultVideoPath="@_finalVideoPath"
+            OnVoUpload="HandleVoUpload"
+            OnSrtUpload="HandleSrtUpload"
+            OnRemoveVo="HandleRemoveVo"
+            OnRemoveSrt="HandleRemoveSrt"
+            OnBackToPrompts='() => _currentView = "broll-prompts"'
+            OnComposeVideo="HandleComposeFinalVideo" />
     }
 </div>
 

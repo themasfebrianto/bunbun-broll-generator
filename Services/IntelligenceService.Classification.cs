@@ -32,7 +32,7 @@ public partial class IntelligenceService
 
         var stopwatch = Stopwatch.StartNew();
         var totalBatches = (int)Math.Ceiling((double)segments.Count / batchSize);
-        var semaphore = new SemaphoreSlim(3, 3);
+        var semaphore = new SemaphoreSlim(15, 15);
         var batchTasks = new List<Task>();
         var resultsLock = new object();
 
