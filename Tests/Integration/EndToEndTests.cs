@@ -1,36 +1,10 @@
 using BunbunBroll.Models;
-using BunbunBroll.Services;
-using Microsoft.Extensions.Logging;
 using Xunit;
 
 namespace BunbunBroll.Tests.Integration;
 
-public class HalalFilterIntegrationTests
+public class DurationScoringTests
 {
-    [Fact]
-    public void FullWorkflow_HalalFilterWithDurationMatching_WorksEndToEnd()
-    {
-        // Simulate full workflow with Halal filter enabled
-        using var loggerFactory = LoggerFactory.Create(builder => { });
-        var logger = loggerFactory.CreateLogger<HalalVideoFilter>();
-        var filter = new HalalVideoFilter(logger);
-        filter.IsEnabled = true;
-
-        var keywords = new List<string> { "woman walking alone", "beach party" };
-        var filtered = filter.FilterKeywords(keywords);
-
-        // Should block beach party
-        Assert.DoesNotContain("beach party", filtered);
-
-        // Should replace woman with nature/urban keyword, no human references
-        Assert.DoesNotContain("woman", string.Join(" ", filtered));
-        Assert.DoesNotContain("person", string.Join(" ", filtered));
-        Assert.DoesNotContain("silhouette", string.Join(" ", filtered));
-
-        // Should have cinematic fallbacks
-        Assert.True(filtered.Count >= 3);
-    }
-
     [Fact]
     public void DurationScoring_RealWorldScenarios()
     {

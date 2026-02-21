@@ -20,13 +20,12 @@ public interface IAssetBrokerV2 : IAssetBroker
 
 /// <summary>
 /// Composite Asset Broker - Combines multiple video sources (Pexels + Pixabay)
-/// with smart tiered fallback logic, keyword layering, and Halal filter support.
+/// with smart tiered fallback logic and keyword layering.
 /// </summary>
 public class CompositeAssetBroker : IAssetBrokerV2
 {
     private readonly PexelsAssetBroker _pexelsBroker;
     private readonly PixabayAssetBroker _pixabayBroker;
-    private readonly IHalalVideoFilter _halalFilter;
     private readonly ILogger<CompositeAssetBroker> _logger;
 
     // Universal fallback keywords that almost always return results
@@ -47,12 +46,10 @@ public class CompositeAssetBroker : IAssetBrokerV2
     public CompositeAssetBroker(
         PexelsAssetBroker pexelsBroker,
         PixabayAssetBroker pixabayBroker,
-        IHalalVideoFilter halalFilter,
         ILogger<CompositeAssetBroker> logger)
     {
         _pexelsBroker = pexelsBroker;
         _pixabayBroker = pixabayBroker;
-        _halalFilter = halalFilter;
         _logger = logger;
     }
 
@@ -185,17 +182,11 @@ public class CompositeAssetBroker : IAssetBrokerV2
     }
 
     /// <summary>
-    /// Apply Halal filter and safe modifiers to keywords.
+    /// Apply filters to keywords (pass-through).
     /// </summary>
     private List<string> ApplyFilters(List<string> keywords)
     {
-        if (!_halalFilter.IsEnabled)
-            return keywords;
-            
-        var filtered = _halalFilter.FilterKeywords(keywords);
-        filtered = _halalFilter.AddSafeModifiers(filtered);
-        _logger.LogDebug("Halal filter applied. Keywords: {Keywords}", string.Join(", ", filtered));
-        return filtered;
+        return keywords;
     }
 
     private async Task<List<VideoAsset>> SearchBothSourcesAsync(

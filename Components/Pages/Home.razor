@@ -2,7 +2,6 @@
 @page "/editor/{ProjectId}"
 @rendermode InteractiveServer
 @inject BunbunBroll.Services.IProjectService ProjectService
-@inject BunbunBroll.Services.IHalalVideoFilter HalalFilter
 @inject NavigationManager NavigationManager
 @inject BunbunBroll.Services.ToastService ToastService
 
@@ -14,7 +13,6 @@
         @bind-ProjectName="_projectName"
         @bind-ScriptText="_scriptText"
         @bind-SelectedMood="_selectedMood"
-        @bind-HalalFilterEnabled="_halalFilterEnabled"
         IsLoading="_isLoading"
         OnSubmit="HandleSubmit" />
 </div>
@@ -25,13 +23,10 @@
     private string _projectName = "";
     private string _scriptText = "";
     private string _selectedMood = "";
-    private bool _halalFilterEnabled = true;
     private bool _isLoading = false;
 
     protected override async Task OnInitializedAsync()
     {
-        _halalFilterEnabled = HalalFilter.IsEnabled;
-
         if (!string.IsNullOrEmpty(ProjectId))
         {
             var saved = await ProjectService.GetProjectAsync(ProjectId);
@@ -53,8 +48,6 @@
         }
         
         _isLoading = true;
-        HalalFilter.IsEnabled = _halalFilterEnabled;
-
         try
         {
             // If editing an existing project, just update the basic info.
