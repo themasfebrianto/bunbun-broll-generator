@@ -1,16 +1,16 @@
 namespace BunbunBroll.Models;
 
 /// <summary>
-/// Configuration for generating a short video (TikTok/Reels/Shorts format).
+/// Configuration for generating a video.
 /// </summary>
-public record ShortVideoConfig
+public record VideoConfig
 {
     // === Video Specifications ===
 
     /// <summary>
     /// Aspect ratio for the output video.
     /// </summary>
-    public AspectRatio Ratio { get; init; } = AspectRatio.Portrait_9x16;
+    public AspectRatio Ratio { get; init; } = AspectRatio.Landscape_16x9;
 
     /// <summary>
     /// Video width in pixels (computed from Ratio if not explicitly set).
@@ -169,9 +169,9 @@ public enum VideoEra
 }
 
 /// <summary>
-/// Result of short video generation.
+/// Result of video generation.
 /// </summary>
-public record ShortVideoResult
+public record VideoResult
 {
     public bool Success { get; init; }
     public string? OutputPath { get; init; }

@@ -2,7 +2,7 @@
 @layout WorkspaceLayout
 @inject NavigationManager NavigationManager
 @inject BunbunBroll.Services.IProjectService ProjectService
-@inject BunbunBroll.Services.IShortVideoComposer ShortVideoComposer
+@inject BunbunBroll.Services.IVideoComposer VideoComposer
 @inject BunbunBroll.Services.ToastService ToastService
 @inject IJSRuntime JS
 
@@ -125,7 +125,7 @@
                 <div class="p-6 rounded-xl border border-border bg-card shadow-sm space-y-6">
                     <h3 class="font-semibold text-lg border-b pb-2">Compile Video</h3>
 
-                    @if (_shortVideoResult?.Success == true)
+                    @if (_videoResult?.Success == true)
                     {
                         <div class="p-4 rounded-md bg-green-500/10 border border-green-500/30 space-y-3">
                             <div class="flex items-center gap-2">
@@ -134,7 +134,7 @@
                                     Render Complete!
                                 </p>
                             </div>
-                            <p class="text-xs text-muted-foreground">Duration: @_shortVideoResult.DurationSeconds s | Size: @FormatFileSize(_shortVideoResult.FileSizeBytes)</p>
+                            <p class="text-xs text-muted-foreground">Duration: @_videoResult.DurationSeconds s | Size: @FormatFileSize(_videoResult.FileSizeBytes)</p>
                             
                             <button @onclick="DownloadVideo" class="w-full inline-flex items-center justify-center rounded-md font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2">
                                 <svg class="mr-2 w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
@@ -181,10 +181,10 @@
                         </div>
                     }
                     
-                    @if (_shortVideoResult?.Success == false)
+                    @if (_videoResult?.Success == false)
                     {
                         <div class="p-3 rounded-md bg-red-500/10 border border-red-500/30">
-                            <p class="text-xs text-red-500">@_shortVideoResult.ErrorMessage</p>
+                            <p class="text-xs text-red-500">@_videoResult.ErrorMessage</p>
                         </div>
                     }
                 </div>
@@ -207,8 +207,8 @@
     private string _generateStage = "";
     private string _generateMessage = "";
     private string _draftVideoUrl = "";
-    private BunbunBroll.Models.ShortVideoResult? _shortVideoResult;
-    private BunbunBroll.Models.ShortVideoResult? _draftVideoResult;
+    private BunbunBroll.Models.VideoResult? _videoResult;
+    private BunbunBroll.Models.VideoResult? _draftVideoResult;
     private BunbunBroll.Models.AspectRatio _selectedRatio = BunbunBroll.Models.AspectRatio.Portrait_9x16;
     private string _capcutAudioPath = "";
     private string _capcutSrtPath = "";
@@ -292,7 +292,7 @@
         else
         {
             _isGenerating = true;
-            _shortVideoResult = null;
+            _videoResult = null;
         }
         
         _generateProgress = 0;
@@ -309,7 +309,7 @@
 
         try
         {
-            var config = new BunbunBroll.Models.ShortVideoConfig
+            var config = new BunbunBroll.Models.VideoConfig
             {
                 Ratio = _selectedRatio,
                 CapCutAudioPath = _capcutAudioPath,
@@ -336,7 +336,7 @@
                 }
             }
 
-            var result = await ShortVideoComposer.ComposeAsync(clips, config, _job?.Id, reporter);
+            var result = await VideoComposer.ComposeAsync(clips, config, _job?.Id, reporter);
             
             if (isDraft)
             {
@@ -355,7 +355,7 @@
             }
             else
             {
-                _shortVideoResult = result;
+                _videoResult = result;
                 if (result.Success)
                 {
                     ToastService.ShowSuccess("Final Video Complete!");
@@ -369,9 +369,9 @@
         catch (Exception ex)
         {
             if (isDraft)
-                _draftVideoResult = new BunbunBroll.Models.ShortVideoResult { Success = false, ErrorMessage = ex.Message };
+                _draftVideoResult = new BunbunBroll.Models.VideoResult { Success = false, ErrorMessage = ex.Message };
             else
-                _shortVideoResult = new BunbunBroll.Models.ShortVideoResult { Success = false, ErrorMessage = ex.Message };
+                _videoResult = new BunbunBroll.Models.VideoResult { Success = false, ErrorMessage = ex.Message };
                 
             ToastService.ShowError($"Assembly error: {ex.Message}");
         }
@@ -385,9 +385,9 @@
 
     private async Task DownloadVideo()
     {
-        if (_shortVideoResult?.Success == true && !string.IsNullOrEmpty(_shortVideoResult.OutputPath))
+        if (_videoResult?.Success == true && !string.IsNullOrEmpty(_videoResult.OutputPath))
         {
-            var url = $"/project-assets/{_job!.Id}/short-video/{Path.GetFileName(_shortVideoResult.OutputPath)}";
+            var url = $"/project-assets/{_job!.Id}/short-video/{Path.GetFileName(_videoResult.OutputPath)}";
             var filename = $"{_job.ProjectName.Replace(" ", "_")}_final.mp4";
             await JS.InvokeVoidAsync("triggerDownload", url, filename);
         }

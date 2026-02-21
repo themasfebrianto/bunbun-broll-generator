@@ -162,7 +162,7 @@ public partial class ScriptGenerator
         try
         {
             // Create a config using the parameters from B-Roll section (or default)
-            var config = new BunbunBroll.Models.ShortVideoConfig
+            var config = new BunbunBroll.Models.VideoConfig
             {
                 CapCutAudioPath = _voPath,
                 CapCutSrtPath = _srtPath,

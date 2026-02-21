@@ -1630,7 +1630,7 @@ public partial class ScriptGenerator
             item.FilterStatus = $"Applying {item.EffectiveFilter} + {item.EffectiveTexture}...";
             StateHasChanged();
 
-            var videoConfig = new ShortVideoConfig { Ratio = AspectRatio.Landscape_16x9 };
+            var videoConfig = new VideoConfig { Ratio = AspectRatio.Landscape_16x9 };
 
             var filteredPath = await VideoComposer.ApplyFilterAndTextureToVideoAsync(
                 localPath, item.EffectiveFilter, item.FilterIntensity, item.EffectiveTexture, item.TextureOpacity, videoConfig, CancellationToken.None, isPreview: false);

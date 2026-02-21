@@ -26,7 +26,7 @@ public class ArtisticEffectTests : IDisposable
                 // Let's point BinaryDirectory to the system path directory
                 {"FFmpeg:BinaryDirectory", "/usr/bin"}, 
                 {"FFmpeg:TempDirectory", Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "temp", "tests")},
-                {"ShortVideo:OutputDirectory", Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "output", "tests")},
+                {"Video:OutputDirectory", Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "output", "tests")},
                 {"FFmpeg:UseHardwareAccel", "false"}
             })
             .Build();
@@ -35,12 +35,12 @@ public class ArtisticEffectTests : IDisposable
         services.AddLogging(builder => builder.AddConsole());
         services.AddSingleton<VideoStyleSettings>();
         services.AddSingleton<KenBurnsService>();
-        services.AddSingleton<ShortVideoComposer>();
+        services.AddSingleton<VideoComposer>();
 
         _serviceProvider = services.BuildServiceProvider();
 
         _tempDir = config["FFmpeg:TempDirectory"]!;
-        _outputDir = config["ShortVideo:OutputDirectory"]!;
+        _outputDir = config["Video:OutputDirectory"]!;
         
         Directory.CreateDirectory(_tempDir);
         Directory.CreateDirectory(_outputDir);
@@ -84,7 +84,7 @@ public class ArtisticEffectTests : IDisposable
     [Fact(Timeout = 300000)]
     public async Task ProcessSingleClip_WithPaintingStyle_CreatesVideo()
     {
-        var composer = _serviceProvider.GetRequiredService<ShortVideoComposer>();
+        var composer = _serviceProvider.GetRequiredService<VideoComposer>();
         await composer.EnsureFFmpegAsync();
 
         var inputPath = Path.Combine(_tempDir, "input_painting.mp4");
@@ -105,7 +105,7 @@ public class ArtisticEffectTests : IDisposable
             
             // So default is 1080.
             // I need to set them in the initializer.
-        var config = new ShortVideoConfig
+        var config = new VideoConfig
         {
             Style = VideoStyle.Painting,
             Fps = 30
@@ -128,13 +128,13 @@ public class ArtisticEffectTests : IDisposable
     [Fact(Timeout = 300000)]
     public async Task ProcessSingleClip_WithCanvasStyle_CreatesVideo()
     {
-        var composer = _serviceProvider.GetRequiredService<ShortVideoComposer>();
+        var composer = _serviceProvider.GetRequiredService<VideoComposer>();
         await composer.EnsureFFmpegAsync();
 
         var inputPath = Path.Combine(_tempDir, "input_canvas.mp4");
         await CreateDummyVideo(inputPath);
 
-        var config = new ShortVideoConfig
+        var config = new VideoConfig
         {
             Style = VideoStyle.Canvas,
             Fps = 30
@@ -157,13 +157,13 @@ public class ArtisticEffectTests : IDisposable
     [Fact(Timeout = 300000)]
     public async Task ProcessSingleClip_WithSepiaStyle_CreatesVideo()
     {
-        var composer = _serviceProvider.GetRequiredService<ShortVideoComposer>();
+        var composer = _serviceProvider.GetRequiredService<VideoComposer>();
         await composer.EnsureFFmpegAsync();
 
         var inputPath = Path.Combine(_tempDir, "input_sepia.mp4");
         await CreateDummyVideo(inputPath);
 
-        var config = new ShortVideoConfig
+        var config = new VideoConfig
         {
             Style = VideoStyle.Sepia,
             Fps = 30
@@ -193,13 +193,13 @@ public class ArtisticEffectTests : IDisposable
         // A better check would be duration or file size but that's flaky.
         // We will just verify it runs 
         
-        var composer = _serviceProvider.GetRequiredService<ShortVideoComposer>();
+        var composer = _serviceProvider.GetRequiredService<VideoComposer>();
         await composer.EnsureFFmpegAsync();
 
         var inputPath = Path.Combine(_tempDir, "input_kb.mp4");
         await CreateDummyVideo(inputPath);
 
-        var config = new ShortVideoConfig
+        var config = new VideoConfig
         {
             Style = VideoStyle.Painting, // Set style
             Fps = 30
@@ -240,14 +240,14 @@ public class ArtisticEffectTests : IDisposable
     [Fact(Timeout = 300000)]
     public async Task ProcessSingleClip_WithPerSegmentStyle_OverridesGlobalStyle()
     {
-        var composer = _serviceProvider.GetRequiredService<ShortVideoComposer>();
+        var composer = _serviceProvider.GetRequiredService<VideoComposer>();
         await composer.EnsureFFmpegAsync();
 
         var inputPath = Path.Combine(_tempDir, "input_override.mp4");
         await CreateDummyVideo(inputPath);
 
         // Global config has NO style
-        var config = new ShortVideoConfig
+        var config = new VideoConfig
         {
             Style = VideoStyle.None,
             Fps = 30
@@ -279,7 +279,7 @@ public class ArtisticEffectTests : IDisposable
          
          // Using Xabe.FFmpeg for generation
          // We need to ensure ffmpeg path is set
-         var composer = _serviceProvider.GetRequiredService<ShortVideoComposer>();
+         var composer = _serviceProvider.GetRequiredService<VideoComposer>();
          await composer.EnsureFFmpegAsync();
          
          await FFmpeg.Conversions.New()
@@ -288,7 +288,7 @@ public class ArtisticEffectTests : IDisposable
     
     private async Task CreateDummyImage(string path)
     {
-        var composer = _serviceProvider.GetRequiredService<ShortVideoComposer>();
+        var composer = _serviceProvider.GetRequiredService<VideoComposer>();
         await composer.EnsureFFmpegAsync();
         
         // Generate a single frame video and save as image

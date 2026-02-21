@@ -37,7 +37,7 @@ builder.Services.AddScoped<IProjectService, ProjectService>();
 
 // Video services
 builder.Services.AddSingleton<KenBurnsService>();
-builder.Services.AddScoped<IShortVideoComposer, ShortVideoComposer>();
+builder.Services.AddScoped<IVideoComposer, VideoComposer>();
 builder.Services.AddScoped<IScriptProcessor, ScriptProcessor>();
 builder.Services.AddScoped<IPipelineOrchestrator, PipelineOrchestrator>();
 builder.Services.AddSingleton<VideoStyleSettings>();

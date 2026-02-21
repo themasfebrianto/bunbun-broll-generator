@@ -5,9 +5,9 @@ using System.Diagnostics;
 namespace BunbunBroll.Services;
 
 /// <summary>
-/// Interface for composing short videos from B-Roll clips.
+/// Interface for composing videos from B-Roll clips.
 /// </summary>
-public interface IShortVideoComposer
+public interface IVideoComposer
 {
     /// <summary>
     /// Check if FFmpeg is available on the system.
@@ -20,16 +20,16 @@ public interface IShortVideoComposer
     Task<bool> EnsureFFmpegAsync(IProgress<string>? progress = null);
 
     /// <summary>
-    /// Compose multiple video clips into a single short video.
+    /// Compose multiple video clips into a single video.
     /// </summary>
     /// <param name="clips">Video clips to compose</param>
     /// <param name="config">Video configuration</param>
     /// <param name="sessionId">Optional session ID for scoped output directory. If not provided, a new GUID will be generated.</param>
     /// <param name="progress">Progress reporter</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    Task<ShortVideoResult> ComposeAsync(
+    Task<VideoResult> ComposeAsync(
         List<VideoClip> clips,
-        ShortVideoConfig config,
+        VideoConfig config,
         string? sessionId = null,
         IProgress<CompositionProgress>? progress = null,
         CancellationToken cancellationToken = default
@@ -41,7 +41,7 @@ public interface IShortVideoComposer
     Task<string?> ConvertImageToVideoAsync(
         string imagePath,
         double durationSeconds,
-        ShortVideoConfig config,
+        VideoConfig config,
         KenBurnsMotionType motionType = KenBurnsMotionType.SlowZoomIn,
         CancellationToken cancellationToken = default,
         string? sessionId = null
@@ -58,7 +58,7 @@ public interface IShortVideoComposer
     Task<string?> ApplyStyleToVideoAsync(
         string inputPath,
         VideoStyle style,
-        ShortVideoConfig config,
+        VideoConfig config,
         CancellationToken cancellationToken = default,
         bool isPreview = false,
         string? sessionId = null
@@ -73,7 +73,7 @@ public interface IShortVideoComposer
         int filterIntensity,
         VideoTexture texture,
         int textureOpacity,
-        ShortVideoConfig config,
+        VideoConfig config,
         CancellationToken cancellationToken = default,
         bool isPreview = false,
         string? sessionId = null
@@ -81,11 +81,11 @@ public interface IShortVideoComposer
 }
 
 /// <summary>
-/// Composes short videos using Xabe.FFmpeg wrapper.
+/// Composes videos using Xabe.FFmpeg wrapper.
 /// </summary>
-public class ShortVideoComposer : IShortVideoComposer
+public class VideoComposer : IVideoComposer
 {
-    private readonly ILogger<ShortVideoComposer> _logger;
+    private readonly ILogger<VideoComposer> _logger;
     private readonly IConfiguration _config;
     private readonly KenBurnsService _kenBurnsService;
     private readonly VideoStyleSettings _styleSettings;
@@ -104,8 +104,8 @@ public class ShortVideoComposer : IShortVideoComposer
     private string? _hwEncoder = null;
     private bool _hwEncoderChecked = false;
 
-    public ShortVideoComposer(
-        ILogger<ShortVideoComposer> logger, 
+    public VideoComposer(
+        ILogger<VideoComposer> logger, 
         IConfiguration config,
         KenBurnsService kenBurnsService,
         VideoStyleSettings styleSettings,
@@ -446,7 +446,7 @@ public class ShortVideoComposer : IShortVideoComposer
     public async Task<string?> ConvertImageToVideoAsync(
         string imagePath,
         double durationSeconds,
-        ShortVideoConfig config,
+        VideoConfig config,
         KenBurnsMotionType motionType = KenBurnsMotionType.SlowZoomIn,
         CancellationToken cancellationToken = default,
         string? sessionId = null)
@@ -490,7 +490,7 @@ public class ShortVideoComposer : IShortVideoComposer
         int filterIntensity,
         VideoTexture texture,
         int textureOpacity,
-        ShortVideoConfig config,
+        VideoConfig config,
         CancellationToken cancellationToken = default,
         bool isPreview = false,
         string? sessionId = null)
@@ -799,7 +799,7 @@ public class ShortVideoComposer : IShortVideoComposer
     public async Task<string?> ApplyStyleToVideoAsync(
         string inputPath,
         VideoStyle style,
-        ShortVideoConfig config,
+        VideoConfig config,
         CancellationToken cancellationToken = default,
         bool isPreview = false,
         string? sessionId = null)
@@ -976,16 +976,16 @@ public class ShortVideoComposer : IShortVideoComposer
         }
     }
 
-    public async Task<ShortVideoResult> ComposeAsync(
+    public async Task<VideoResult> ComposeAsync(
         List<VideoClip> clips,
-        ShortVideoConfig config,
+        VideoConfig config,
         string? sessionId = null,
         IProgress<CompositionProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
         if (clips.Count == 0)
         {
-            return new ShortVideoResult
+            return new VideoResult
             {
                 Success = false,
                 ErrorMessage = "No clips provided for composition"
@@ -1006,7 +1006,7 @@ public class ShortVideoComposer : IShortVideoComposer
             
             if (!await EnsureFFmpegAsync())
             {
-                return new ShortVideoResult
+                return new VideoResult
                 {
                     Success = false,
                     ErrorMessage = "FFmpeg not available. Please install FFmpeg from https://ffmpeg.org/download.html"
@@ -1019,7 +1019,7 @@ public class ShortVideoComposer : IShortVideoComposer
 
             if (localClips.Count == 0)
             {
-                return new ShortVideoResult
+                return new VideoResult
                 {
                     Success = false,
                     ErrorMessage = "Failed to download video clips"
@@ -1152,7 +1152,7 @@ public class ShortVideoComposer : IShortVideoComposer
 
             if (orderedClips.Count == 0)
             {
-                return new ShortVideoResult
+                return new VideoResult
                 {
                     Success = false,
                     ErrorMessage = "No clips were successfully processed"
@@ -1231,7 +1231,7 @@ public class ShortVideoComposer : IShortVideoComposer
 
             if (!File.Exists(outputPath))
             {
-                return new ShortVideoResult
+                return new VideoResult
                 {
                     Success = false,
                     ErrorMessage = "Failed to create output video"
@@ -1243,7 +1243,7 @@ public class ShortVideoComposer : IShortVideoComposer
 
             progress?.Report(new CompositionProgress { Stage = "Complete", Percent = 100, Message = "Video ready!" });
 
-            return new ShortVideoResult
+            return new VideoResult
             {
                 Success = true,
                 OutputPath = outputPath,
@@ -1255,7 +1255,7 @@ public class ShortVideoComposer : IShortVideoComposer
         catch (OperationCanceledException)
         {
             _logger.LogInformation("Video composition cancelled");
-            return new ShortVideoResult
+            return new VideoResult
             {
                 Success = false,
                 ErrorMessage = "Composition was cancelled"
@@ -1264,7 +1264,7 @@ public class ShortVideoComposer : IShortVideoComposer
         catch (Exception ex)
         {
             _logger.LogError(ex, "Video composition failed");
-            return new ShortVideoResult
+            return new VideoResult
             {
                 Success = false,
                 ErrorMessage = $"Composition error: {ex.Message}"
@@ -1356,7 +1356,7 @@ public class ShortVideoComposer : IShortVideoComposer
 
     private (List<(int ClipIndex, double Start, double Duration)> Durations, bool IsSrtSynced) CalculateClipDurations(
         List<(string LocalPath, VideoClip Original)> clips,
-        ShortVideoConfig config)
+        VideoConfig config)
     {
         // Try reading SRT first 
         if (!string.IsNullOrEmpty(config.CapCutSrtPath) && File.Exists(config.CapCutSrtPath))
@@ -1440,7 +1440,7 @@ public class ShortVideoComposer : IShortVideoComposer
         string inputPath,
         string outputPath,
         double targetDuration,
-        ShortVideoConfig config,
+        VideoConfig config,
         CancellationToken cancellationToken,
         bool isImageSource = false,
         VideoStyle overrideStyle = VideoStyle.None,
@@ -1896,7 +1896,7 @@ public class ShortVideoComposer : IShortVideoComposer
     private async Task ConcatenateClipsWithTransitionsAsync(
         List<string> clipPaths,
         string outputPath,
-        ShortVideoConfig config,
+        VideoConfig config,
         CancellationToken cancellationToken)
     {
         if (clipPaths.Count == 0)
@@ -2398,7 +2398,7 @@ public class ShortVideoComposer : IShortVideoComposer
     /// Applies a text overlay to a video clip using FFmpeg drawtext filter.
     /// </summary>
     private async Task<string?> AddTextOverlayToVideoAsync(
-        string inputPath, TextOverlay overlay, ShortVideoConfig config,
+        string inputPath, TextOverlay overlay, VideoConfig config,
         CancellationToken cancellationToken = default)
     {
         try

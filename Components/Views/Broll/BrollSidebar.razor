@@ -77,7 +77,7 @@
     </Card>
 
     <!-- Short Video Section (Hidden for now) -->
-    @if (ShowShortVideoPanel)
+    @if (ShowVideoPanel)
     {
         <div class="card p-4 space-y-4 border-primary/20">
             <div class="flex items-center gap-2">
@@ -109,12 +109,12 @@
             <Button Text="Classify Script"
                     Icon="play"
                     Class="h-11 w-full"
-                    IsLoading="IsGeneratingShortVideo"
+                    IsLoading="IsGeneratingVideo"
                     IsDisabled="@(ReadyCount == 0)"
-                    OnClick="OnGenerateShortVideo" />
+                    OnClick="OnGenerateVideo" />
 
             <!-- Progress -->
-            @if (IsGeneratingShortVideo)
+            @if (IsGeneratingVideo)
             {
                 <div class="space-y-2 p-3 rounded-lg bg-muted/50 border border-border">
                     <div class="flex items-center justify-between text-xs">
@@ -133,13 +133,13 @@
             }
 
             <!-- Result -->
-            @if (ShortVideoResult?.Success == true)
+            @if (VideoResult?.Success == true)
             {
                 <div class="p-3 rounded-md bg-green-500/10 border border-green-500/30 space-y-2">
                     <div class="flex items-center gap-2">
                         <Icon Name="check" Size="16" Class="text-green-500" />
                         <p class="text-xs text-green-600 dark:text-green-400 font-medium">
-                            Video ready! @ShortVideoResult.DurationSeconds s • @FormatFileSize(ShortVideoResult.FileSizeBytes)
+                            Video ready! @VideoResult.DurationSeconds s • @FormatFileSize(VideoResult.FileSizeBytes)
                         </p>
                     </div>
                     <Button Text="Download MP4"
@@ -147,13 +147,13 @@
                             Variant="secondary"
                             Size="sm"
                             Class="h-8 w-full"
-                            OnClick="OnDownloadShortVideo" />
+                            OnClick="OnDownloadVideo" />
                 </div>
             }
-            else if (ShortVideoResult?.Success == false)
+            else if (VideoResult?.Success == false)
             {
                 <div class="p-2 rounded-md bg-red-500/10 border border-red-500/30">
-                    <p class="text-xs text-red-500">@ShortVideoResult.ErrorMessage</p>
+                    <p class="text-xs text-red-500">@VideoResult.ErrorMessage</p>
                 </div>
             }
         </div>
@@ -166,24 +166,24 @@
     [Parameter] public int ReadyCount { get; set; }
     [Parameter] public int TotalCount { get; set; }
     [Parameter] public bool IsDownloading { get; set; }
-    [Parameter] public bool ShowShortVideoPanel { get; set; }
+    [Parameter] public bool ShowVideoPanel { get; set; }
     
     // Short Video Props
     [Parameter] public AspectRatio SelectedRatio { get; set; } = AspectRatio.Portrait_9x16;
-    [Parameter] public bool IsGeneratingShortVideo { get; set; }
+    [Parameter] public bool IsGeneratingVideo { get; set; }
     [Parameter] public int GenerateProgress { get; set; }
     [Parameter] public string GenerateStage { get; set; } = "";
     [Parameter] public string GenerateMessage { get; set; } = "";
     [Parameter] public int ElapsedSeconds { get; set; }
-    [Parameter] public ShortVideoResult? ShortVideoResult { get; set; }
+    [Parameter] public VideoResult? VideoResult { get; set; }
     
     [Parameter] public EventCallback OnBack { get; set; }
     [Parameter] public EventCallback OnDownloadZip { get; set; }
     [Parameter] public EventCallback OnExportLinks { get; set; }
     [Parameter] public EventCallback OnSaveProject { get; set; }
     [Parameter] public EventCallback<AspectRatio> OnSelectRatio { get; set; }
-    [Parameter] public EventCallback OnGenerateShortVideo { get; set; }
-    [Parameter] public EventCallback OnDownloadShortVideo { get; set; }
+    [Parameter] public EventCallback OnGenerateVideo { get; set; }
+    [Parameter] public EventCallback OnDownloadVideo { get; set; }
 
     private string DownloadButtonText => $"Download Semua ({ReadyCount} klip)";
 

@@ -12,21 +12,21 @@
             ReadyCount="@GetReadyCount()"
             TotalCount="@Job.TotalSentences"
             IsDownloading="@IsDownloading"
-            ShowShortVideoPanel="@ShowShortVideoPanel"
+            ShowVideoPanel="@ShowVideoPanel"
             SelectedRatio="@SelectedRatio"
-            IsGeneratingShortVideo="@IsGeneratingShortVideo"
+            IsGeneratingVideo="@IsGeneratingVideo"
             GenerateProgress="@GenerateProgress"
             GenerateStage="@GenerateStage"
             GenerateMessage="@GenerateMessage"
             ElapsedSeconds="@ElapsedSeconds"
-            ShortVideoResult="@ShortVideoResult"
+            VideoResult="@VideoResult"
             OnBack="@OnBack"
             OnDownloadZip="@OnDownloadZip"
             OnExportLinks="@OnExportLinks"
             OnSaveProject="@OnSaveProject"
             OnSelectRatio="@OnSelectRatio"
-            OnGenerateShortVideo="@OnGenerateShortVideo"
-            OnDownloadShortVideo="@OnDownloadShortVideo" />
+            OnGenerateVideo="@OnGenerateVideo"
+            OnDownloadVideo="@OnDownloadVideo" />
 
         <!-- Feed Content -->
         <div class="flex-1 min-w-0">
@@ -94,17 +94,17 @@
     [Parameter] public int? RegeneratingSentenceId { get; set; }
     [Parameter] public int? GeneratingImageSentenceId { get; set; }
     [Parameter] public bool IsDownloading { get; set; }
-    [Parameter] public bool ShowShortVideoPanel { get; set; }
+    [Parameter] public bool ShowVideoPanel { get; set; }
     [Parameter] public bool ShowMobileProgress { get; set; }
     
     // Short Video Props
     [Parameter] public AspectRatio SelectedRatio { get; set; }
-    [Parameter] public bool IsGeneratingShortVideo { get; set; }
+    [Parameter] public bool IsGeneratingVideo { get; set; }
     [Parameter] public int GenerateProgress { get; set; }
     [Parameter] public string GenerateStage { get; set; } = "";
     [Parameter] public string GenerateMessage { get; set; } = "";
     [Parameter] public int ElapsedSeconds { get; set; }
-    [Parameter] public ShortVideoResult? ShortVideoResult { get; set; }
+    [Parameter] public VideoResult? VideoResult { get; set; }
     
     // Events
     [Parameter] public EventCallback OnBack { get; set; }
@@ -112,8 +112,8 @@
     [Parameter] public EventCallback OnExportLinks { get; set; }
     [Parameter] public EventCallback OnSaveProject { get; set; }
     [Parameter] public EventCallback<AspectRatio> OnSelectRatio { get; set; }
-    [Parameter] public EventCallback OnGenerateShortVideo { get; set; }
-    [Parameter] public EventCallback OnDownloadShortVideo { get; set; }
+    [Parameter] public EventCallback OnGenerateVideo { get; set; }
+    [Parameter] public EventCallback OnDownloadVideo { get; set; }
     [Parameter] public EventCallback<ScriptSentence> OnResearch { get; set; }
     [Parameter] public EventCallback<ScriptSentence> OnDownload { get; set; }
     [Parameter] public EventCallback<ScriptSentence> OnRegenerateKeywords { get; set; }
