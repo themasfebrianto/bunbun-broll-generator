@@ -27,148 +27,91 @@ public partial class ScriptGenerator
             await LoadGlobalContextFromDisk();
         }
 
-        // If it's STILL empty (no file on disk), parse from the current script
-        if (_brollPromptItems.Count == 0)
-        {
-            await ParseScriptToBrollItemsAsync();
-            await RunClassifyOnly();
-        }
-
         _currentView = "broll-prompts";
         StateHasChanged();
     }
 
-    private async Task ParseScriptToBrollItemsAsync()
+    private async Task ResetAndInitializeBrollFromSrt()
     {
-        if (_resultSections.Count == 0) return;
+        if (_expandedEntries == null || _expandedEntries.Count == 0) return;
+
+        // 1. Wipe existing progress (disk + memory)
+        BrollPersistence.InvalidateBrollClassification(_brollPromptItems, _resultSession, _sessionId);
         _brollPromptItems.Clear();
+        _classifyTotalSegments = 0;
+        _classifyCompletedSegments = 0;
 
-        var timestampPattern = new System.Text.RegularExpressions.Regex(@"\[(\d{1,3}):(\d{2})\]", System.Text.RegularExpressions.RegexOptions.Compiled);
-        var globalOffset = TimeSpan.Zero;
-        int idx = 1;
+        // 2. Merge micro-segments (~500) into logical scenes (~50-80)
+        var mergedSegments = SrtService.MergeToSegments(_expandedEntries, maxDurationSeconds: 20.0);
 
-        foreach (var section in _resultSections.OrderBy(s => s.Order))
+        // 3. Build overlay lookup from expansion result
+        var overlayLookup = _expansionResult?.DetectedOverlays ?? new Dictionary<int, TextOverlayDto>();
+
+        // 3a. Inject overlay markers back into expanded entries so MergeToSegments preserves them
+        foreach (var (entryIndex, dto) in overlayLookup)
         {
-            if (string.IsNullOrWhiteSpace(section.Content)) continue;
-            var entries = ParseTimestampedEntries(section.Content, timestampPattern);
-
-            if (entries.Count > 0)
+            if (entryIndex < 0 || entryIndex >= _expandedEntries.Count) continue;
+            var entry = _expandedEntries[entryIndex];
+            // Only inject if not already present
+            if (!entry.Text.Contains("[OVERLAY:", StringComparison.OrdinalIgnoreCase))
             {
-                var phaseBase = entries[0].Timestamp;
-                for (int e = 0; e < entries.Count; e++)
-                {
-                    var entry = entries[e];
-                    var normalizedTime = entry.Timestamp - phaseBase;
-                    if (normalizedTime < TimeSpan.Zero) normalizedTime = TimeSpan.Zero;
-                    var absoluteTime = globalOffset.Add(normalizedTime);
-                    var cleaned = CleanSubtitleText(entry.Text);
-                    if (string.IsNullOrWhiteSpace(cleaned)) continue;
-                    
-                    var segments = SplitTextIntoSegments(cleaned, 15);
-                    var entryOffset = absoluteTime;
-
-                    foreach (var segment in segments)
-                    {
-                        var mins = (int)entryOffset.TotalMinutes;
-                        var secs = entryOffset.Seconds;
-                        
-                        string textForParsing = segment;
-                        var overlay = ScriptProcessor.ExtractTextOverlay(ref textForParsing);
-                        
-                        if (overlay != null)
-                        {
-                            if (string.IsNullOrWhiteSpace(overlay.Text) && 
-                                (overlay.Type == TextOverlayType.QuranVerse || overlay.Type == TextOverlayType.Hadith) &&
-                                e + 1 < entries.Count)
-                            {
-                                var nextEntry = entries[e + 1];
-                                var nextCleaned = CleanSubtitleText(nextEntry.Text);
-                                if (!string.IsNullOrWhiteSpace(nextCleaned))
-                                {
-                                    overlay.Text = nextCleaned;
-                                    textForParsing = nextCleaned;
-                                    e++;
-                                }
-                            }
-                            else if (string.IsNullOrWhiteSpace(overlay.Text) && overlay.Type == TextOverlayType.KeyPhrase)
-                            {
-                                overlay.Text = BunbunBroll.Services.ScriptProcessor.TruncateForKeyPhrase(textForParsing);
-                            }
-                            else if (string.IsNullOrWhiteSpace(overlay.Text))
-                            {
-                                overlay.Text = textForParsing;
-                            }
-                        }
-
-                        var words = textForParsing.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;
-                        var duration = Math.Max(3.0, words / 2.5);
-                        var startSeconds = entryOffset.TotalSeconds;
-                        var endSeconds = entryOffset.TotalSeconds + duration;
-
-                        _brollPromptItems.Add(new BrollPromptItem
-                        {
-                            Index = idx++,
-                            Timestamp = $"[{mins:D2}:{secs:D2}]",
-                            ScriptText = textForParsing,
-                            TextOverlay = overlay,
-                            MediaType = overlay != null ? BrollMediaType.BrollVideo : BrollMediaType.ImageGeneration,
-                            EstimatedDurationSeconds = duration,
-                            StartTimeSeconds = startSeconds,
-                            EndTimeSeconds = endSeconds
-                        });
-
-                        entryOffset = entryOffset.Add(TimeSpan.FromSeconds(duration));
-                    }
-                }
-                var lastEntry = entries.Last();
-                var normalizedLastTime = lastEntry.Timestamp - phaseBase;
-                if (normalizedLastTime < TimeSpan.Zero) normalizedLastTime = TimeSpan.Zero;
-                var lastDuration = EstimateDuration(lastEntry.Text);
-                globalOffset = globalOffset.Add(normalizedLastTime).Add(TimeSpan.FromSeconds(lastDuration));
-            }
-            else
-            {
-                var cleaned = CleanSubtitleText(section.Content);
-                if (!string.IsNullOrWhiteSpace(cleaned))
-                {
-                    var segments = SplitTextIntoSegments(cleaned, 15);
-                    foreach (var segment in segments)
-                    {
-                        var mins = (int)globalOffset.TotalMinutes;
-                        var secs = globalOffset.Seconds;
-                        
-                        string textForParsing = segment;
-                        var overlay = ScriptProcessor.ExtractTextOverlay(ref textForParsing);
-                        if (overlay != null && string.IsNullOrWhiteSpace(overlay.Text))
-                        {
-                            overlay.Text = overlay.Type == TextOverlayType.KeyPhrase
-                                ? BunbunBroll.Services.ScriptProcessor.TruncateForKeyPhrase(textForParsing)
-                                : textForParsing;
-                        }
-
-                        var words = textForParsing.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;
-                        var duration = Math.Max(3.0, words / 2.5);
-                        var startSeconds = globalOffset.TotalSeconds;
-                        var endSeconds = globalOffset.TotalSeconds + duration;
-
-                        _brollPromptItems.Add(new BrollPromptItem
-                        {
-                            Index = idx++,
-                            Timestamp = $"[{mins:D2}:{secs:D2}]",
-                            ScriptText = textForParsing,
-                            TextOverlay = overlay,
-                            MediaType = overlay != null ? BrollMediaType.BrollVideo : BrollMediaType.ImageGeneration,
-                            EstimatedDurationSeconds = duration,
-                            StartTimeSeconds = startSeconds,
-                            EndTimeSeconds = endSeconds
-                        });
-                        
-                        globalOffset = globalOffset.Add(TimeSpan.FromSeconds(duration));
-                    }
-                }
+                var marker = $"[OVERLAY:{dto.Type}]";
+                if (!string.IsNullOrWhiteSpace(dto.Arabic))
+                    marker += $" [ARABIC]{dto.Arabic}";
+                if (!string.IsNullOrWhiteSpace(dto.Reference))
+                    marker += $" [REF]{dto.Reference}";
+                entry.Text = $"{marker} {entry.Text}";
             }
         }
+
+        // 4. Convert merged segments to BrollPromptItems
+        int idx = 1;
+        foreach (var (timestamp, text) in mergedSegments)
+        {
+            string textForParsing = text;
+            var overlay = ScriptProcessor.ExtractTextOverlay(ref textForParsing);
+
+            if (overlay != null && string.IsNullOrWhiteSpace(overlay.Text))
+            {
+                overlay.Text = overlay.Type == TextOverlayType.KeyPhrase
+                    ? BunbunBroll.Services.ScriptProcessor.TruncateForKeyPhrase(textForParsing)
+                    : textForParsing;
+            }
+
+            var words = textForParsing.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;
+            var duration = Math.Max(3.0, words / 2.5);
+
+            // Parse timestamp [MM:SS] to seconds
+            double startSeconds = 0;
+            var tsMatch = System.Text.RegularExpressions.Regex.Match(timestamp, @"\[(\d+):(\d+)\]");
+            if (tsMatch.Success)
+            {
+                startSeconds = int.Parse(tsMatch.Groups[1].Value) * 60 + int.Parse(tsMatch.Groups[2].Value);
+            }
+
+            _brollPromptItems.Add(new BrollPromptItem
+            {
+                Index = idx++,
+                Timestamp = timestamp,
+                ScriptText = textForParsing,
+                TextOverlay = overlay,
+                MediaType = overlay != null ? BrollMediaType.BrollVideo : BrollMediaType.ImageGeneration,
+                EstimatedDurationSeconds = duration,
+                StartTimeSeconds = startSeconds,
+                EndTimeSeconds = startSeconds + duration
+            });
+        }
+
+        // 5. Save to disk
+        await SaveBrollPromptsToDisk();
+        await SaveImageConfigToDisk();
+
+        _classifyTotalSegments = _brollPromptItems.Count;
+        _classifyCompletedSegments = _brollPromptItems.Count;
+        StateHasChanged();
     }
+
+    // ParseScriptToBrollItemsAsync removed — Step 3 now only receives data from Step 2's expanded SRT via ResetAndInitializeBrollFromSrt()
 
     private List<string> SplitTextIntoSegments(string text, int targetDurationSeconds)
     {
@@ -223,11 +166,6 @@ public partial class ScriptGenerator
 
         try
         {
-            if (_brollPromptItems.Count == 0)
-            {
-                await ParseScriptToBrollItemsAsync();
-            }
-
             if (_brollPromptItems.Count == 0)
             {
                 _classifyError = "Tidak ada text yang bisa diklasifikasikan dari script.";
@@ -464,18 +402,8 @@ public partial class ScriptGenerator
     {
         if (_brollPromptItems.Count == 0) return;
 
-        // Delete associated media files via persistence service
-        BrollPersistence.InvalidateBrollClassification(_brollPromptItems, _resultSession, _sessionId);
-
-        // Re-parse from original script sections
-        await ParseScriptToBrollItemsAsync();
-
-        _classifyTotalSegments = _brollPromptItems.Count;
-        _classifyCompletedSegments = _brollPromptItems.Count;
-
-        await SaveBrollPromptsToDisk();
-        await SaveImageConfigToDisk();
-        StateHasChanged();
+        // Re-initialize from expanded SRT (same as proceeding from Step 2)
+        await ResetAndInitializeBrollFromSrt();
     }
 
     private async Task HandleSelectVideo((BrollPromptItem item, VideoAsset video) args)

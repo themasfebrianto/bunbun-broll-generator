@@ -112,7 +112,7 @@ public class SrtExpansionService : ISrtExpansionService
             );
 
             // Regex Overlay Detection (use outputDirectory directly — it's already output/{sessionId})
-            var sessionDir = Path.Combine(outputDirectory, sessionId);
+            var srtDir = Path.Combine(outputDirectory, "srt");
             var detectedOverlays = _overlayDetectionService.DetectOverlaysFromSourceScripts(outputDirectory, result.ExpandedEntries);
 
             if (!llmDetectionResult.IsSuccess)
@@ -152,15 +152,15 @@ public class SrtExpansionService : ISrtExpansionService
             // Calculate statistics
             result.Statistics = _srtService.CalculateExpansionStats(originalEntries, result.ExpandedEntries, result.PauseDurations);
 
-            // Save expanded SRT
-            Directory.CreateDirectory(sessionDir);
-            result.ExpandedSrtPath = Path.Combine(sessionDir, "expanded.srt");
+            // Save expanded SRT (with overlay markers embedded)
+            Directory.CreateDirectory(srtDir);
+            result.ExpandedSrtPath = Path.Combine(srtDir, "expanded.srt");
 
-            var expandedSrtContent = _srtService.FormatExpandedSrt(result.ExpandedEntries);
+            var expandedSrtContent = _srtService.FormatExpandedSrt(result.ExpandedEntries, detectedOverlays);
             await File.WriteAllTextAsync(result.ExpandedSrtPath, expandedSrtContent);
 
             // Generate LRC for reference
-            result.ExpandedLrcPath = Path.Combine(sessionDir, "expanded.lrc");
+            result.ExpandedLrcPath = Path.Combine(srtDir, "expanded.lrc");
             var lrcContent = await GenerateExpandedLrcAsync(result.ExpandedEntries);
             await File.WriteAllTextAsync(result.ExpandedLrcPath, lrcContent);
 

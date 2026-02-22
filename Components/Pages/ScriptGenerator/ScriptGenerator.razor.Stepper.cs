@@ -63,7 +63,14 @@ public partial class ScriptGenerator
     private void OnExpansionComplete()
     {
         _canProceedToStep3 = true;
-        StateHasChanged();
+        RequestConfirmation(
+            "Proceed to B-Roll Prompts",
+            "⚠️ PROCEED TO STEP 3: Ini akan me-reset SEMUA progress B-Roll Prompts yang sudah ada (jika ada) karena script akan di-remapping ulang berdasarkan timing VO yang baru. Lanjutkan?",
+            async () =>
+            {
+                await ResetAndInitializeBrollFromSrt();
+                GoToStep(2);
+            });
     }
 
     private void OnBrollPromptsComplete()

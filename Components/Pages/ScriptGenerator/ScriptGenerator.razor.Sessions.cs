@@ -146,11 +146,8 @@ public partial class ScriptGenerator
                 await LoadResultSections(session);
                 await LoadBrollPromptsFromDisk();
 
-                // If no saved B-Roll prompts exist, parse them from the generated script so they are ready
-                if (_brollPromptItems.Count == 0)
-                {
-                    await ParseScriptToBrollItemsAsync();
-                }
+                // B-Roll data is now populated from Step 2's expanded SRT via ResetAndInitializeBrollFromSrt()
+                // No auto-parse fallback — user must complete Step 2 to populate Step 3
 
                 Console.WriteLine($"[DEBUG] Done loading. Switching view to results...");
                 _currentView = "results";

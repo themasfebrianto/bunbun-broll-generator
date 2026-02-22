@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.RegularExpressions;
 using BunbunBroll.Models;
+using BunbunBroll.Services;
 
 namespace BunbunBroll.Services;
 
@@ -10,8 +11,10 @@ public interface ISrtService
     List<(string Timestamp, string Text)> MergeToSegments(List<SrtEntry> entries, double maxDurationSeconds = 20.0);
     List<SrtEntry> ExpandSrtEntries(List<SrtEntry> originalEntries, double targetSegmentDuration = 12.0);
     string FormatExpandedSrt(List<SrtEntry> entries);
+    string FormatExpandedSrt(List<SrtEntry> entries, Dictionary<int, TextOverlayDto>? overlays);
     Dictionary<int, double> CalculatePauseDurations(List<SrtEntry> entries);
     ExpansionStats CalculateExpansionStats(List<SrtEntry> original, List<SrtEntry> expanded, Dictionary<int, double> pauses);
+    void RetimeEntriesWithActualDurations(List<SrtEntry> entries, List<VoSegment> segments, Dictionary<int, double> pauseDurations);
 }
 
 public class SrtService : ISrtService
@@ -254,14 +257,50 @@ public class SrtService : ISrtService
     }
 
     public string FormatExpandedSrt(List<SrtEntry> entries)
+        => FormatExpandedSrt(entries, null);
+
+    public string FormatExpandedSrt(List<SrtEntry> entries, Dictionary<int, TextOverlayDto>? overlays)
     {
         var sb = new StringBuilder();
-        foreach (var entry in entries)
+        int srtIndex = 1;
+        
+        for (int i = 0; i < entries.Count; i++)
         {
-            sb.AppendLine(entry.Index.ToString());
+            var entry = entries[i];
+            
+            // 1. Spoken text entry
+            sb.AppendLine(srtIndex.ToString());
             sb.AppendLine($"{entry.StartTime.ToString("hh\\:mm\\:ss\\,fff")} --> {entry.EndTime.ToString("hh\\:mm\\:ss\\,fff")}");
             sb.AppendLine(entry.Text);
             sb.AppendLine();
+            srtIndex++;
+
+            // 2. Empty gap entry for Overlay (if present)
+            if (overlays != null && overlays.TryGetValue(i, out var overlay))
+            {
+                TimeSpan gapStart = entry.EndTime;
+                TimeSpan gapEnd = (i < entries.Count - 1) ? entries[i + 1].StartTime : gapStart.Add(TimeSpan.FromSeconds(2));
+                
+                // Only create the gap entry if there's actually a gap duration
+                if (gapEnd > gapStart)
+                {
+                    sb.AppendLine(srtIndex.ToString());
+                    sb.AppendLine($"{gapStart.ToString("hh\\:mm\\:ss\\,fff")} --> {gapEnd.ToString("hh\\:mm\\:ss\\,fff")}");
+                    
+                    sb.AppendLine($"[OVERLAY:{overlay.Type}]");
+                    if (!string.IsNullOrWhiteSpace(overlay.Reference))
+                    {
+                        sb.AppendLine($"[REF] {overlay.Reference}");
+                    }
+                    if (!string.IsNullOrWhiteSpace(overlay.Arabic))
+                    {
+                        sb.AppendLine($"[ARABIC] {overlay.Arabic}");
+                    }
+                    
+                    sb.AppendLine();
+                    srtIndex++;
+                }
+            }
         }
         return sb.ToString();
     }
@@ -347,6 +386,36 @@ public class SrtService : ISrtService
             TotalPauseCount = pauses.Count,
             TotalPauseDuration = pauses.Values.Sum()
         };
+    }
+
+    public void RetimeEntriesWithActualDurations(List<SrtEntry> entries, List<VoSegment> segments, Dictionary<int, double> pauseDurations)
+    {
+        TimeSpan currentTime = TimeSpan.Zero;
+        
+        // Apply head silence first
+        if (pauseDurations.TryGetValue(-1, out double headPause))
+        {
+            currentTime = currentTime.Add(TimeSpan.FromSeconds(headPause));
+        }
+
+        for (int i = 0; i < entries.Count; i++)
+        {
+            var entry = entries[i];
+            var segment = segments.FirstOrDefault(s => s.Index == i + 1);
+            
+            // Fallback to theoretical calculation if actual segment duration is unavailable
+            double actualSegSecs = segment != null ? segment.ActualDurationSeconds : ((entry.OriginalEndTime - entry.OriginalStartTime) + entry.PaddingStart + entry.PaddingEnd).TotalSeconds;
+
+            entry.StartTime = currentTime;
+            entry.EndTime = currentTime.Add(TimeSpan.FromSeconds(actualSegSecs));
+
+            currentTime = entry.EndTime;
+
+            if (pauseDurations.TryGetValue(i, out double pauseSeconds))
+            {
+                currentTime = currentTime.Add(TimeSpan.FromSeconds(pauseSeconds));
+            }
+        }
     }
 
     private bool TryParseTimestamp(string timestampStr, out TimeSpan result)

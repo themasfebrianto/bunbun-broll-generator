@@ -318,7 +318,9 @@ public class VoSlicingService : IVoSlicingService
                 var expectedDuration = segment.DurationSeconds;
                 var actualDuration = segment.ActualDurationSeconds;
                 var diffMs = Math.Abs(expectedDuration - actualDuration) * 1000;
-                var diffPercent = (diffMs / expectedDuration) * 100;
+                var diffPercent = expectedDuration > 0.5 
+                    ? (diffMs / expectedDuration) * 100 
+                    : diffMs; // For very short segments, just use ms as a sane proxy
 
                 // Check validation rules
                 if (diffMs > 200) // More than 200ms difference = error

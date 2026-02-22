@@ -134,4 +134,74 @@ public class SrtServiceTests
             Assert.True(wordCount <= 85, $"Segment has {wordCount} words, exceeding the ~80 word limit");
         }
     }
+
+    [Fact]
+    public void RetimeEntriesWithActualDurations_EliminatesCumulativeDrift()
+    {
+        var entries = new List<SrtEntry>
+        {
+            new() { OriginalStartTime = TimeSpan.FromSeconds(0), OriginalEndTime = TimeSpan.FromSeconds(2), Text = "Initial" },
+            new() { OriginalStartTime = TimeSpan.FromSeconds(2), OriginalEndTime = TimeSpan.FromSeconds(4), Text = "Second" },
+            new() { OriginalStartTime = TimeSpan.FromSeconds(4), OriginalEndTime = TimeSpan.FromSeconds(6), Text = "Third" }
+        };
+
+        // Theoretical duration of each is 2.0s.
+        // But let's say ffmpeg sliced them slightly longer: 2.1s each.
+        var segments = new List<VoSegment>
+        {
+            new() { Index = 1, ActualDurationSeconds = 2.1 },
+            new() { Index = 2, ActualDurationSeconds = 2.1 },
+            new() { Index = 3, ActualDurationSeconds = 2.1 }
+        };
+
+        var pauses = new Dictionary<int, double>
+        {
+            { 0, 0.5 } // 0.5s pause after the first entry
+        };
+
+        _service.RetimeEntriesWithActualDurations(entries, segments, pauses);
+
+        // Entry 1
+        Assert.Equal(0, entries[0].StartTime.TotalSeconds);
+        Assert.Equal(2.1, entries[0].EndTime.TotalSeconds); // Uses actual segment len
+
+        // Entry 2 starts after Entry 1 + Pause (2.1 + 0.5 = 2.6)
+        Assert.Equal(2.6, entries[1].StartTime.TotalSeconds);
+        Assert.Equal(4.7, entries[1].EndTime.TotalSeconds); // 2.6 + 2.1
+
+        // Entry 3 starts immediately after Entry 2 (no pause)
+        Assert.Equal(4.7, entries[2].StartTime.TotalSeconds);
+        Assert.Equal(6.8, entries[2].EndTime.TotalSeconds); // 4.7 + 2.1
+    }
+
+    [Fact]
+    public void FormatExpandedSrt_WithOverlays_FormatsCorrectly()
+    {
+        var entries = new List<SrtEntry>
+        {
+            new() { Text = "First spoken line", StartTime = TimeSpan.FromSeconds(0), EndTime = TimeSpan.FromSeconds(2) },
+            // Gap of 3 seconds where overlay should appear: 2s to 5s
+            new() { Text = "Second spoken line", StartTime = TimeSpan.FromSeconds(5), EndTime = TimeSpan.FromSeconds(7) }
+        };
+
+        var overlays = new Dictionary<int, TextOverlayDto>
+        {
+            { 
+                0, // Overlay triggering after the first entry's end time
+                new TextOverlayDto { Type = "QuranVerse", Reference = "Al-Baqarah 2:286", Arabic = "لَا يُكَلِّفُ اللَّهُ نَفْسًا إِلَّا وُسْعَهَا" } 
+            }
+        };
+
+        var result = _service.FormatExpandedSrt(entries, overlays);
+
+        // Assert
+        Assert.Contains("First spoken line", result);
+        Assert.Contains("Second spoken line", result);
+
+        // Gap entry verification
+        Assert.Contains("00:00:02,000 --> 00:00:05,000", result); // Gap time
+        Assert.Contains("[OVERLAY:QuranVerse]", result);
+        Assert.Contains("[REF] Al-Baqarah 2:286", result);
+        Assert.Contains("[ARABIC] لَا يُكَلِّفُ اللَّهُ نَفْسًا إِلَّا وُسْعَهَا", result);
+    }
 }

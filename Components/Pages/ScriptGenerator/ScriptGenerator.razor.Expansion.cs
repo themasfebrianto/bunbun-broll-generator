@@ -38,7 +38,7 @@ public partial class ScriptGenerator
     [Inject] private ISrtExpansionService SrtExpansionService { get; set; } = null!;
     [Inject] private IVoSlicingService VoSlicingService { get; set; } = null!;
 
-    private void DetectExistingVoAndSrt()
+    private async void DetectExistingVoAndSrt()
     {
         var outputDir = Path.Combine(Directory.GetCurrentDirectory(), "output", _sessionId ?? "");
         if (string.IsNullOrEmpty(_sessionId) || !Directory.Exists(outputDir)) return;
@@ -65,7 +65,7 @@ public partial class ScriptGenerator
 
         // Detect previous processing results
         var stitchedPath = Path.Combine(outputDir, "stitched_vo.mp3");
-        var expandedSrtDir = Path.Combine(outputDir, _sessionId ?? "");
+        var expandedSrtDir = Path.Combine(outputDir, "srt");
         var expandedSrtPath = Path.Combine(expandedSrtDir, "expanded.srt");
 
         if (File.Exists(stitchedPath) && File.Exists(expandedSrtPath) && _expandedEntries == null)
@@ -103,9 +103,82 @@ public partial class ScriptGenerator
                     }
                 }
 
-                // Set player URL
+                // Reload persisted validation result (enables the Proceed button)
+                var validationPath = Path.Combine(outputDir, "validation-result.json");
+                if (File.Exists(validationPath))
+                {
+                    try
+                    {
+                        var valJson = File.ReadAllText(validationPath);
+                        _validationResult = JsonSerializer.Deserialize<VoSliceValidationResult>(valJson, _jsonOptions);
+                    }
+                    catch { /* validation will be null, user can re-process */ }
+                }
+
+                // Reconstruct _voSegments from sliced audio files on disk
+                var segmentsDir = Path.Combine(outputDir, "vo_segments");
+                if (Directory.Exists(segmentsDir) && _expandedEntries != null)
+                {
+                    _voSegments = new List<VoSegment>();
+                    for (int i = 0; i < _expandedEntries.Count; i++)
+                    {
+                        var entry = _expandedEntries[i];
+                        // Match segment files by index pattern (e.g., segment_001.wav - 1-based)
+                        var segFile = Directory.GetFiles(segmentsDir, $"segment_{i + 1:D3}.*").FirstOrDefault();
+                        if (segFile != null)
+                        {
+                            _voSegments.Add(new VoSegment
+                            {
+                                Index = i + 1,
+                                AudioPath = segFile,
+                                StartTime = entry.StartTime,
+                                EndTime = entry.EndTime,
+                                DurationSeconds = entry.Duration.TotalSeconds,
+                                Text = entry.Text,
+                                IsValid = true
+                            });
+                        }
+                    }
+                }
+
+                // Set player URL explicitly so the UI shows up
                 _stitchedVoUrl = $"/project-assets/{_sessionId}/stitched_vo.mp3";
                 _showExpansionDetails = true;
+                await InvokeAsync(StateHasChanged);
+
+                // BACKWARD COMPATIBILITY: If validation result wasn't found (old session before fix), compute it now
+                if (_validationResult == null && _voSegments?.Count > 0 && _expandedEntries?.Count > 0)
+                {
+                    try
+                    {
+                        // Set a quick temporary state so users know we are validating
+                        _isValidating = true;
+                        await InvokeAsync(StateHasChanged);
+
+                        // For old sessions, we need actual durations to run validation properly
+                        foreach (var seg in _voSegments)
+                        {
+                            seg.ActualDurationSeconds = await VoSlicingService.GetAudioDurationAsync(seg.AudioPath);
+                        }
+                        
+                        _validationResult = await VoSlicingService.ValidateSlicedSegmentsAsync(_voSegments, _expandedEntries);
+                        
+                        if (_resultSession != null)
+                        {
+                            _resultSession.SliceValidationResult = _validationResult;
+                        }
+
+                        // Save it to avoid re-running next time
+                        var validationJson = JsonSerializer.Serialize(_validationResult, _jsonOptions);
+                        await File.WriteAllTextAsync(validationPath, validationJson);
+                    }
+                    catch { /* validation failed, UI just won't show it */ }
+                    finally
+                    {
+                        _isValidating = false;
+                        await InvokeAsync(StateHasChanged);
+                    }
+                }
             }
             catch
             {
@@ -266,6 +339,31 @@ public partial class ScriptGenerator
                 }
             }
 
+            // RE-CALCULATE ACTUAL TIMINGS based on sliced WAV exact durations to eliminate cumulative drift
+            SrtService.RetimeEntriesWithActualDurations(_expandedEntries, _voSegments, _pauseDurations);
+
+            // Rewrite expanded.srt and expanded.lrc with the corrected precision timings
+            var srtDir = Path.Combine(outputDir, "srt");
+            Directory.CreateDirectory(srtDir);
+            var updatedSrtContent = SrtService.FormatExpandedSrt(_expandedEntries, _expansionResult?.DetectedOverlays);
+            await File.WriteAllTextAsync(Path.Combine(srtDir, "expanded.srt"), updatedSrtContent);
+            
+            var sbLrc = new System.Text.StringBuilder();
+            foreach (var entry in _expandedEntries)
+            {
+                var minutes = (int)entry.StartTime.TotalMinutes;
+                var seconds = entry.StartTime.Seconds;
+                var centiseconds = entry.StartTime.Milliseconds / 10;
+                sbLrc.AppendLine($"[{minutes:D2}:{seconds:D2}.{centiseconds:D2}]{entry.Text}");
+            }
+            await File.WriteAllTextAsync(Path.Combine(srtDir, "expanded.lrc"), sbLrc.ToString());
+
+            // Update session tracking with corrected data if needed
+            if (_resultSession != null && _expansionResult != null)
+            {
+                await SaveExpansionMetadataAsync(outputDir, _expansionResult);
+            }
+
             // 3. Stitch VO back together with pauses
             SetProgress("Stitching segments with pauses...", 60);
             var stitchedPath = await VoSlicingService.StitchVoAsync(_voSegments, _pauseDurations, sliceResult.OutputDirectory);
@@ -322,6 +420,18 @@ public partial class ScriptGenerator
             {
                 _resultSession.SliceValidationResult = _validationResult;
             }
+
+            // Persist validation result to disk for reload
+            try
+            {
+                var outputDir = Path.Combine(Directory.GetCurrentDirectory(), "output", _sessionId ?? "");
+                if (Directory.Exists(outputDir))
+                {
+                    var validationJson = JsonSerializer.Serialize(_validationResult, _jsonOptions);
+                    await File.WriteAllTextAsync(Path.Combine(outputDir, "validation-result.json"), validationJson);
+                }
+            }
+            catch { /* non-critical */ }
             
             // Note: OnExpansionComplete() will be called manually by user clicking "Proceed" rather than auto-proceeding
         }

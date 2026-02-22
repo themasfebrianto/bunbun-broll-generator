@@ -283,7 +283,6 @@
             OnResetAllImageStates='() => RequestConfirmation("Reset All Images", "🗑️ DESTRUCTIVE: Ini akan menghapus SEMUA image dan video. Anda harus men-generate ulang semuanya. Yakin?", HandleResetAllImageStates)'
             OnClearAllPrompts='() => RequestConfirmation("Clear All Prompts", "⚠️ Ini akan menghapus SEMUA prompt text untuk segment Image Gen. Anda bisa regenerate atau resume setelahnya. Lanjutkan?", HandleClearAllPrompts)'
             OnResetAllVideoStates='() => RequestConfirmation("Reset KB Videos", "⚠️ Ini akan menghapus semua video Ken Burns yang sudah jadi. Image asli tetap aman. Lanjutkan?", HandleResetAllVideoStates)'
-            OnGeneratePrompts="RunClassifyOnly"
             OnGenerateImagePrompts='() => RequestConfirmation("Regenerate All Image Prompts", "⚠️ Ini akan me-regenerate SEMUA image prompt. Prompt yang sudah ada akan ditimpa. Lanjutkan?", RunGenerateImagePrompts)'
             OnResumeImagePrompts="RunResumeImagePrompts"
             OnGenerateKeywords='() => RequestConfirmation("Regenerate All Keywords", "⚠️ Ini akan me-regenerate semua keyword untuk segment B-Roll Video. Keyword yang sudah ada akan ditimpa. Lanjutkan?", RunGenerateKeywords)'
