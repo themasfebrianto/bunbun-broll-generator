@@ -12,11 +12,15 @@ public class SrtExpansionService : ISrtExpansionService
 {
     private readonly ISrtService _srtService;
     private readonly ILogger<SrtExpansionService> _logger;
+    private readonly IIntelligenceService _intelligenceService;
+    private readonly IOverlayDetectionService _overlayDetectionService;
 
-    public SrtExpansionService(ISrtService srtService, ILogger<SrtExpansionService> logger)
+    public SrtExpansionService(ISrtService srtService, ILogger<SrtExpansionService> logger, IIntelligenceService intelligenceService, IOverlayDetectionService overlayDetectionService)
     {
         _srtService = srtService;
         _logger = logger;
+        _intelligenceService = intelligenceService;
+        _overlayDetectionService = overlayDetectionService;
     }
 
     public async Task<SrtExpansionResult> ExpandCapCutSrtAsync(string capCutSrtPath, string sessionId, string outputDirectory)
@@ -75,8 +79,46 @@ public class SrtExpansionService : ISrtExpansionService
                 entry.PaddingEnd = TimeSpan.FromSeconds(paddingEnd);
             }
 
+            // LLM Drama Detection
+            var llmDetectionResult = await _intelligenceService.DetectDramaAsync(
+                entries: result.ExpandedEntries.Select((e, i) => (i, e.Text)),
+                cancellationToken: default
+            );
+
+            // Regex Overlay Detection (use outputDirectory directly — it's already output/{sessionId})
+            var sessionDir = Path.Combine(outputDirectory, sessionId);
+            var detectedOverlays = _overlayDetectionService.DetectOverlaysFromSourceScripts(outputDirectory, result.ExpandedEntries);
+
+            if (!llmDetectionResult.IsSuccess)
+            {
+                result.LlmDetectionWarning = llmDetectionResult.ErrorMessage;
+                _logger.LogWarning("LLM drama detection failed: {Error}", llmDetectionResult.ErrorMessage);
+                result.DetectedOverlays = detectedOverlays;
+            }
+            else
+            {
+                result.LlmDetectionSuccess = true;
+                result.LlmTokensUsed = llmDetectionResult.TokensUsed;
+                result.DetectedOverlays = detectedOverlays;
+                _logger.LogInformation("LLM detection: {Pauses} pauses. Regex detection: {Overlays} overlays",
+                    llmDetectionResult.PauseDurations.Count,
+                    detectedOverlays.Count);
+            }
+
             // Calculate pauses taking into account the natural padding gaps
-            result.PauseDurations = _srtService.CalculatePauseDurations(result.ExpandedEntries);
+            var ruleBasedPauses = _srtService.CalculatePauseDurations(result.ExpandedEntries);
+            result.PauseDurations = MergePauseDurations(ruleBasedPauses, llmDetectionResult.PauseDurations, detectedOverlays);
+
+            // Add head silence if the first entry doesn't start at 0.0
+            if (result.ExpandedEntries.Count > 0)
+            {
+                var firstEntry = result.ExpandedEntries[0];
+                var headSilence = firstEntry.OriginalStartTime.TotalSeconds - firstEntry.PaddingStart.TotalSeconds;
+                if (headSilence > 0)
+                {
+                    result.PauseDurations[-1] = Math.Round(headSilence, 3);
+                }
+            }
 
             // Apply pauses to re-time the segments contiguously from 0.0s, fully synced to stitched audio
             ApplyPausesToRetimeEntries(result.ExpandedEntries, result.PauseDurations);
@@ -85,7 +127,6 @@ public class SrtExpansionService : ISrtExpansionService
             result.Statistics = _srtService.CalculateExpansionStats(originalEntries, result.ExpandedEntries, result.PauseDurations);
 
             // Save expanded SRT
-            var sessionDir = Path.Combine(outputDirectory, sessionId);
             Directory.CreateDirectory(sessionDir);
             result.ExpandedSrtPath = Path.Combine(sessionDir, "expanded.srt");
 
@@ -112,9 +153,65 @@ public class SrtExpansionService : ISrtExpansionService
         }
     }
 
+    private Dictionary<int, double> MergePauseDurations(
+        Dictionary<int, double> ruleBasedPauses,
+        Dictionary<int, double> llmPauses,
+        Dictionary<int, TextOverlayDto> overlays)
+    {
+        var merged = new Dictionary<int, double>(ruleBasedPauses);
+
+        // First apply LLM pauses
+        foreach (var (index, llmPause) in llmPauses)
+        {
+            if (merged.TryGetValue(index, out var existingPause))
+            {
+                merged[index] = Math.Max(existingPause, llmPause);
+            }
+            else
+            {
+                merged[index] = llmPause;
+            }
+        }
+
+        // Then enforce minimum gaps for Text Overlays
+        foreach (var (index, overlay) in overlays)
+        {
+            // Calculate a rough reading time based on text length
+            var wordCount = overlay.Text.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;
+            double minGap = 1.0; // Base gap
+
+            if (wordCount > 10) minGap = 2.0;
+            else if (wordCount > 5) minGap = 1.5;
+
+            if (overlay.Type.Equals("quran_verse", StringComparison.OrdinalIgnoreCase) || 
+                overlay.Type.Equals("hadith", StringComparison.OrdinalIgnoreCase))
+            {
+                minGap = Math.Max(minGap, 2.0); // Always give at least 2s for Quran/Hadith
+            }
+
+            if (merged.TryGetValue(index, out var existingPause))
+            {
+                merged[index] = Math.Max(existingPause, minGap);
+            }
+            else
+            {
+                merged[index] = minGap;
+                _logger.LogInformation("Enforced minimum gap of {Gap}s for overlay at index {Index}", minGap, index);
+            }
+        }
+
+        return merged;
+    }
+
     private void ApplyPausesToRetimeEntries(List<SrtEntry> entries, Dictionary<int, double> pauseDurations)
     {
         TimeSpan currentTime = TimeSpan.Zero;
+
+        // Apply head silence first
+        if (pauseDurations.TryGetValue(-1, out double headPause))
+        {
+            currentTime = currentTime.Add(TimeSpan.FromSeconds(headPause));
+        }
 
         for (int i = 0; i < entries.Count; i++)
         {
