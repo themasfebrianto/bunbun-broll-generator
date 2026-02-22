@@ -49,30 +49,33 @@ public class SrtExpansionService : ISrtExpansionService
                 entry.OriginalEndTime = entry.EndTime;
             }
 
-            // Calculate padding for each entry identically to the slicing logic
+            // Calculate padding by splitting the gap between entries at the midpoint.
+            // This prevents CapCut ASR from clipping consonant lead-ins (e.g. "namun") and trailing vowels.
+            const double MaxPadding = 0.300; // 300ms cap
+
             for (int i = 0; i < result.ExpandedEntries.Count; i++)
             {
                 var entry = result.ExpandedEntries[i];
                 double startTime = entry.OriginalStartTime.TotalSeconds;
                 double endTime = entry.OriginalEndTime.TotalSeconds;
 
-                // Add small padding to prevent tight VAD cutting off the start/end of words
-                double paddingStart = 0.05; // 50ms padding at the start
-                double paddingEnd = 0.150;  // 150ms padding at the end
-
+                // Start padding: half the gap to previous entry, capped at MaxPadding
+                double paddingStart = MaxPadding;
                 if (i > 0)
                 {
                     double prevEndTime = result.ExpandedEntries[i - 1].OriginalEndTime.TotalSeconds;
-                    double maxStartPadding = Math.Max(0, startTime - prevEndTime);
-                    paddingStart = Math.Min(paddingStart, maxStartPadding * 0.9);
+                    double gapBefore = Math.Max(0, startTime - prevEndTime);
+                    paddingStart = Math.Min(MaxPadding, gapBefore / 2.0);
                 }
-                paddingStart = Math.Min(paddingStart, startTime);
+                paddingStart = Math.Min(paddingStart, startTime); // don't go before 0s
 
+                // End padding: half the gap to next entry, capped at MaxPadding
+                double paddingEnd = MaxPadding;
                 if (i < result.ExpandedEntries.Count - 1)
                 {
                     double nextStartTime = result.ExpandedEntries[i + 1].OriginalStartTime.TotalSeconds;
-                    double maxEndPadding = Math.Max(0, nextStartTime - endTime);
-                    paddingEnd = Math.Min(paddingEnd, maxEndPadding * 0.9);
+                    double gapAfter = Math.Max(0, nextStartTime - endTime);
+                    paddingEnd = Math.Min(MaxPadding, gapAfter / 2.0);
                 }
                 
                 entry.PaddingStart = TimeSpan.FromSeconds(paddingStart);

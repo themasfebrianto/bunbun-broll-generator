@@ -28,6 +28,7 @@ public class VoSliceResult
     public string OutputDirectory { get; set; } = string.Empty;
     public int TotalSegments { get; set; }
     public double TotalDurationSeconds { get; set; }
+    public double SourceDurationSeconds { get; set; }
     public List<string> Errors { get; set; } = new();
     public List<string> Warnings { get; set; } = new();
 }
@@ -93,4 +94,24 @@ public class SrtExpansionResult
     public ExpansionStats Statistics { get; set; } = new();
     public bool IsSuccess { get; set; }
     public string? ErrorMessage { get; set; }
+
+    /// <summary>
+    /// Whether LLM drama detection succeeded
+    /// </summary>
+    public bool LlmDetectionSuccess { get; set; }
+
+    /// <summary>
+    /// Warning message if LLM detection failed (null if success)
+    /// </summary>
+    public string? LlmDetectionWarning { get; set; }
+
+    /// <summary>
+    /// Number of tokens used by LLM detection
+    /// </summary>
+    public int LlmTokensUsed { get; set; }
+
+    /// <summary>
+    /// Detected text overlays from LLM (entry index → overlay)
+    /// </summary>
+    public Dictionary<int, BunbunBroll.Services.TextOverlayDto> DetectedOverlays { get; set; } = new();
 }

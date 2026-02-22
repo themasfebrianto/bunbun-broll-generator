@@ -100,6 +100,7 @@ public class VoSlicingService : IVoSlicingService
 
             // Get source VO duration
             var sourceDuration = await GetAudioDurationAsync(voPath);
+            result.SourceDurationSeconds = sourceDuration;
             _logger.LogInformation("Source VO duration: {Duration}s", sourceDuration);
 
             // Determine concurrency limit (leave 2 threads for UI/OS if possible, min 1)
@@ -232,19 +233,39 @@ public class VoSlicingService : IVoSlicingService
             // 2. Prepare concatenation list
             var concatListPath = Path.Combine(segmentsDir, "concat_list.txt");
             var sb = new StringBuilder();
+            double runningDuration = 0;
             
             for (int i = 0; i < segments.Count; i++)
             {
+                // Add head silence if defined (index -1)
+                if (i == 0 && pauseDurations.TryGetValue(-1, out double headPause) && headPause > 0)
+                {
+                    var normalizedSilencePath = silenceFiles[headPause].Replace("\\", "/");
+                    sb.Append($"file '{normalizedSilencePath}'\n");
+                    runningDuration += headPause;
+                }
+
                 // Add the spoken segment
-                // Replace backslashes with forward slashes for FFmpeg concat format
-                var normalizedSegPath = segments[i].AudioPath.Replace("\\", "/");
-                sb.AppendLine($"file '{normalizedSegPath}'");
+                // CRITICAL: FFmpeg's concat demuxer reads this text file and interprets `\` as an escape character. 
+                // We MUST replace `\` with `/` to prevent paths like `segment_001.wav` from having `\s` swallowed.
+                if (File.Exists(segments[i].AudioPath))
+                {
+                    var normalizedSegPath = segments[i].AudioPath.Replace("\\", "/");
+                    sb.Append($"file '{normalizedSegPath}'\n");
+                    runningDuration += segments[i].ActualDurationSeconds;
+                }
+                else
+                {
+                    _logger.LogWarning("Sequence {Index} skipped in concatenation because file is missing: {Path}", 
+                        segments[i].Index, segments[i].AudioPath);
+                }
                 
                 // Add silence if there's a pause defined
                 if (pauseDurations.TryGetValue(i, out double pause) && pause > 0)
                 {
                     var normalizedSilencePath = silenceFiles[pause].Replace("\\", "/");
-                    sb.AppendLine($"file '{normalizedSilencePath}'");
+                    sb.Append($"file '{normalizedSilencePath}'\n");
+                    runningDuration += pause;
                 }
             }
             

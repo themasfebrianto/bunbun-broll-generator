@@ -232,6 +232,7 @@
     @if (_currentView == "expand-vo")
     {
         <ExpandAndSliceVoView
+            ExpansionResult="@_expansionResult"
             ErrorMessage="@_expansionError"
             UploadedVoPath="@_voFilePath"
             UploadedSrtPath="@_srtFilePath"

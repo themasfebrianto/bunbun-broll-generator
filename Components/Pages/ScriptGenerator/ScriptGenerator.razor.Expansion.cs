@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using BunbunBroll.Services;
 using BunbunBroll.Models;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace BunbunBroll.Components.Pages.ScriptGenerator;
 
@@ -22,6 +24,7 @@ public partial class ScriptGenerator
     private string? _stitchedVoUrl = null;
 
     // Expansion data
+    private SrtExpansionResult? _expansionResult = null;
     private List<SrtEntry>? _expandedEntries = null;
     private Dictionary<int, double>? _pauseDurations = null;
     private ExpansionStats? _expansionStats = null;
@@ -71,6 +74,30 @@ public partial class ScriptGenerator
 
                 // Recalculate pause durations from entries
                 _pauseDurations = SrtService.CalculatePauseDurations(_expandedEntries);
+
+                // Reload persisted expansion metadata (overlays, LLM status)
+                var metadataPath = Path.Combine(outputDir, "expansion-result.json");
+                if (File.Exists(metadataPath))
+                {
+                    var metaJson = File.ReadAllText(metadataPath);
+                    var metadata = JsonSerializer.Deserialize<ExpansionResultMetadata>(metaJson, _jsonOptions);
+                    if (metadata != null)
+                    {
+                        _expansionResult = new SrtExpansionResult
+                        {
+                            IsSuccess = true,
+                            LlmDetectionSuccess = metadata.LlmDetectionSuccess,
+                            LlmDetectionWarning = metadata.LlmDetectionWarning,
+                            LlmTokensUsed = metadata.LlmTokensUsed,
+                            DetectedOverlays = metadata.DetectedOverlays ?? new(),
+                            PauseDurations = metadata.PauseDurations ?? new(),
+                            ExpandedEntries = _expandedEntries,
+                            Statistics = metadata.Statistics ?? new()
+                        };
+                        _pauseDurations = metadata.PauseDurations ?? _pauseDurations;
+                        _expansionStats = metadata.Statistics;
+                    }
+                }
 
                 // Set player URL
                 _stitchedVoUrl = $"/project-assets/{_sessionId}/stitched_vo.mp3";
@@ -187,6 +214,10 @@ public partial class ScriptGenerator
             _expandedEntries = expansionResult.ExpandedEntries;
             _pauseDurations = expansionResult.PauseDurations;
             _expansionStats = expansionResult.Statistics;
+            _expansionResult = expansionResult;
+
+            // Persist expansion metadata for reload
+            await SaveExpansionMetadataAsync(outputDir, expansionResult);
 
             if (_resultSession != null)
             {
@@ -217,6 +248,18 @@ public partial class ScriptGenerator
                 _resultSession.VoSegmentsDirectory = sliceResult.OutputDirectory;
             }
 
+            // Calculate and append Tail Silence
+            var lastEntry = _expandedEntries.LastOrDefault();
+            if (lastEntry != null && sliceResult.SourceDurationSeconds > 0)
+            {
+                var tailSilence = sliceResult.SourceDurationSeconds - lastEntry.OriginalEndTime.TotalSeconds;
+                if (tailSilence > 0)
+                {
+                    // Index of the last entry represents the pause AFTER the last word
+                    _pauseDurations[_expandedEntries.Count - 1] = Math.Round(tailSilence, 3);
+                }
+            }
+
             // 3. Stitch VO back together with pauses
             SetProgress("Stitching segments with pauses...", 60);
             var stitchedPath = await VoSlicingService.StitchVoAsync(_voSegments, _pauseDurations, sliceResult.OutputDirectory);
@@ -229,7 +272,7 @@ public partial class ScriptGenerator
                 
                 // Set relative URL for player
                 // Assuming "output" is mapped to "/project-assets"
-                _stitchedVoUrl = $"/project-assets/{_sessionId}/stitched_vo.mp3";
+                _stitchedVoUrl = $"/project-assets/{_sessionId}/stitched_vo.mp3?t={DateTime.UtcNow.Ticks}";
             }
             else
             {
@@ -292,5 +335,46 @@ public partial class ScriptGenerator
         _processingStatus = status;
         _processingProgress = progress;
         InvokeAsync(StateHasChanged);
+    }
+
+    // === Expansion Persistence ===
+
+    private static readonly JsonSerializerOptions _jsonOptions = new()
+    {
+        WriteIndented = true,
+        PropertyNameCaseInsensitive = true,
+        Converters = { new JsonStringEnumConverter() }
+    };
+
+    private async Task SaveExpansionMetadataAsync(string outputDir, SrtExpansionResult result)
+    {
+        try
+        {
+            var metadata = new ExpansionResultMetadata
+            {
+                LlmDetectionSuccess = result.LlmDetectionSuccess,
+                LlmDetectionWarning = result.LlmDetectionWarning,
+                LlmTokensUsed = result.LlmTokensUsed,
+                DetectedOverlays = result.DetectedOverlays,
+                PauseDurations = result.PauseDurations,
+                Statistics = result.Statistics
+            };
+            var json = JsonSerializer.Serialize(metadata, _jsonOptions);
+            await File.WriteAllTextAsync(Path.Combine(outputDir, "expansion-result.json"), json);
+        }
+        catch { /* non-critical */ }
+    }
+
+    /// <summary>
+    /// Lightweight DTO for persisting expansion results to disk.
+    /// </summary>
+    private class ExpansionResultMetadata
+    {
+        public bool LlmDetectionSuccess { get; set; }
+        public string? LlmDetectionWarning { get; set; }
+        public int LlmTokensUsed { get; set; }
+        public Dictionary<int, TextOverlayDto> DetectedOverlays { get; set; } = new();
+        public Dictionary<int, double> PauseDurations { get; set; } = new();
+        public ExpansionStats? Statistics { get; set; }
     }
 }

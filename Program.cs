@@ -52,6 +52,8 @@ builder.Services.AddSingleton<BackgroundGenerationService>();
 builder.Services.AddSingleton<SessionSyncService>();
 builder.Services.AddScoped<ISrtService, SrtService>();
 builder.Services.AddScoped<ISrtExpansionService, SrtExpansionService>();
+builder.Services.AddScoped<IIntelligenceService, IntelligenceService>();
+builder.Services.AddScoped<IOverlayDetectionService, OverlayDetectionService>();
 builder.Services.AddScoped<IVoSlicingService, VoSlicingService>();
 builder.Services.AddScoped<VoSyncService>();
 

@@ -15,6 +15,15 @@ public interface IIntelligenceService
     Task<KeywordResult> ExtractKeywordsAsync(string text, string? mood = null, CancellationToken cancellationToken = default);
     
     /// <summary>
+    /// Detect drama pauses and text overlays in script entries using LLM.
+    /// Analyzes narrative flow for dramatic moments (contrasts, revelations, suspense)
+    /// and identifies overlay-worthy content (Quran verses, key phrases, questions).
+    /// </summary>
+    Task<DramaDetectionResult> DetectDramaAsync(
+        IEnumerable<(int Index, string Text)> entries,
+        CancellationToken cancellationToken = default);
+    
+    /// <summary>
     /// Extract keywords for multiple sentences in a single AI call (much faster!)
     /// Returns flat keyword lists for backward compatibility.
     /// </summary>
