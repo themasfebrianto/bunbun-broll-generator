@@ -63,7 +63,8 @@ Return JSON with pauseDurations and textOverlays.";
                 userPrompt,
                 temperature: 0.3,
                 maxTokens: 1500,
-                cancellationToken
+                cancellationToken: cancellationToken,
+                requiresHighReasoning: false
             );
 
             if (string.IsNullOrWhiteSpace(llmResult.Content))

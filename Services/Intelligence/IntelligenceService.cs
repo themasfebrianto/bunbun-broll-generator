@@ -147,15 +147,18 @@ public partial class IntelligenceService : IIntelligenceService
     private readonly HttpClient _httpClient;
     private readonly ILogger<IntelligenceService> _logger;
     private readonly GeminiSettings _settings;
+    private readonly ILlmRouterService _router;
 
     public IntelligenceService(
         HttpClient httpClient, 
         ILogger<IntelligenceService> logger, 
-        IOptions<GeminiSettings> settings)
+        IOptions<GeminiSettings> settings,
+        ILlmRouterService router)
     {
         _httpClient = httpClient;
         _logger = logger;
         _settings = settings.Value;
+        _router = router;
     }
 
     // =============================================
@@ -163,42 +166,89 @@ public partial class IntelligenceService : IIntelligenceService
     // =============================================
 
     /// <summary>
-    /// Unified LLM chat call — builds request, sends, parses response, returns content string.
-    /// All methods should use this instead of duplicating HTTP + parse logic.
+    /// Unified LLM chat call — uses LlmRouterService to select the best model, handle rate limits, and fallback on failure.
     /// </summary>
     private async Task<(string? Content, int TokensUsed)> SendChatAsync(
         string systemPrompt,
         string userPrompt,
         double temperature = 0.3,
         int maxTokens = 300,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool requiresHighReasoning = true)
     {
-        var request = new GeminiChatRequest
+        const int maxRetries = 3;
+        int attempt = 0;
+
+        while (attempt < maxRetries)
         {
-            Model = _settings.Model,
-            Messages = new List<GeminiMessage>
+            attempt++;
+            var modelId = _router.GetModel(requiresHighReasoning);
+
+            var request = new GeminiChatRequest
             {
-                new() { Role = "system", Content = systemPrompt },
-                new() { Role = "user", Content = userPrompt }
-            },
-            Temperature = temperature,
-            MaxTokens = maxTokens
-        };
+                Model = modelId,
+                Messages = new List<GeminiMessage>
+                {
+                    new() { Role = "system", Content = systemPrompt },
+                    new() { Role = "user", Content = userPrompt }
+                },
+                Temperature = temperature,
+                MaxTokens = maxTokens
+            };
 
-        var response = await _httpClient.PostAsJsonAsync(
-            "v1/chat/completions",
-            request,
-            cancellationToken);
+            try
+            {
+                var response = await _httpClient.PostAsJsonAsync(
+                    "v1/chat/completions",
+                    request,
+                    cancellationToken);
 
-        response.EnsureSuccessStatusCode();
+                // Handle rate limits or specific API errors
+                if (!response.IsSuccessStatusCode)
+                {
+                    var statusCode = (int)response.StatusCode;
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    
+                    _logger.LogWarning($"LLM Error {statusCode} using {modelId}: {errorContent}");
+                    
+                    // 429 Too Many Requests, 500 Server Error, or "insufficient quota" -> report failure & fallback
+                    if (statusCode == 429 || statusCode >= 500 || errorContent.Contains("quota", StringComparison.OrdinalIgnoreCase))
+                    {
+                        _router.ReportFailure(modelId, $"API Error {statusCode} - Exhausted quota or rate limited");
+                        continue; // try the next model
+                    }
 
-        var geminiResponse = await response.Content.ReadFromJsonAsync<GeminiChatResponse>(
-            cancellationToken: cancellationToken);
+                    response.EnsureSuccessStatusCode(); // Force throw if it's a client bad request (e.g., 400)
+                }
 
-        var content = geminiResponse?.Choices?.FirstOrDefault()?.Message?.Content;
-        var tokens = geminiResponse?.Usage?.TotalTokens ?? 0;
+                var geminiResponse = await response.Content.ReadFromJsonAsync<GeminiChatResponse>(cancellationToken: cancellationToken);
 
-        return (content, tokens);
+                var content = geminiResponse?.Choices?.FirstOrDefault()?.Message?.Content;
+                var tokens = geminiResponse?.Usage?.TotalTokens ?? 0;
+
+                if (string.IsNullOrWhiteSpace(content))
+                {
+                    _logger.LogWarning($"LLM {modelId} returned an empty response.");
+                    _router.ReportFailure(modelId, "Returned empty response");
+                    continue;
+                }
+
+                return (content, tokens);
+            }
+            catch (HttpRequestException ex) when (attempt < maxRetries)
+            {
+                _logger.LogWarning($"Network error communicating with {modelId}: {ex.Message}. Failing over...");
+                _router.ReportFailure(modelId, "Network/Timeout error");
+            }
+            catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested && attempt < maxRetries)
+            {
+                _logger.LogWarning($"Timeout communicating with {modelId}. Failing over...");
+                _router.ReportFailure(modelId, "Timeout");
+            }
+        }
+
+        // Exhausted retries
+        throw new Exception($"Failed to complete LLM request after {maxRetries} attempts across available models.");
     }
 
     // =============================================

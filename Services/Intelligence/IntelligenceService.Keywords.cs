@@ -64,7 +64,8 @@ IMPORTANT: When user specifies a Visual Style, weave those terms into PRIMARY, M
             var (rawContent, tokensUsed) = await SendChatAsync(
                 KeywordSystemPrompt, userPrompt,
                 temperature: 0.3, maxTokens: 300,
-                cancellationToken: cancellationToken);
+                cancellationToken: cancellationToken,
+                requiresHighReasoning: false);
 
             result.RawResponse = rawContent;
             result.TokensUsed = tokensUsed;
@@ -253,7 +254,8 @@ IMPORTANT: When user specifies a Visual Style, weave those terms into PRIMARY, M
                 KeywordSystemPrompt, batchPrompt.ToString(),
                 temperature: 0.3,
                 maxTokens: Math.Min(sentenceList.Count * 100, 4000),
-                cancellationToken: cancellationToken);
+                cancellationToken: cancellationToken,
+                requiresHighReasoning: false);
 
             _logger.LogDebug("Batch extracting keywords for {Count} sentences", sentenceList.Count);
 
@@ -345,7 +347,8 @@ IMPORTANT: When user specifies a Visual Style, weave those terms into PRIMARY, M
                 KeywordSystemPrompt, batchPrompt.ToString(),
                 temperature: 0.3,
                 maxTokens: Math.Min(sentenceList.Count * 200, 6000),
-                cancellationToken: cancellationToken);
+                cancellationToken: cancellationToken,
+                requiresHighReasoning: false);
 
             _logger.LogDebug("Batch extracting layered keywords for {Count} sentences", sentenceList.Count);
 
