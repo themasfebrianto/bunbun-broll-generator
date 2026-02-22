@@ -136,6 +136,64 @@ public class SrtServiceTests
     }
 
     [Fact]
+    public void Step3_Duration_ShouldMatch_ExpandedSrt_HighPrecision()
+    {
+        // 1. Simulate finely sliced Step 2 Expanded SRT entries
+        // Notice the highly precise decimal values (e.g. 1.123, 2.766s)
+        var step2Entries = new List<SrtEntry>
+        {
+            new() { OriginalStartTime = TimeSpan.FromSeconds(0), StartTime = TimeSpan.FromSeconds(0), EndTime = TimeSpan.FromSeconds(1.123), Text = "This is" },
+            new() { OriginalStartTime = TimeSpan.FromSeconds(1.123), StartTime = TimeSpan.FromSeconds(1.123), EndTime = TimeSpan.FromSeconds(2.766), Text = "the first" },
+            new() { OriginalStartTime = TimeSpan.FromSeconds(2.766), StartTime = TimeSpan.FromSeconds(2.766), EndTime = TimeSpan.FromSeconds(5.000), Text = "highly precise sentence." },
+            
+            // Artificial gap here (e.g., pause padding or overlay padding applied in Step 2)
+            
+            new() { OriginalStartTime = TimeSpan.FromSeconds(6.500), StartTime = TimeSpan.FromSeconds(6.500), EndTime = TimeSpan.FromSeconds(7.854), Text = "And here is" },
+            new() { OriginalStartTime = TimeSpan.FromSeconds(7.854), StartTime = TimeSpan.FromSeconds(7.854), EndTime = TimeSpan.FromSeconds(10.201), Text = "the second sentence." }
+        };
+
+        var expectedTotalSrtDuration = step2Entries.Last().EndTime.TotalSeconds;
+
+        // 2. Simulate Step 3 merging into scenes (max 20s soft limit).
+        // Since duration is < 20s, the first sentence goes into one block and the gap might cause a split, or it might be merged if small enough.
+        // Actually, MergeToSegments detects punctuation and splits at sentences, so it will likely produce 2 scenes.
+        var mergedScenes = _service.MergeToSegments(step2Entries, maxDurationSeconds: 20.0);
+
+        // Map them just like ScriptGenerator.razor.Broll.cs does
+        var step3PromptItems = new List<BrollPromptItem>();
+        int idx = 1;
+        foreach (var (startTime, endTime, timestamp, text) in mergedScenes)
+        {
+            var duration = (endTime - startTime).TotalSeconds;
+            step3PromptItems.Add(new BrollPromptItem
+            {
+                Index = idx++,
+                Timestamp = timestamp,
+                ScriptText = text,
+                StartTimeSeconds = startTime.TotalSeconds,
+                EndTimeSeconds = endTime.TotalSeconds,
+                EstimatedDurationSeconds = duration
+            });
+        }
+
+        // 3. Asset precision!
+        // The last item's EndTime must exactly equal the last SrtEntry's EndTime
+        var actualTotalStep3Duration = step3PromptItems.Last().EndTimeSeconds;
+        Assert.Equal(expectedTotalSrtDuration, actualTotalStep3Duration, precision: 3);
+
+        // Summing the durations + the gap durations should also equal the total exact time
+        // However, gap duration is accounted for between StartTime/EndTime coordinates, so we just check matching bounds.
+        Assert.Equal(step2Entries.First().StartTime.TotalSeconds, step3PromptItems.First().StartTimeSeconds, precision: 3);
+        
+        // Ensure no item has a duration calculated via word-count fallback by asserting precision of sub-parts
+        foreach (var item in step3PromptItems)
+        {
+            Assert.True(item.EstimatedDurationSeconds > 0, $"Duration for segment {item.Index} must be positive.");
+            Assert.Equal(item.EndTimeSeconds - item.StartTimeSeconds, item.EstimatedDurationSeconds, precision: 5);
+        }
+    }
+
+    [Fact]
     public void RetimeEntriesWithActualDurations_EliminatesCumulativeDrift()
     {
         var entries = new List<SrtEntry>

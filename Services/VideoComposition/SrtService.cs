@@ -8,7 +8,7 @@ namespace BunbunBroll.Services;
 public interface ISrtService
 {
     List<SrtEntry> ParseSrt(string content);
-    List<(string Timestamp, string Text)> MergeToSegments(List<SrtEntry> entries, double maxDurationSeconds = 20.0);
+    List<(TimeSpan StartTime, TimeSpan EndTime, string Timestamp, string Text)> MergeToSegments(List<SrtEntry> entries, double maxDurationSeconds = 20.0);
     List<SrtEntry> ExpandSrtEntries(List<SrtEntry> originalEntries, double targetSegmentDuration = 12.0);
     string FormatExpandedSrt(List<SrtEntry> entries);
     string FormatExpandedSrt(List<SrtEntry> entries, Dictionary<int, TextOverlayDto>? overlays);
@@ -82,13 +82,14 @@ public class SrtService : ISrtService
         return result;
     }
 
-    public List<(string Timestamp, string Text)> MergeToSegments(List<SrtEntry> entries, double maxDurationSeconds = 20.0)
+    public List<(TimeSpan StartTime, TimeSpan EndTime, string Timestamp, string Text)> MergeToSegments(List<SrtEntry> entries, double maxDurationSeconds = 20.0)
     {
-        var result = new List<(string Timestamp, string Text)>();
+        var result = new List<(TimeSpan StartTime, TimeSpan EndTime, string Timestamp, string Text)>();
         if (entries == null || entries.Count == 0) return result;
 
         var currentText = new StringBuilder();
         TimeSpan? blockStart = null;
+        TimeSpan blockEnd = TimeSpan.Zero;
         var softLimitSeconds = maxDurationSeconds * 0.7; // Soft limit for smart splitting
         const int maxWordCount = 80; // Hard word-count limit (~32s of speech at 2.5 wps)
 
@@ -100,6 +101,7 @@ public class SrtService : ISrtService
             if (blockStart == null) 
             {
                 blockStart = entry.StartTime;
+                blockEnd = entry.EndTime;
                 currentText.Append(trimmedText);
             }
             else
@@ -129,9 +131,10 @@ public class SrtService : ISrtService
                 if (potentialDuration > maxDurationSeconds || exceedsWordLimit)
                 {
                     // Hard Split: Exceeds absolute max duration or word count limit
-                    result.Add((FormatTimestamp(blockStart.Value), currentText.ToString().Trim()));
+                    result.Add((blockStart.Value, blockEnd, FormatTimestamp(blockStart.Value), currentText.ToString().Trim()));
                     
                     blockStart = entry.StartTime;
+                    blockEnd = entry.EndTime;
                     currentText.Clear();
                     currentText.Append(trimmedText);
                 }
@@ -140,8 +143,9 @@ public class SrtService : ISrtService
                     // Smart Split: natural punctuation OR natural pause
                     if (currentText.Length > 0) currentText.Append(" ");
                     currentText.Append(trimmedText);
+                    blockEnd = entry.EndTime;
                     
-                    result.Add((FormatTimestamp(blockStart.Value), currentText.ToString().Trim()));
+                    result.Add((blockStart.Value, blockEnd, FormatTimestamp(blockStart.Value), currentText.ToString().Trim()));
                     
                     blockStart = null;
                     currentText.Clear();
@@ -151,13 +155,14 @@ public class SrtService : ISrtService
                     // Fits in current block
                     if (currentText.Length > 0) currentText.Append(" ");
                     currentText.Append(trimmedText);
+                    blockEnd = entry.EndTime;
                 }
             }
 
             // Always add the last block if it wasn't just added and exists
             if (i == entries.Count - 1 && blockStart != null)
             {
-                result.Add((FormatTimestamp(blockStart.Value), currentText.ToString().Trim()));
+                result.Add((blockStart.Value, blockEnd, FormatTimestamp(blockStart.Value), currentText.ToString().Trim()));
             }
         }
 

@@ -66,7 +66,7 @@ public partial class ScriptGenerator
 
         // 4. Convert merged segments to BrollPromptItems
         int idx = 1;
-        foreach (var (timestamp, text) in mergedSegments)
+        foreach (var (startTime, endTime, timestamp, text) in mergedSegments)
         {
             string textForParsing = text;
             var overlay = ScriptProcessor.ExtractTextOverlay(ref textForParsing);
@@ -78,16 +78,7 @@ public partial class ScriptGenerator
                     : textForParsing;
             }
 
-            var words = textForParsing.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;
-            var duration = Math.Max(3.0, words / 2.5);
-
-            // Parse timestamp [MM:SS] to seconds
-            double startSeconds = 0;
-            var tsMatch = System.Text.RegularExpressions.Regex.Match(timestamp, @"\[(\d+):(\d+)\]");
-            if (tsMatch.Success)
-            {
-                startSeconds = int.Parse(tsMatch.Groups[1].Value) * 60 + int.Parse(tsMatch.Groups[2].Value);
-            }
+            var duration = (endTime - startTime).TotalSeconds;
 
             _brollPromptItems.Add(new BrollPromptItem
             {
@@ -97,8 +88,8 @@ public partial class ScriptGenerator
                 TextOverlay = overlay,
                 MediaType = overlay != null ? BrollMediaType.BrollVideo : BrollMediaType.ImageGeneration,
                 EstimatedDurationSeconds = duration,
-                StartTimeSeconds = startSeconds,
-                EndTimeSeconds = startSeconds + duration
+                StartTimeSeconds = startTime.TotalSeconds,
+                EndTimeSeconds = endTime.TotalSeconds
             });
         }
 
@@ -614,7 +605,7 @@ public partial class ScriptGenerator
         _cookieUpdateTargetItem = null;
     }
 
-    private async Task SubmitCookieUpdate()
+    private void SubmitCookieUpdate()
     {
         if (string.IsNullOrWhiteSpace(_newWhiskCookie)) return;
 
@@ -905,7 +896,7 @@ public partial class ScriptGenerator
             if (!string.IsNullOrEmpty(item.WhiskImagePath) && System.IO.File.Exists(item.WhiskImagePath))
             {
                 try { System.IO.File.Delete(item.WhiskImagePath); } catch { }
-                try { System.IO.File.Delete(item.WhiskVideoPath); } catch { }
+                try { if (item.WhiskVideoPath != null) System.IO.File.Delete(item.WhiskVideoPath); } catch { }
             }
 
             item.WhiskStatus = WhiskGenerationStatus.Pending;

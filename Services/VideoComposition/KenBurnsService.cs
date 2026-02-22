@@ -104,13 +104,17 @@ public class KenBurnsService
             return false;
         }
 
+        // Calculate the exact number of frames
+        int d = (int)Math.Round(durationSeconds * DefaultFps);
+        if (d < 2) d = 2;
+
         // Build FFmpeg command
         // -movflags +faststart: moves moov atom to front for instant browser playback
         var args = new StringBuilder();
         args.Append("-loop 1");
         args.Append($" -i \"{imagePath}\"");
-        args.Append($" -t {durationSeconds.ToString("F3", CultureInfo.InvariantCulture)}");
         args.Append($" -vf \"{filter}\"");
+        args.Append($" -frames:v {d}");
         args.Append(" -c:v libx264");
         args.Append(" -preset ultrafast");
         args.Append(" -crf 28");
@@ -129,7 +133,7 @@ public class KenBurnsService
                 {
                     FileName = ffmpegPath,
                     Arguments = args.ToString(),
-                    RedirectStandardOutput = true,
+                    RedirectStandardOutput = false, // Prevents deadlock as we don't read stdout
                     RedirectStandardError = true,
                     UseShellExecute = false,
                     CreateNoWindow = true
@@ -137,8 +141,9 @@ public class KenBurnsService
             };
 
             process.Start();
-            var stderr = await process.StandardError.ReadToEndAsync();
+            var stderrTask = process.StandardError.ReadToEndAsync();
             await process.WaitForExitAsync(cancellationToken);
+            var stderr = await stderrTask;
 
             if (process.ExitCode != 0)
             {
@@ -203,8 +208,17 @@ public class KenBurnsService
         ConfigureMotionParameters(motionType, ref startScale, ref endScale,
             ref startX, ref startY, ref endX, ref endY);
 
-        // Calculate total frames at 30fps
-        int d = (int)(durationSeconds * DefaultFps);
+        // Calculate exact total frames needed to match the requested duration
+        // We do Math.Round to ensure we don't accidentally spit out an extra frame 
+        // due to double precision drifting, e.g. 8.75s * 30fps = 262.5 frames. Wait!
+        // Fractional frames don't exist in standard MKV/MP4 rendering easily without VFR.
+        // But FFmpeg `-t` is failing. We MUST calculate `d` as strictly `duration * FPS`.
+        // To hit exact fractional duration, we keep CFR, but we round to the nearest whole frame.
+        // A duration of 8.75s @ 30 FPS is impossible to represent exactly. It's either 262 frames (8.733s) or 263 frames (8.766s).
+        // Since B-roll items are stitched together by FFMPEG via concat demuxer, 
+        // minor fractional deviations per-file get absorbed, BUT we want the file itself to be as close to requested duration as technically possible given the framerate.
+        // Therefore, we use Math.Round.
+        int d = (int)Math.Round(durationSeconds * DefaultFps);
         if (d < 2) d = 2;
 
         var inv = CultureInfo.InvariantCulture;
@@ -220,8 +234,9 @@ public class KenBurnsService
         double y0 = startY / 100.0;
         double y1 = endY / 100.0;
 
-        // Progress variable for interpolation: on/(d-1)
-        string t = $"on/{d - 1}";
+        // Progress variable for interpolation: max(0, on-1)/(d-1)
+        // 'on' is the output frame number, it starts at 1. (on-1) ensures frame 1 is t=0.0
+        string t = $"max(0,on-1)/{d - 1}";
 
         // Zoom expression: linear interpolation from z0 to z1
         string zExpr = $"{F(z0)}+({F(z1)}-{F(z0)})*{t}";

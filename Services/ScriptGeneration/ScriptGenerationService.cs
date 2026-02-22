@@ -34,7 +34,7 @@ public class ScriptGenerationService : IScriptGenerationService
         _logger = logger;
     }
 
-    public async Task<List<ScriptPattern>> GetAvailablePatternsAsync()
+    public Task<List<ScriptPattern>> GetAvailablePatternsAsync()
     {
         var patterns = new List<ScriptPattern>();
         foreach (var patternId in _patternRegistry.ListPatterns())
@@ -52,7 +52,7 @@ public class ScriptGenerationService : IScriptGenerationService
                 });
             }
         }
-        return patterns;
+        return Task.FromResult(patterns);
     }
 
     public async Task<ScriptGenerationSession> CreateSessionAsync(
