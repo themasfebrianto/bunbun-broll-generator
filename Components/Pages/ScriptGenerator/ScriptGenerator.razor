@@ -248,7 +248,9 @@
             OnProcess="HandleProcessVo"
             OnComplete="OnExpansionComplete"
             ProcessingStatus="@_processingStatus"
-            ProcessingProgress="@_processingProgress" />
+            ProcessingProgress="@_processingProgress" 
+            @bind-UsePadCap="_usePadCap"
+            @bind-PadCapMs="_padCapMs" />
     }
 
     @* ============ VIEW 4: B-Roll Prompts ============ *@

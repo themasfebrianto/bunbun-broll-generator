@@ -18,6 +18,10 @@ public partial class ScriptGenerator
     private string? _processingStatus = null;
     private int _processingProgress = 0;
 
+    // Expansion Configuration
+    private bool _usePadCap = true;
+    private double _padCapMs = 300.0;
+
     // File paths
     private string? _voFilePath = null;
     private string? _srtFilePath = null;
@@ -202,7 +206,9 @@ public partial class ScriptGenerator
             var expansionResult = await SrtExpansionService.ExpandCapCutSrtAsync(
                 capCutSrtPath,
                 _sessionId ?? Guid.NewGuid().ToString(),
-                outputDir
+                outputDir,
+                _usePadCap,
+                _padCapMs
             );
 
             if (!expansionResult.IsSuccess)

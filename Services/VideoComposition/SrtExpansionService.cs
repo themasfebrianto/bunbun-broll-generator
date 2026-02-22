@@ -5,7 +5,7 @@ namespace BunbunBroll.Services;
 
 public interface ISrtExpansionService
 {
-    Task<SrtExpansionResult> ExpandCapCutSrtAsync(string capCutSrtPath, string sessionId, string outputDirectory);
+    Task<SrtExpansionResult> ExpandCapCutSrtAsync(string capCutSrtPath, string sessionId, string outputDirectory, bool usePadCap = true, double padCapMs = 300.0);
 }
 
 public class SrtExpansionService : ISrtExpansionService
@@ -23,7 +23,7 @@ public class SrtExpansionService : ISrtExpansionService
         _overlayDetectionService = overlayDetectionService;
     }
 
-    public async Task<SrtExpansionResult> ExpandCapCutSrtAsync(string capCutSrtPath, string sessionId, string outputDirectory)
+    public async Task<SrtExpansionResult> ExpandCapCutSrtAsync(string capCutSrtPath, string sessionId, string outputDirectory, bool usePadCap = true, double padCapMs = 300.0)
     {
         var result = new SrtExpansionResult { IsSuccess = false };
 
@@ -51,7 +51,7 @@ public class SrtExpansionService : ISrtExpansionService
 
             // Calculate padding by splitting the gap between entries at the midpoint.
             // This prevents CapCut ASR from clipping consonant lead-ins (e.g. "namun") and trailing vowels.
-            const double MaxPadding = 0.300; // 300ms cap
+            double maxPaddingSec = padCapMs / 1000.0;
 
             for (int i = 0; i < result.ExpandedEntries.Count; i++)
             {
@@ -59,23 +59,46 @@ public class SrtExpansionService : ISrtExpansionService
                 double startTime = entry.OriginalStartTime.TotalSeconds;
                 double endTime = entry.OriginalEndTime.TotalSeconds;
 
-                // Start padding: half the gap to previous entry, capped at MaxPadding
-                double paddingStart = MaxPadding;
+                // Start padding: half the gap to previous entry
+                double paddingStart;
                 if (i > 0)
                 {
                     double prevEndTime = result.ExpandedEntries[i - 1].OriginalEndTime.TotalSeconds;
                     double gapBefore = Math.Max(0, startTime - prevEndTime);
-                    paddingStart = Math.Min(MaxPadding, gapBefore / 2.0);
+                    paddingStart = gapBefore / 2.0;
+                    if (usePadCap)
+                    {
+                        paddingStart = Math.Min(maxPaddingSec, paddingStart);
+                    }
                 }
-                paddingStart = Math.Min(paddingStart, startTime); // don't go before 0s
-
-                // End padding: half the gap to next entry, capped at MaxPadding
-                double paddingEnd = MaxPadding;
+                else
+                {
+                    paddingStart = startTime; // First entry absorbs all leading silence
+                    if (usePadCap)
+                    {
+                        paddingStart = Math.Min(maxPaddingSec, paddingStart);
+                    }
+                }
+                
+                // End padding: half the gap to next entry
+                double paddingEnd;
                 if (i < result.ExpandedEntries.Count - 1)
                 {
                     double nextStartTime = result.ExpandedEntries[i + 1].OriginalStartTime.TotalSeconds;
                     double gapAfter = Math.Max(0, nextStartTime - endTime);
-                    paddingEnd = Math.Min(MaxPadding, gapAfter / 2.0);
+                    paddingEnd = gapAfter / 2.0;
+                    if (usePadCap)
+                    {
+                        paddingEnd = Math.Min(maxPaddingSec, paddingEnd);
+                    }
+                }
+                else
+                {
+                    paddingEnd = 0.3; // Safe default for last entry
+                    if (usePadCap)
+                    {
+                        paddingEnd = Math.Min(maxPaddingSec, paddingEnd);
+                    }
                 }
                 
                 entry.PaddingStart = TimeSpan.FromSeconds(paddingStart);

@@ -55,6 +55,42 @@
                 }
             </div>
 
+            @* Padding Configuration *@
+            <div class="space-y-4 pt-4 border-t border-border/50">
+                <h4 class="font-medium text-sm text-primary">Padding Configuration</h4>
+                
+                <div class="flex items-center gap-2">
+                    <input type="checkbox" id="usePadCap" class="form-checkbox text-primary rounded border-border" 
+                           checked="@UsePadCap" @onchange="HandleUsePadCapChange" disabled="@(IsExpanding || IsSlicing)" />
+                    <label for="usePadCap" class="text-sm cursor-pointer select-none">Enable Maximum Padding Cap</label>
+                </div>
+                
+                @if (UsePadCap)
+                {
+                    <div class="space-y-2 pl-6 animate-in slide-in-from-top-1 fade-in duration-200">
+                        <div class="flex justify-between items-center">
+                            <label for="padCapMs" class="text-xs text-muted-foreground">Maximum Padding (ms):</label>
+                            <span class="text-xs font-mono font-medium text-primary">@PadCapMs ms</span>
+                        </div>
+                        <input type="range" id="padCapMs" min="0" max="1000" step="50" 
+                               value="@PadCapMs" @oninput="HandlePadCapMsChange" 
+                               disabled="@(!UsePadCap || IsExpanding || IsSlicing)"
+                               class="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-pointer accent-primary" />
+                        <div class="flex justify-between text-[10px] text-muted-foreground/70">
+                            <span>0ms</span>
+                            <span>500ms</span>
+                            <span>1000ms</span>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="pl-6 animate-in slide-in-from-top-1 fade-in duration-200">
+                        <p class="text-xs text-muted-foreground italic">Padding will strictly use half of the gap between sentences, unbounded.</p>
+                    </div>
+                }
+            </div>
+
             @* Actions *@
             <div class="pt-4 border-t border-border/50">
                 <button class="btn-primary w-full sm:w-auto flex items-center justify-center gap-2"
@@ -338,6 +374,12 @@
     [Parameter] public ExpansionStats? Stats { get; set; }
     [Parameter] public List<SrtEntry>? ExpandedEntries { get; set; }
     [Parameter] public string? StitchedVoUrl { get; set; }
+    
+    [Parameter] public bool UsePadCap { get; set; } = true;
+    [Parameter] public EventCallback<bool> UsePadCapChanged { get; set; }
+    
+    [Parameter] public double PadCapMs { get; set; } = 300.0;
+    [Parameter] public EventCallback<double> PadCapMsChanged { get; set; }
 
     [Parameter] public EventCallback<InputFileChangeEventArgs> OnVoSelected { get; set; }
     [Parameter] public EventCallback<InputFileChangeEventArgs> OnSrtSelected { get; set; }
@@ -412,6 +454,22 @@
     private async Task HandleSrtInputFileChange(InputFileChangeEventArgs e)
     {
         await OnSrtSelected.InvokeAsync(e);
+    }
+
+    private async Task HandleUsePadCapChange(ChangeEventArgs e)
+    {
+        if (e.Value is bool val)
+        {
+            await UsePadCapChanged.InvokeAsync(val);
+        }
+    }
+
+    private async Task HandlePadCapMsChange(ChangeEventArgs e)
+    {
+        if (double.TryParse(e.Value?.ToString(), out var val))
+        {
+            await PadCapMsChanged.InvokeAsync(val);
+        }
     }
 
     private Task OnProcessClicked() => OnProcess.InvokeAsync();
