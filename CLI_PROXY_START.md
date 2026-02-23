@@ -28,4 +28,4 @@ Status:
   ls -la ~/.ccs/cliproxy/auth/  
   
   # Option 1: Delete all auth files                                                                                                                                           
-  rm ~/.ccs/cliproxy/auth/*.json  
+rm -f /home/turnasoul/.ccs/cliproxy/accounts.json
