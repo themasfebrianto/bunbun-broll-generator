@@ -15,6 +15,8 @@ namespace BunbunBroll.Components.Pages.ScriptGenerator;
 
 public partial class ScriptGenerator
 {
+    private BrollSessionMetadata? _storedMetadata;
+    private string? _brollWarning;
 
     private async Task HandleSendToBroll()
     {
@@ -27,8 +29,12 @@ public partial class ScriptGenerator
             await LoadGlobalContextFromDisk();
         }
 
-        _currentView = "broll-prompts";
-        StateHasChanged();
+        if (_brollPromptItems.Count > 0)
+        {
+            _canProceedToStep3 = true;
+        }
+
+        GoToStepDirect(1);
     }
 
     private async Task ResetAndInitializeBrollFromSrt()
@@ -65,7 +71,7 @@ public partial class ScriptGenerator
         }
 
         // 4. Convert merged segments to BrollPromptItems
-        int idx = 1;
+        int idx = 0;
         foreach (var (startTime, endTime, timestamp, text) in mergedSegments)
         {
             string textForParsing = text;
@@ -93,13 +99,40 @@ public partial class ScriptGenerator
             });
         }
 
-        // 5. Save to disk
+        // 5. Save SRT metadata for change detection
+        var (entryCount, totalDuration) = ComputeSrtFingerprint();
+        var metadata = new BrollSessionMetadata
+        {
+            SrtEntryCount = entryCount,
+            SrtTotalDuration = totalDuration,
+            SrtFilePath = _srtPath, // _srtPath is available based on context, let's verify. Or _srtFilePath depending on properties
+            GeneratedAt = DateTime.UtcNow
+        };
+        await BrollPersistence.SaveBrollMetadata(metadata, _resultSession, _sessionId);
+        _storedMetadata = metadata; // Cache in memory
+
+        // 6. Save to disk
         await SaveBrollPromptsToDisk();
         await SaveImageConfigToDisk();
 
         _classifyTotalSegments = _brollPromptItems.Count;
         _classifyCompletedSegments = _brollPromptItems.Count;
         StateHasChanged();
+    }
+
+    /// <summary>
+    /// Computes a lightweight fingerprint of the current SRT structure.
+    /// Used to detect if SRT has changed since B-Roll prompts were generated.
+    /// </summary>
+    private (int count, double duration) ComputeSrtFingerprint()
+    {
+        if (_expandedEntries == null || _expandedEntries.Count == 0)
+            return (0, 0);
+
+        var totalDuration = _expandedEntries
+            .Sum(e => (e.EndTime - e.StartTime).TotalSeconds);
+
+        return (_expandedEntries.Count, totalDuration);
     }
 
     // ParseScriptToBrollItemsAsync removed — Step 3 now only receives data from Step 2's expanded SRT via ResetAndInitializeBrollFromSrt()
@@ -991,6 +1024,41 @@ public partial class ScriptGenerator
     private async Task LoadBrollPromptsFromDisk()
     {
         _brollPromptItems = await BrollPersistence.LoadBrollPromptsFromDisk(_resultSession, _sessionId);
+        if (_brollPromptItems.Count > 0)
+        {
+            _canProceedToStep3 = true;
+            
+            // Backfill Index and Time info for older saved sessions
+            bool hasOldData = false;
+            for (int i = 0; i < _brollPromptItems.Count; i++)
+            {
+                var item = _brollPromptItems[i];
+                // Fix 1-based indexing from older saves to 0-based
+                if (item.Index == i + 1)
+                {
+                    item.Index = i;
+                }
+                
+                // Track missing time data for older saved projects
+                if (item.EstimatedDurationSeconds == 0 && item.EndTimeSeconds == 0 && !string.IsNullOrWhiteSpace(item.Timestamp))
+                {
+                    hasOldData = true;
+                }
+            }
+            
+            if (hasOldData)
+            {
+                _brollWarning = "Project versi lama (waktu video 0s) terdeteksi. Silakan kembali ke Step 2 dan lakukan 'Looks Good, Proceed' ulang untuk kalkulasi durasi yang akurat dari SRT.";
+            }
+            else
+            {
+                _brollWarning = null;
+            }
+        }
+        else
+        {
+            _brollWarning = null;
+        }
     }
 
     private async Task LoadImageConfigFromDisk()
@@ -1137,6 +1205,114 @@ public partial class ScriptGenerator
         }
 
         return Path.Combine(baseDir, relative.Replace("/", Path.DirectorySeparatorChar.ToString()));
+    }
+
+    // ===== B-Roll Direct Merging =====
+    
+    private bool _isMergingBrollVideo;
+    private string? _mergeBrollProgress;
+    private string? _mergedBrollPath;
+
+    private async Task HandleMergeBrollPreview() => await ComposeBrollVideo(isPreview: true);
+    private async Task HandleMergeBrollReal() => await ComposeBrollVideo(isPreview: false);
+
+    private async Task ComposeBrollVideo(bool isPreview)
+    {
+        if (_brollPromptItems.Count == 0 || _resultSession == null) return;
+        
+        _isMergingBrollVideo = true;
+        _mergeBrollProgress = "Starting composition...";
+        _mergedBrollPath = null;
+        StateHasChanged();
+
+        try
+        {
+            // Auto detect VO and SRT so they can be included if available
+            AutoDetectVoAndSrt();
+
+            var config = new BunbunBroll.Models.VideoConfig
+            {
+                CapCutAudioPath = _voPath,
+                CapCutSrtPath = _srtPath,
+                IsDraftPreview = isPreview
+            };
+
+            var clips = new List<BunbunBroll.Models.VideoClip>();
+            foreach(var item in _brollPromptItems)
+            {
+                if(item.MediaType == BunbunBroll.Models.BrollMediaType.BrollVideo && (!string.IsNullOrEmpty(item.FilteredVideoPath) || !string.IsNullOrEmpty(item.LocalVideoPath) || !string.IsNullOrEmpty(item.SelectedVideoUrl)))
+                {
+                    string finalPath = !string.IsNullOrEmpty(item.FilteredVideoPath) ? item.FilteredVideoPath :
+                                       !string.IsNullOrEmpty(item.LocalVideoPath) ? item.LocalVideoPath : 
+                                       ResolveLocalPath(item.SelectedVideoUrl!);
+
+                    clips.Add(new BunbunBroll.Models.VideoClip 
+                    { 
+                        SourcePath = finalPath,
+                        SourceUrl = item.SelectedVideoUrl,
+                        AssociatedText = item.ScriptText,
+                        TextOverlay = item.TextOverlay
+                    });
+                }
+                else if (item.MediaType == BunbunBroll.Models.BrollMediaType.ImageGeneration)
+                {
+                     if (!string.IsNullOrEmpty(item.FilteredVideoPath))
+                     {
+                          clips.Add(new BunbunBroll.Models.VideoClip 
+                          { 
+                              SourcePath = item.FilteredVideoPath,
+                              AssociatedText = item.ScriptText,
+                              TextOverlay = item.TextOverlay
+                          });
+                     }
+                     else if (!string.IsNullOrEmpty(item.WhiskVideoPath))
+                     {
+                          clips.Add(new BunbunBroll.Models.VideoClip 
+                          { 
+                              SourcePath = item.WhiskVideoPath,
+                              AssociatedText = item.ScriptText,
+                              TextOverlay = item.TextOverlay
+                          });
+                     }
+                     else if (!string.IsNullOrEmpty(item.WhiskImagePath))
+                     {
+                          clips.Add(BunbunBroll.Models.VideoClip.FromImage(item.WhiskImagePath, item.ScriptText, 3.0, textOverlay: item.TextOverlay));
+                     }
+                }
+            }
+
+            var progressReporter = new Progress<BunbunBroll.Models.CompositionProgress>(p =>
+            {
+                _ = InvokeAsync(() =>
+                {
+                    _mergeBrollProgress = $"[{p.Percent}%] {p.Stage}: {p.Message}";
+                    StateHasChanged();
+                });
+            });
+
+            var result = await VideoComposer.ComposeAsync(clips, config, _sessionId, progressReporter, CancellationToken.None);
+
+            if (result.Success)
+            {
+                _mergedBrollPath = result.OutputPath;
+                _mergeBrollProgress = "Video composed successfully!";
+            }
+            else
+            {
+                _classifyError = result.ErrorMessage; // show in Broll Prompts view
+                _mergeBrollProgress = null;
+            }
+        }
+        catch (Exception ex)
+        {
+            _classifyError = $"Composition failed: {ex.Message}";
+            _mergeBrollProgress = null;
+        }
+        finally
+        {
+            _isMergingBrollVideo = false;
+            StateHasChanged();
+        }
     }
 
     // ===== Confirmation Dialog =====

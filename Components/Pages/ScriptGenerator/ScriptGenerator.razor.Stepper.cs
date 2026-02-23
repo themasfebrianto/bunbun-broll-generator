@@ -20,7 +20,131 @@ public partial class ScriptGenerator
     private bool _canProceedToStep4 = false;
     private bool _canProceedToStep5 = false;
 
-    private void GoToStep(int step)
+    /// <summary>
+    /// Tracks whether SRT has changed since B-Roll prompts were generated.
+    /// </summary>
+    private enum SrtChangeStatus
+    {
+        NoBrollData,
+        Unchanged,
+        Changed,
+        LegacyNeedsUpgrade
+    }
+
+    /// <summary>
+    /// Checks if SRT has changed since B-Roll prompts were generated.
+    /// </summary>
+    private async Task<SrtChangeStatus> CheckSrtChangeStatus()
+    {
+        if (_brollPromptItems.Count == 0)
+            return SrtChangeStatus.NoBrollData;
+
+        var metadata = await BrollPersistence.LoadBrollMetadata(_resultSession, _sessionId);
+        if (metadata == null)
+            return SrtChangeStatus.NoBrollData;
+
+        _storedMetadata = metadata;
+
+        var (currentCount, currentDuration) = ComputeSrtFingerprint();
+
+        bool countChanged = currentCount != metadata.SrtEntryCount;
+        bool durationChanged = Math.Abs(currentDuration - metadata.SrtTotalDuration) > 0.5;
+
+        if (!string.IsNullOrEmpty(_brollWarning))
+            return SrtChangeStatus.LegacyNeedsUpgrade;
+
+        if (countChanged || durationChanged)
+            return SrtChangeStatus.Changed;
+
+        return SrtChangeStatus.Unchanged;
+    }
+
+    /// <summary>
+    /// Direct navigation to a step without triggering smart navigation logic.
+    /// Used after validation has already been performed.
+    /// </summary>
+    private void GoToStepDirect(int step)
+    {
+        if (step < 0 || step >= _stepperSteps.Length) return;
+
+        _currentStep = step;
+        _currentView = step switch
+        {
+            0 => "results",
+            1 => "expand-vo",
+            2 => "broll-prompts",
+            3 => "generate-media",
+            4 => "audio-assembly",
+            _ => "results"
+        };
+
+        if (step == 2 && _brollPromptItems.Count == 0)
+        {
+            _ = LoadBrollPromptsFromDisk();
+        }
+
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Smart navigation handler for Step 3 (B-Roll Prompts).
+    /// Detects SRT changes and handles accordingly.
+    /// </summary>
+    private async Task HandleNavigateToBrollPrompts()
+    {
+        var status = await CheckSrtChangeStatus();
+
+        switch (status)
+        {
+            case SrtChangeStatus.NoBrollData:
+                RequestConfirmation(
+                    "Initialize B-Roll Prompts",
+                    "Ready to generate B-Roll prompts from expanded SRT. Proceed?",
+                    async () =>
+                    {
+                        await ResetAndInitializeBrollFromSrt();
+                        _canProceedToStep3 = true;
+                        GoToStepDirect(2);
+                    });
+                break;
+
+            case SrtChangeStatus.Unchanged:
+                _canProceedToStep3 = true;
+                GoToStepDirect(2);
+                break;
+
+            case SrtChangeStatus.Changed:
+                var (currentCount, currentDuration) = ComputeSrtFingerprint();
+                RequestConfirmation(
+                    "SRT Has Changed",
+                    $"⚠️ SRT content has changed since B-Roll prompts were generated.\n\n" +
+                    $"Old: {_storedMetadata!.SrtEntryCount} entries, {_storedMetadata.SrtTotalDuration:F1}s\n" +
+                    $"New: {currentCount} entries, {currentDuration:F1}s\n\n" +
+                    "This will reset ALL B-Roll prompts. Continue?",
+                    async () =>
+                    {
+                        await ResetAndInitializeBrollFromSrt();
+                        _canProceedToStep3 = true;
+                        GoToStepDirect(2);
+                    });
+                break;
+                
+            case SrtChangeStatus.LegacyNeedsUpgrade:
+                RequestConfirmation(
+                    "Upgrade Project Lama",
+                    "⚠️ Data project versi lama terdeteksi (durasi video 0s).\n\nMengklik Continue akan mereset segment B-Roll untuk mengkalkulasi durasi yang akurat dari SRT. Lanjutkan?",
+                    async () =>
+                    {
+                        await ResetAndInitializeBrollFromSrt();
+                        _brollWarning = null;
+                        _canProceedToStep3 = true;
+                        GoToStepDirect(2);
+                    });
+                break;
+        }
+    }
+
+    private async Task GoToStep(int step)
     {
         if (step < 0 || step >= _stepperSteps.Length) return;
 
@@ -28,6 +152,12 @@ public partial class ScriptGenerator
         if (step == 2 && !_canProceedToStep3) return;
         if (step == 3 && !_canProceedToStep4) return;
         if (step == 4 && !_canProceedToStep5) return;
+
+        if (step == 2 && _currentView == "expand-vo")
+        {
+            await HandleNavigateToBrollPrompts();
+            return;
+        }
 
         _currentStep = step;
         
@@ -51,8 +181,8 @@ public partial class ScriptGenerator
         StateHasChanged();
     }
 
-    private void NextStep() => GoToStep(_currentStep + 1);
-    private void PreviousStep() => GoToStep(_currentStep - 1);
+    private async Task NextStep() => await GoToStep(_currentStep + 1);
+    private async Task PreviousStep() => await GoToStep(_currentStep - 1);
 
     private void OnScriptGenerationComplete()
     {
@@ -60,17 +190,54 @@ public partial class ScriptGenerator
         StateHasChanged();
     }
 
-    private void OnExpansionComplete()
+    private async Task OnExpansionComplete()
     {
         _canProceedToStep3 = true;
-        RequestConfirmation(
-            "Proceed to B-Roll Prompts",
-            "⚠️ PROCEED TO STEP 3: Ini akan me-reset SEMUA progress B-Roll Prompts yang sudah ada (jika ada) karena script akan di-remapping ulang berdasarkan timing VO yang baru. Lanjutkan?",
-            async () =>
-            {
-                await ResetAndInitializeBrollFromSrt();
-                GoToStep(2);
-            });
+
+        var status = await CheckSrtChangeStatus();
+
+        if (status == SrtChangeStatus.NoBrollData)
+        {
+            RequestConfirmation(
+                "Proceed to B-Roll Prompts",
+                "Ready to generate B-Roll prompts from expanded SRT. Proceed?",
+                async () =>
+                {
+                    await ResetAndInitializeBrollFromSrt();
+                    GoToStepDirect(2);
+                });
+        }
+        else if (status == SrtChangeStatus.Changed)
+        {
+            var (currentCount, currentDuration) = ComputeSrtFingerprint();
+            RequestConfirmation(
+                "SRT Has Changed",
+                $"⚠️ SRT content has changed since B-Roll prompts were generated.\n\n" +
+                $"Old: {_storedMetadata!.SrtEntryCount} entries, {_storedMetadata.SrtTotalDuration:F1}s\n" +
+                $"New: {currentCount} entries, {currentDuration:F1}s\n\n" +
+                "This will reset ALL B-Roll prompts. Continue?",
+                async () =>
+                {
+                    await ResetAndInitializeBrollFromSrt();
+                    GoToStepDirect(2);
+                });
+        }
+        else if (status == SrtChangeStatus.LegacyNeedsUpgrade)
+        {
+            RequestConfirmation(
+                "Upgrade Project Lama",
+                "⚠️ Data project versi lama terdeteksi (durasi video 0s).\n\nMengklik Continue akan mereset segment B-Roll untuk mengkalkulasi durasi yang akurat dari SRT. Lanjutkan?",
+                async () =>
+                {
+                    await ResetAndInitializeBrollFromSrt();
+                    _brollWarning = null;
+                    GoToStepDirect(2);
+                });
+        }
+        else
+        {
+            GoToStepDirect(2);
+        }
     }
 
     private void OnBrollPromptsComplete()

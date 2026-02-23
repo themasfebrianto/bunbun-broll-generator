@@ -20,6 +20,8 @@ public interface IBrollPersistenceService
     Task<GlobalScriptContext?> LoadGlobalContextFromDisk(ScriptGenerationSession? session, string? sessionId);
     Task HandleDeleteBrollCache();
     void InvalidateBrollClassification(List<BrollPromptItem> items, ScriptGenerationSession? session, string? sessionId);
+    Task SaveBrollMetadata(BrollSessionMetadata metadata, ScriptGenerationSession? session, string? sessionId);
+    Task<BrollSessionMetadata?> LoadBrollMetadata(ScriptGenerationSession? session, string? sessionId);
 }
 
 public class BrollPersistenceService : IBrollPersistenceService
@@ -51,6 +53,36 @@ public class BrollPersistenceService : IBrollPersistenceService
         return constructedPath;
     }
 
+    public async Task SaveBrollMetadata(BrollSessionMetadata metadata, ScriptGenerationSession? session, string? sessionId)
+    {
+        if (session == null || string.IsNullOrEmpty(sessionId)) return;
+
+        var dir = Path.Combine("output", sessionId);
+        Directory.CreateDirectory(dir);
+
+        var path = Path.Combine(dir, "broll-metadata.json");
+        var json = JsonSerializer.Serialize(metadata, _jsonOptions);
+        await File.WriteAllTextAsync(path, json);
+    }
+
+    public async Task<BrollSessionMetadata?> LoadBrollMetadata(ScriptGenerationSession? session, string? sessionId)
+    {
+        if (session == null || string.IsNullOrEmpty(sessionId)) return null;
+
+        var path = Path.Combine("output", sessionId, "broll-metadata.json");
+        if (!File.Exists(path)) return null;
+
+        try
+        {
+            var json = await File.ReadAllTextAsync(path);
+            return JsonSerializer.Deserialize<BrollSessionMetadata>(json, _jsonOptions);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
     public async Task SaveBrollPromptsToDisk(List<BrollPromptItem> items, ScriptGenerationSession? session, string? sessionId)
     {
         var filePath = GetBrollPromptsFilePath(session, sessionId);
@@ -66,7 +98,10 @@ public class BrollPersistenceService : IBrollPersistenceService
                 SelectedVideoUrl = i.SelectedVideoUrl, LocalVideoPath = i.LocalVideoPath, KenBurnsMotion = i.KenBurnsMotion,
                 WhiskVideoStatus = i.WhiskVideoStatus, WhiskVideoPath = i.WhiskVideoPath, WhiskVideoError = i.WhiskVideoError,
                 Style = i.Style, Filter = i.Filter, Texture = i.Texture, FilteredVideoPath = i.FilteredVideoPath,
-                TextOverlay = i.TextOverlay
+                TextOverlay = i.TextOverlay,
+                EstimatedDurationSeconds = i.EstimatedDurationSeconds,
+                StartTimeSeconds = i.StartTimeSeconds,
+                EndTimeSeconds = i.EndTimeSeconds
             }).ToList();
 
             var json = JsonSerializer.Serialize(saveData, _jsonOptions);
@@ -101,7 +136,10 @@ public class BrollPersistenceService : IBrollPersistenceService
                     ? BrollPromptItem.GetRandomMotion() : s.KenBurnsMotion,
                 WhiskVideoStatus = s.WhiskVideoStatus, WhiskVideoPath = s.WhiskVideoPath, WhiskVideoError = s.WhiskVideoError,
                 Style = s.Style, Filter = s.Filter, Texture = s.Texture, FilteredVideoPath = s.FilteredVideoPath,
-                TextOverlay = s.TextOverlay
+                TextOverlay = s.TextOverlay,
+                EstimatedDurationSeconds = s.EstimatedDurationSeconds,
+                StartTimeSeconds = s.StartTimeSeconds,
+                EndTimeSeconds = s.EndTimeSeconds
             }).ToList();
 
             // Sanitize paths on load
@@ -268,5 +306,8 @@ public class BrollPersistenceService : IBrollPersistenceService
         public VideoTexture Texture { get; set; }
         public string? FilteredVideoPath { get; set; }
         public TextOverlay? TextOverlay { get; set; }
+        public double EstimatedDurationSeconds { get; set; }
+        public double StartTimeSeconds { get; set; }
+        public double EndTimeSeconds { get; set; }
     }
 }

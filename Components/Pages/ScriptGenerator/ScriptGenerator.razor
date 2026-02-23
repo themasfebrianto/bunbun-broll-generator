@@ -85,7 +85,7 @@
                                 ? "bg-primary/15 text-primary shadow-sm border border-primary/30"
                                 : !isClickable ? "text-muted-foreground/50 cursor-not-allowed" : "text-muted-foreground hover:text-foreground hover:bg-muted/50")"
                             disabled="@(!isClickable)"
-                            @onclick="() => GoToStep(stepIndex)">
+                            @onclick="async () => await GoToStep(stepIndex)">
                         <span class="flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold
                                 @(isActive
                                     ? "bg-primary text-primary-foreground"
@@ -222,7 +222,7 @@
             OnRegenerateAll="HandleRegenerateAll"
             OnEditConfig="HandleEditConfig"
             OnExportLrc="HandleExportLrc"
-            OnSendToBroll="() => GoToStep(1)"
+            OnSendToBroll="async () => await GoToStep(1)"
             OnRegeneratePhase="HandleRegeneratePhase"
             OnCopyPhaseContent="HandleCopyPhaseContent"
             OnUpdatePhaseContent="HandleUpdatePhaseContent" />
@@ -264,6 +264,7 @@
             TotalPhases="_totalPhases"
             PromptItems="_brollPromptItems"
             IsClassifying="_isClassifyingBroll"
+            WarningMessage="@_brollWarning"
             ClassifyTotalSegments="_classifyTotalSegments"
             ClassifyCompletedSegments="_classifyCompletedSegments"
             ClassifyError="@_classifyError"
@@ -308,7 +309,12 @@
             PromptConfig="_imagePromptConfig"
             GlobalContext="_globalContext"
             OnRegenerateContext="HandleRegenerateGlobalContext"
-            OnCookieUpdateRequested="HandleCookieUpdateRequested" />
+            OnCookieUpdateRequested="HandleCookieUpdateRequested"
+            OnMergePreview="HandleMergeBrollPreview"
+            OnMergeReal="HandleMergeBrollReal"
+            IsMergingVideo="_isMergingBrollVideo"
+            MergeProgress="@_mergeBrollProgress"
+            MergedVideoPath="@_mergedBrollPath" />
     }
 
     @* ============ VIEW 5: Audio & Assembly ============ *@

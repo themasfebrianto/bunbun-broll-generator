@@ -30,27 +30,39 @@
         </div>
 
         @* === Redesigned Action Toolbar === *@
+        @if (!string.IsNullOrEmpty(WarningMessage))
+        {
+            <div class="mb-4 rounded-lg border border-orange-500/30 bg-orange-500/10 p-4 text-orange-400 text-sm shadow-sm flex items-start gap-3">
+                <svg class="h-5 w-5 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                <div>
+                    <h4 class="font-bold mb-1">Peringatan: Project Lama Terdeteksi</h4>
+                    <p>@WarningMessage</p>
+                </div>
+            </div>
+        }
+
         <div class="space-y-4">
             @* Row 1: Navigation & Global Settings *@
-            <div class="flex flex-wrap items-center justify-between gap-3 bg-muted/20 p-2 rounded-lg border border-border/50">
-                <div class="flex items-center gap-2">
-                    <button class="btn-secondary text-xs flex items-center gap-1.5 h-8 px-3" @onclick="OnBackToResults">
+            <div class="flex flex-wrap items-center justify-between gap-3 bg-card/50 backdrop-blur-sm p-2 rounded-xl border border-border/40 shadow-sm">
+                <div class="flex items-center gap-1.5 pl-1">
+                    <button class="btn-ghost hover:bg-muted/80 text-xs flex items-center gap-1.5 h-8 px-3 rounded-lg transition-all" @onclick="OnBackToResults">
                         <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
-                        <span>Kembali</span>
+                        <span class="font-medium">Kembali</span>
                     </button>
-                    <div class="h-4 w-px bg-border/80 mx-1"></div>
-                    <button class="btn-ghost text-xs flex items-center gap-1.5 h-8 px-3 @(StyleSettings.VignetteEnabled ? "text-primary bg-primary/10" : "text-muted-foreground hover:bg-muted/50") transition-colors"
+                    <div class="h-4 w-px bg-border mx-1"></div>
+                    <button class="btn-ghost text-xs flex items-center gap-1.5 h-8 px-3 rounded-lg @(StyleSettings.VignetteEnabled ? "text-primary bg-primary/10 hover:bg-primary/20" : "text-muted-foreground hover:bg-muted/80") transition-all"
                             @onclick="ToggleVignette" title="Toggle vignette effect on images">
                         <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <circle cx="12" cy="12" r="10" stroke-width="2"/>
                             <circle cx="12" cy="12" r="6" stroke-width="2" class="opacity-50"/>
                         </svg>
-                        <span>Vignette @(StyleSettings.VignetteEnabled ? "ON" : "OFF")</span>
+                        <span class="font-medium">Vignette @(StyleSettings.VignetteEnabled ? "ON" : "OFF")</span>
                     </button>
                 </div>
 
-                <div class="flex items-center gap-2">
-                    <button class="btn-ghost text-xs flex items-center gap-1.5 h-8 px-3 text-orange-500 hover:text-orange-400 hover:bg-orange-500/10 border border-transparent hover:border-orange-500/20"
+                <div class="flex items-center gap-2 pr-1">
+                    <button class="text-xs flex items-center gap-1.5 h-8 px-3 rounded-lg transition-all
+                                   @(IsClassifying ? "bg-orange-500/10 text-orange-400 cursor-not-allowed" : "text-orange-500 hover:text-orange-400 hover:bg-orange-500/10 border border-transparent hover:border-orange-500/20 active:scale-95")"
                             disabled="@IsClassifying" @onclick="OnReclassify" title="Klasifikasi ulang semua segment">
                         @if (IsClassifying)
                         {
@@ -60,11 +72,52 @@
                         {
                             <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                         }
-                        <span class="hidden sm:inline">Re-Classify</span>
+                        <span class="hidden sm:inline font-medium">Re-Classify</span>
                     </button>
                     
+                    <div class="h-4 w-px bg-border mx-1"></div>
+                    
+                    <button class="text-xs flex items-center gap-1.5 h-8 px-3 rounded-lg transition-all duration-200 active:scale-95 shadow-sm
+                                   @(IsMergingVideo ? "bg-blue-600/50 text-white/70 cursor-not-allowed" : "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white hover:shadow-blue-500/25 blur-0")"
+                            disabled="@IsMergingVideo" @onclick="OnMergePreview" title="Quick merge (low res / draft)">
+                        @if (IsMergingVideo)
+                        {
+                            <svg class="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                        }
+                        else
+                        {
+                            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        }
+                        <span class="hidden sm:inline font-medium filter drop-shadow">Merge Preview</span>
+                    </button>
+                    
+                    <button class="text-xs flex items-center gap-1.5 h-8 px-3 rounded-lg transition-all duration-200 active:scale-95 shadow-sm
+                                   @(IsMergingVideo ? "bg-emerald-600/50 text-white/70 cursor-not-allowed" : "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white hover:shadow-emerald-500/25")"
+                            disabled="@IsMergingVideo" @onclick="OnMergeReal" title="Merge the final video (high quality)">
+                        <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                        <span class="hidden sm:inline font-medium filter drop-shadow">Merge Final</span>
+                    </button>
                 </div>
             </div>
+
+            @if (IsMergingVideo || !string.IsNullOrEmpty(MergeProgress) || !string.IsNullOrEmpty(MergedVideoPath))
+            {
+                <div class="bg-muted/20 p-3 rounded-lg border border-border/50">
+                    <div class="flex items-center justify-between">
+                        <div class="text-sm">
+                            <span class="font-medium text-foreground">Video Composition Progress:</span> 
+                            <span class="text-muted-foreground ml-2">@(MergeProgress ?? "Preparing...")</span>
+                        </div>
+                        @if (!string.IsNullOrEmpty(MergedVideoPath) && !IsMergingVideo)
+                        {
+                            <a href="@GetAssetUrl(MergedVideoPath)" target="_blank" class="btn-primary text-xs h-8 px-3 flex items-center gap-1.5">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                                Download / View
+                            </a>
+                        }
+                    </div>
+                </div>
+            }
 
             @* Row 2: Unified Grid for Generation Operations *@
             @if (!IsClassifying && PromptItems.Count > 0)
@@ -75,60 +128,69 @@
                     @if (PromptItems.Any(i => i.MediaType == BrollMediaType.BrollVideo))
                     {
                         var brollCount = PromptItems.Count(i => i.MediaType == BrollMediaType.BrollVideo);
-                        <div class="flex flex-col p-3 rounded-lg border border-border/40 bg-card hover:border-blue-500/30 transition-colors">
-                            <div class="flex items-center justify-between mb-3">
-                                <div class="flex items-center gap-2 text-blue-400">
-                                    <div class="h-6 w-6 rounded flex items-center justify-center bg-blue-500/10">
-                                        <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                        <div class="flex flex-col p-4 rounded-xl border border-blue-500/20 bg-card/80 shadow-sm hover:border-blue-500/40 transition-colors">
+                            @* Header *@
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="flex items-center gap-2.5">
+                                    <div class="h-7 w-7 rounded-lg flex items-center justify-center bg-gradient-to-br from-blue-500 to-cyan-500 text-white shadow-sm shadow-blue-500/20">
+                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                                     </div>
-                                    <span class="font-semibold text-xs tracking-wide uppercase">Video B-Roll</span>
+                                    <span class="font-bold text-sm tracking-wide text-foreground">Video B-Roll</span>
                                 </div>
-                                <span class="text-[10px] font-medium bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded">@brollCount</span>
+                                <span class="text-[11px] font-bold bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded-full border border-blue-500/20">@brollCount Segments</span>
                             </div>
 
-                            <div class="grid grid-cols-2 gap-2 mt-auto">
-                                <button class="btn-secondary text-[10px] h-8 flex justify-center items-center gap-1.5"
-                                        disabled="@IsRegeneratingAllKeywords" @onclick="OnRegenAllVideoKeywords">
-                                    @if (IsRegeneratingAllKeywords)
-                                    {
-                                        <svg class="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                    }
-                                    else
-                                    {
-                                        <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                                    }
-                                    <span>Generate Keyword</span>
-                                </button>
-                                <button class="btn-primary text-[10px] h-8 flex justify-center items-center gap-1.5 bg-blue-600 hover:bg-blue-500 border-blue-500"
-                                        disabled="@IsSearchingBroll" @onclick="OnSearchAllVideos">
-                                    @if (IsSearchingBroll)
-                                    {
-                                        <svg class="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                    }
-                                    else
-                                    {
-                                        <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                                    }
-                                    <span>Search</span>
-                                </button>
-                                <button class="btn-secondary text-[10px] h-8 flex justify-center items-center gap-1.5 col-span-2"
+                            @* Standardized Button Layout (Equal height & filling behavior) *@
+                            <div class="flex flex-col gap-2.5 mt-auto">
+                                <div class="grid grid-cols-2 gap-2.5">
+                                    <button class="h-9 w-full flex justify-center items-center gap-2 rounded-lg text-xs font-medium transition-all duration-200 active:scale-95 border
+                                                   @(IsRegeneratingAllKeywords ? "bg-muted text-muted-foreground border-border cursor-not-allowed" : "bg-card text-foreground hover:bg-blue-500/5 border-border hover:border-blue-500/30 hover:text-blue-400")"
+                                            disabled="@IsRegeneratingAllKeywords" @onclick="OnRegenAllVideoKeywords">
+                                        @if (IsRegeneratingAllKeywords)
+                                        {
+                                            <svg class="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                        }
+                                        else
+                                        {
+                                            <svg class="h-3.5 w-3.5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                                        }
+                                        <span>Gen Keywords</span>
+                                    </button>
+                                    
+                                    <button class="h-9 w-full flex justify-center items-center gap-2 rounded-lg text-xs font-medium transition-all duration-200 active:scale-95 border
+                                                   @(IsSearchingBroll ? "bg-muted text-muted-foreground border-border cursor-not-allowed" : "bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white border-transparent shadow-sm hover:shadow-blue-500/25")"
+                                            disabled="@IsSearchingBroll" @onclick="OnSearchAllVideos">
+                                        @if (IsSearchingBroll)
+                                        {
+                                            <svg class="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                        }
+                                        else
+                                        {
+                                            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                                        }
+                                        <span>Search Assets</span>
+                                    </button>
+                                </div>
+                                
+                                <button class="h-9 w-full flex justify-center items-center gap-2 rounded-lg text-xs font-medium transition-all duration-200 active:scale-95 border
+                                               @(IsDownloadingAllVideos ? "bg-muted text-muted-foreground border-border cursor-not-allowed" : "bg-card text-foreground hover:bg-blue-500/5 border-border hover:border-blue-500/30 hover:text-blue-400")"
                                         disabled="@IsDownloadingAllVideos" @onclick="OnDownloadAllVideos">
                                     @if (IsDownloadingAllVideos)
                                     {
                                         <svg class="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                        <span>Downloading...</span>
+                                        <span>Downloading videos...</span>
                                     }
                                     else
                                     {
-                                        <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                                        <span>Download All</span>
+                                        <svg class="h-3.5 w-3.5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                                        <span>Download All Selections</span>
                                     }
                                 </button>
                             </div>
                         </div>
                     }
 
-                    @* Column 2: AI Gen & Video FX *@
+                    @* Column 2: AI Media & Image Gen *@
                     @if (PromptItems.Any(i => i.MediaType == BrollMediaType.ImageGeneration))
                     {
                         var imageSegCount = PromptItems.Count(i => i.MediaType == BrollMediaType.ImageGeneration);
@@ -138,53 +200,65 @@
                         var isConverting = PromptItems.Any(i => i.IsConvertingVideo);
                         var doneVideoCount = PromptItems.Count(i => i.MediaType == BrollMediaType.ImageGeneration && i.WhiskVideoStatus == WhiskGenerationStatus.Done);
 
-                        <div class="flex flex-col p-3 rounded-lg border border-border/40 bg-card hover:border-purple-500/30 transition-colors">
-                            <div class="flex items-center justify-between mb-3">
-                                <div class="flex items-center gap-2 text-purple-400">
-                                    <div class="h-6 w-6 rounded flex items-center justify-center bg-purple-500/10">
-                                        <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                        <div class="flex flex-col p-4 rounded-xl border border-purple-500/20 bg-card/80 shadow-sm hover:border-purple-500/40 transition-colors">
+                            @* Header *@
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="flex items-center gap-2.5">
+                                    <div class="h-7 w-7 rounded-lg flex items-center justify-center bg-gradient-to-br from-purple-500 to-fuchsia-500 text-white shadow-sm shadow-purple-500/20">
+                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                                     </div>
-                                    <span class="font-semibold text-xs tracking-wide uppercase">AI Media</span>
+                                    <span class="font-bold text-sm tracking-wide text-foreground">AI Generation</span>
                                 </div>
-                                <div class="flex gap-1">
+                                <div class="flex flex-wrapjustify-end items-center gap-1.5">
                                     @if(doneVideoCount > 0)
                                     {
-                                        <button class="text-[10px] font-medium bg-red-500/10 hover:bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded transition-colors" @onclick="OnResetAllVideoStates" title="Hapus Video B-Roll FX">Hapus FX</button>
+                                        <button class="text-[10px] h-6 flex items-center justify-center font-medium bg-red-500/5 hover:bg-red-500/15 border border-red-500/20 text-red-400 px-2 rounded-md transition-colors" 
+                                                @onclick="OnResetAllVideoStates" title="Hapus Video B-Roll FX">Hapus FX</button>
                                     }
-                                    <button class="text-[10px] font-medium bg-red-500/10 hover:bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded transition-colors" @onclick="OnResetAllImageStates" title="Hard Reset AI Media">Reset</button>
-                                    <button class="text-[10px] font-medium bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 px-1.5 py-0.5 rounded transition-colors" @onclick="OnClearAllPrompts" title="Hapus semua prompt text">Clear Prompts</button>
-                                    <span class="text-[10px] font-medium bg-purple-500/10 text-purple-400 px-1.5 py-0.5 rounded ml-1">@imageSegCount</span>
+                                    <button class="text-[10px] h-6 flex items-center justify-center font-medium bg-red-500/5 hover:bg-red-500/15 border border-red-500/20 text-red-400 px-2 rounded-md transition-colors" 
+                                            @onclick="OnResetAllImageStates" title="Hard Reset AI Media">Reset</button>
+                                    <button class="text-[10px] h-6 flex items-center justify-center font-medium bg-muted hover:bg-muted/80 border border-border text-muted-foreground px-2 rounded-md transition-colors" 
+                                            @onclick="OnClearAllPrompts" title="Hapus semua prompt text">Clear Prompts</button>
+                                    <span class="text-[11px] font-bold bg-purple-500/10 text-purple-400 px-2 h-6 flex items-center justify-center rounded-md border border-purple-500/20 ml-1">@imageSegCount</span>
                                 </div>
                             </div>
 
-                            <div class="space-y-2 mt-auto">
-                                <button class="w-full btn-primary text-[10px] h-8 flex justify-center items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 border-emerald-500"
-                                        disabled="@IsGeneratingImagePrompts"
-                                        @onclick="OnGenerateImagePrompts">
-                                    @if (IsGeneratingImagePrompts)
-                                    {
-                                        <svg class="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                        <span>@ImagePromptGeneratedCount / @ImagePromptTotalCount</span>
-                                    }
-                                    else
-                                    {
-                                        <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-                                        <span>Generate Image Prompt</span>
-                                    }
-                                </button>
-                                <button class="w-full btn-secondary text-[10px] h-8 flex justify-center items-center gap-1.5 border-amber-500/30 hover:border-amber-500/50 hover:bg-amber-500/10 text-amber-400"
-                                        disabled="@(imageNoPrompt == 0 || IsGeneratingImagePrompts)"
-                                        @onclick="OnResumeImagePrompts">
-                                    <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                    <span>Resume (@imageNoPrompt empty)</span>
-                                </button>
-                                @if (IsGeneratingImagePrompts && ImagePromptTotalCount > 0)
-                                {
-                                    <div class="w-full bg-muted/30 rounded-full h-1 mt-0"><div class="bg-emerald-500 h-1 rounded-full transition-all" style="width: @((int)((double)ImagePromptGeneratedCount / ImagePromptTotalCount * 100))%"></div></div>
-                                }
+                            @* Standardized Button Layout *@
+                            <div class="flex flex-col gap-2.5 mt-auto">
+                                
+                                @* Prompting Sub-group *@
+                                <div class="grid grid-cols-2 gap-2.5">
+                                    <button class="h-9 w-full flex justify-center items-center gap-2 rounded-lg text-xs font-medium transition-all duration-200 active:scale-95 border relative
+                                                   @(IsGeneratingImagePrompts ? "bg-muted text-muted-foreground border-border cursor-not-allowed" : "bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-500 hover:to-purple-400 text-white border-transparent shadow-sm hover:shadow-purple-500/25")"
+                                            disabled="@IsGeneratingImagePrompts" @onclick="OnGenerateImagePrompts">
+                                        @if (IsGeneratingImagePrompts)
+                                        {
+                                            <svg class="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                            <span>@ImagePromptGeneratedCount / @ImagePromptTotalCount</span>
+                                        }
+                                        else
+                                        {
+                                            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                                            <span>Write Prompts</span>
+                                        }
+                                        @if (IsGeneratingImagePrompts && ImagePromptTotalCount > 0)
+                                        {
+                                            <div class="absolute bottom-0 left-0 h-0.5 bg-white/40" style="width: @((int)((double)ImagePromptGeneratedCount / ImagePromptTotalCount * 100))%"></div>
+                                        }
+                                    </button>
+                                    
+                                    <button class="h-9 w-full flex justify-center items-center gap-2 rounded-lg text-xs font-medium transition-all duration-200 active:scale-95 border
+                                                   @(imageNoPrompt == 0 || IsGeneratingImagePrompts ? "bg-muted text-muted-foreground border-border cursor-not-allowed opacity-60" : "bg-card text-foreground hover:bg-purple-500/5 border-border hover:border-purple-500/30 hover:text-purple-400")"
+                                            disabled="@(imageNoPrompt == 0 || IsGeneratingImagePrompts)" @onclick="OnResumeImagePrompts">
+                                        <svg class="h-3.5 w-3.5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                        <span>Resume (@imageNoPrompt left)</span>
+                                    </button>
+                                </div>
 
-                                <div class="grid grid-cols-2 gap-2">
-                                    <button class="btn-primary text-[10px] h-8 flex justify-center items-center gap-1.5 bg-purple-600 hover:bg-purple-500 border-purple-500"
+                                @* Rendering Sub-group *@
+                                <div class="grid grid-cols-2 gap-2.5">
+                                    <button class="h-9 w-full flex justify-center items-center gap-2 rounded-lg text-xs font-medium transition-all duration-200 active:scale-95 border
+                                                   @(IsGeneratingWhisk || missingImageCount == 0 ? "bg-muted text-muted-foreground border-border cursor-not-allowed opacity-60" : "bg-card text-foreground border-purple-500/20 hover:border-purple-500/40 hover:bg-purple-500/5 text-purple-400")"
                                             disabled="@(IsGeneratingWhisk || missingImageCount == 0)" @onclick="OnGenerateAllWhiskImages">
                                         @if (IsGeneratingWhisk)
                                         {
@@ -193,39 +267,41 @@
                                         }
                                         else
                                         {
-                                            <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
-                                            <span>@(missingImageCount > 0 ? $"Gen {missingImageCount} Img" : "Images Done")</span>
+                                            <svg class="h-3.5 w-3.5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                            <span>@(missingImageCount > 0 ? $"Gen {missingImageCount} Images" : "All Rendered")</span>
                                         }
                                     </button>
-                                    <button class="btn-secondary text-[10px] h-8 flex justify-center items-center gap-1.5 border-purple-500/30 hover:border-purple-500/50 hover:bg-purple-500/10"
+                                    
+                                    <button class="h-9 w-full flex justify-center items-center gap-2 rounded-lg text-xs font-medium transition-all duration-200 active:scale-95 border
+                                                   @(isConverting || pendingVideoCount == 0 ? "bg-muted text-muted-foreground border-border cursor-not-allowed opacity-60" : "bg-card text-foreground border-purple-500/20 hover:border-purple-500/40 hover:bg-purple-500/5 text-purple-400")"
                                             disabled="@(isConverting || pendingVideoCount == 0)" @onclick="OnGenerateAllKenBurnsVideos">
                                         @if (isConverting)
                                         {
                                             <svg class="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                            <span>Conv...</span>
+                                            <span>Converting...</span>
                                         }
                                         else
                                         {
-                                            <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                            <span>@(pendingVideoCount > 0 ? $"Add FX ({pendingVideoCount})" : "FX Done")</span>
+                                            <svg class="h-3.5 w-3.5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                            <span>@(pendingVideoCount > 0 ? $"Add Effects ({pendingVideoCount})" : "Effects Done")</span>
                                         }
                                     </button>
                                 </div>
                                 
                                 @if (PromptItems.Any(i => i.HasVisualEffect && string.IsNullOrEmpty(i.FilteredVideoPath)))
                                 {
-                                    <div class="mt-2 border-t border-border/50 pt-2">
-                                        <button class="w-full btn-primary text-[10px] h-8 flex justify-center items-center gap-1.5 border-purple-500 bg-purple-600 hover:bg-purple-500"
+                                    <div class="mt-1">
+                                        <button class="h-9 w-full flex justify-center items-center gap-2 rounded-lg text-xs font-medium transition-all duration-200 active:scale-95 border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400"
                                                 disabled="@PromptItems.Any(i => i.IsFilteringVideo)" @onclick="OnApplyFilterAllVideos">
                                             @if (PromptItems.Any(i => i.IsFilteringVideo))
                                             {
-                                                <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true" style="width: 12px; height: 12px; border-width: 2px;"></span>
-                                                <span>Rendering FX...</span>
+                                                <svg class="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                                <span>Rendering Visual/Texture Effects...</span>
                                             }
                                             else
                                             {
-                                                <i class="bi bi-magic"></i>
-                                                <span>Render All FX (@PromptItems.Count(i => i.HasVisualEffect && string.IsNullOrEmpty(i.FilteredVideoPath)))</span>
+                                                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
+                                                <span>Render Final Visual Effects (@PromptItems.Count(i => i.HasVisualEffect && string.IsNullOrEmpty(i.FilteredVideoPath)))</span>
                                             }
                                         </button>
                                     </div>
@@ -307,41 +383,43 @@
     else
     {
         @* === Collapsible Config Panel (accessible after classification) === *@
-        <div class="card p-0 overflow-hidden mb-4">
-            <button class="w-full flex items-center justify-between p-4 hover:bg-muted/10 transition-colors"
+        <div class="card p-0 overflow-hidden mb-4 border border-border/40 shadow-sm transition-all duration-300 @(_showConfigPanel ? "bg-card/80 backdrop-blur-sm" : "bg-card/40 hover:bg-card/60")">
+            <button class="w-full flex items-center justify-between p-4 transition-colors"
                     @onclick="() => _showConfigPanel = !_showConfigPanel">
                 <div class="flex items-center gap-3">
-                    <div class="h-8 w-8 rounded-lg bg-gradient-to-br from-purple-500/20 to-blue-500/20 flex items-center justify-center">
-                        <svg class="h-4 w-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
+                    <div class="h-8 w-8 rounded-lg bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/20 flex items-center justify-center shadow-sm">
+                        <svg class="h-4 w-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
                     </div>
                     <div>
-                        <p class="text-sm font-semibold text-left">⚙️ Image Prompt Config</p>
-                        <div class="flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
-                            @if (PromptConfig.ArtStyle != ImageArtStyle.SemiRealisticPainting) { <span class="text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded">@PromptConfig.ArtStyle</span> }
-                            @if (PromptConfig.Lighting != ImageLighting.Auto) { <span class="text-yellow-400 bg-yellow-500/10 px-1.5 py-0.5 rounded">@PromptConfig.Lighting</span> }
-                            @if (PromptConfig.ColorPalette != ImageColorPalette.Auto) { <span class="text-pink-400 bg-pink-500/10 px-1.5 py-0.5 rounded">@PromptConfig.ColorPalette</span> }
-                            @if (PromptConfig.DefaultEra != VideoEra.None) { <span class="text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded">Era @PromptConfig.DefaultEra</span> }
+                        <p class="text-sm font-semibold text-left text-foreground">Image Prompt Config</p>
+                        <div class="flex flex-wrap items-center gap-1.5 mt-0.5 text-[10px] text-muted-foreground/80 font-medium">
+                            @if (PromptConfig.ArtStyle != ImageArtStyle.SemiRealisticPainting) { <span class="text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-1.5 py-0.5 rounded-md">@PromptConfig.ArtStyle</span> }
+                            @if (PromptConfig.Lighting != ImageLighting.Auto) { <span class="text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded-md">@PromptConfig.Lighting</span> }
+                            @if (PromptConfig.ColorPalette != ImageColorPalette.Auto) { <span class="text-pink-400 bg-pink-500/10 border border-pink-500/20 px-1.5 py-0.5 rounded-md">@PromptConfig.ColorPalette</span> }
+                            @if (PromptConfig.DefaultEra != VideoEra.None) { <span class="text-orange-400 bg-orange-500/10 border border-orange-500/20 px-1.5 py-0.5 rounded-md">Era @PromptConfig.DefaultEra</span> }
                         </div>
                     </div>
                 </div>
-                <svg class="@(_showConfigPanel ? "rotate-180" : "") h-4 w-4 text-muted-foreground transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                <div class="h-8 w-8 rounded-full border border-border/50 flex items-center justify-center bg-card/50">
+                    <svg class="@(_showConfigPanel ? "rotate-180" : "") h-4 w-4 text-muted-foreground transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                </div>
             </button>
 
             @if (_showConfigPanel)
             {
-                <div class="border-t border-border/50 p-4 bg-muted/5">
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-5">
+                <div class="border-t border-border/40 p-5 bg-background/30">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-6">
                         
                         @* Art Style *@
-                        <div class="space-y-1.5">
-                            <label class="text-xs font-semibold text-foreground/80 flex items-center gap-1.5 uppercase tracking-wider">
-                                <span class="text-purple-400">🎨</span> Art Style
+                        <div class="space-y-3">
+                            <label class="text-[10px] font-bold text-muted-foreground flex items-center gap-1.5 uppercase tracking-widest pl-1">
+                                <span class="text-indigo-400">🎨</span> Art Style
                             </label>
-                            <div class="flex flex-wrap gap-1.5">
+                            <div class="flex flex-wrap gap-2">
                                 @foreach (var opt in _artStyleOptions)
                                 {
                                     var isSelected = PromptConfig.ArtStyle == opt.Value;
-                                    <button class="@(isSelected ? "bg-purple-600/90 text-white border-purple-500/50" : "bg-card text-muted-foreground border-border hover:bg-muted/50") text-[11px] px-2 py-1 rounded border transition-colors font-medium cursor-pointer"
+                                    <button class="@(isSelected ? "bg-indigo-600 border-indigo-500 text-white shadow-sm shadow-indigo-500/20" : "bg-card/50 text-muted-foreground border-border/60 hover:border-indigo-500/30 hover:bg-indigo-500/5") text-[11px] px-3 py-1.5 rounded-lg border transition-all duration-200 font-medium cursor-pointer active:scale-95"
                                             @onclick="() => { PromptConfig.ArtStyle = opt.Value; }">
                                         @opt.Label.Substring(opt.Label.IndexOf(' ') + 1)
                                     </button>
@@ -349,37 +427,37 @@
                             </div>
                             @if (PromptConfig.ArtStyle == ImageArtStyle.Custom)
                             {
-                                <input type="text" class="w-full bg-background border border-border rounded text-xs px-2 py-1 focus:border-purple-500/50 focus:outline-none mt-1"
+                                <input type="text" class="w-full bg-card border border-border/60 rounded-lg text-xs px-3 py-2 mt-2 focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 focus:outline-none transition-shadow"
                                        placeholder="Custom style..." @bind="PromptConfig.CustomArtStyle" @bind:event="oninput" />
                             }
                         </div>
 
                         @* Lighting & Color Palette (Combined Col) *@
-                        <div class="space-y-4">
-                            <div class="space-y-1.5">
-                                <label class="text-xs font-semibold text-foreground/80 flex items-center gap-1.5 uppercase tracking-wider">
-                                    <span class="text-yellow-400">💡</span> Lighting
+                        <div class="space-y-6">
+                            <div class="space-y-3">
+                                <label class="text-[10px] font-bold text-muted-foreground flex items-center gap-1.5 uppercase tracking-widest pl-1">
+                                    <span class="text-amber-400">💡</span> Lighting
                                 </label>
-                                <div class="flex flex-wrap gap-1.5">
+                                <div class="flex flex-wrap gap-2">
                                     @foreach (var opt in _lightingOptions)
                                     {
                                         var isSelected = PromptConfig.Lighting == opt.Value;
-                                        <button class="@(isSelected ? "bg-yellow-600/90 text-white border-yellow-500/50" : "bg-card text-muted-foreground border-border hover:bg-muted/50") text-[11px] px-2 py-1 rounded border transition-colors font-medium cursor-pointer"
+                                        <button class="@(isSelected ? "bg-amber-600 border-amber-500 text-white shadow-sm shadow-amber-500/20" : "bg-card/50 text-muted-foreground border-border/60 hover:border-amber-500/30 hover:bg-amber-500/5") text-[11px] px-3 py-1.5 rounded-lg border transition-all duration-200 font-medium cursor-pointer active:scale-95"
                                                 @onclick="() => { PromptConfig.Lighting = opt.Value; }">
                                             @opt.Label.Substring(opt.Label.IndexOf(' ') + 1)
                                         </button>
                                     }
                                 </div>
                             </div>
-                            <div class="space-y-1.5">
-                                <label class="text-xs font-semibold text-foreground/80 flex items-center gap-1.5 uppercase tracking-wider">
-                                    <span class="text-pink-400">🎨</span> Palette
+                            <div class="space-y-3">
+                                <label class="text-[10px] font-bold text-muted-foreground flex items-center gap-1.5 uppercase tracking-widest pl-1">
+                                    <span class="text-pink-400">✨</span> Palette
                                 </label>
-                                <div class="flex flex-wrap gap-1.5">
+                                <div class="flex flex-wrap gap-2">
                                     @foreach (var opt in _colorPaletteOptions)
                                     {
                                         var isSelected = PromptConfig.ColorPalette == opt.Value;
-                                        <button class="@(isSelected ? "bg-pink-600/90 text-white border-pink-500/50" : "bg-card text-muted-foreground border-border hover:bg-muted/50") text-[11px] px-2 py-1 rounded border transition-colors font-medium cursor-pointer"
+                                        <button class="@(isSelected ? "bg-pink-600 border-pink-500 text-white shadow-sm shadow-pink-500/20" : "bg-card/50 text-muted-foreground border-border/60 hover:border-pink-500/30 hover:bg-pink-500/5") text-[11px] px-3 py-1.5 rounded-lg border transition-all duration-200 font-medium cursor-pointer active:scale-95"
                                                 @onclick="() => { PromptConfig.ColorPalette = opt.Value; }">
                                             @opt.Label.Substring(opt.Label.IndexOf(' ') + 1)
                                         </button>
@@ -389,31 +467,31 @@
                         </div>
 
                         @* Composition & Era (Combined Col) *@
-                        <div class="space-y-4">
-                            <div class="space-y-1.5">
-                                <label class="text-xs font-semibold text-foreground/80 flex items-center gap-1.5 uppercase tracking-wider">
+                        <div class="space-y-6">
+                            <div class="space-y-3">
+                                <label class="text-[10px] font-bold text-muted-foreground flex items-center gap-1.5 uppercase tracking-widest pl-1">
                                     <span class="text-cyan-400">📷</span> Angle
                                 </label>
-                                <div class="flex flex-wrap gap-1.5">
+                                <div class="flex flex-wrap gap-2">
                                     @foreach (var opt in _compositionOptions)
                                     {
                                         var isSelected = PromptConfig.Composition == opt.Value;
-                                        <button class="@(isSelected ? "bg-cyan-600/90 text-white border-cyan-500/50" : "bg-card text-muted-foreground border-border hover:bg-muted/50") text-[11px] px-2 py-1 rounded border transition-colors font-medium cursor-pointer"
+                                        <button class="@(isSelected ? "bg-cyan-600 border-cyan-500 text-white shadow-sm shadow-cyan-500/20" : "bg-card/50 text-muted-foreground border-border/60 hover:border-cyan-500/30 hover:bg-cyan-500/5") text-[11px] px-3 py-1.5 rounded-lg border transition-all duration-200 font-medium cursor-pointer active:scale-95"
                                                 @onclick="() => { PromptConfig.Composition = opt.Value; }">
                                             @opt.Label.Substring(opt.Label.IndexOf(' ') + 1)
                                         </button>
                                     }
                                 </div>
                             </div>
-                            <div class="space-y-1.5">
-                                <label class="text-xs font-semibold text-foreground/80 flex items-center gap-1.5 uppercase tracking-wider">
-                                    <span class="text-amber-400">🕰️</span> Era
+                            <div class="space-y-3">
+                                <label class="text-[10px] font-bold text-muted-foreground flex items-center gap-1.5 uppercase tracking-widest pl-1">
+                                    <span class="text-orange-400">🕰️</span> Era
                                 </label>
-                                <div class="flex flex-wrap gap-1.5">
+                                <div class="flex flex-wrap gap-2">
                                     @foreach (var era in _eraOptions)
                                     {
                                         var isSelected = PromptConfig.DefaultEra == era.Value;
-                                        <button class="@(isSelected ? "bg-amber-600/90 text-white border-amber-500/50" : "bg-card text-muted-foreground border-border hover:bg-muted/50") text-[11px] px-2 py-1 rounded border transition-colors font-medium cursor-pointer"
+                                        <button class="@(isSelected ? "bg-orange-600 border-orange-500 text-white shadow-sm shadow-orange-500/20" : "bg-card/50 text-muted-foreground border-border/60 hover:border-orange-500/30 hover:bg-orange-500/5") text-[11px] px-3 py-1.5 rounded-lg border transition-all duration-200 font-medium cursor-pointer active:scale-95"
                                                 @onclick="() => { PromptConfig.DefaultEra = era.Value; }">
                                             @era.Label.Substring(era.Label.IndexOf(' ') + 1)
                                         </button>
@@ -423,108 +501,103 @@
                         </div>
 
                         @* Instructions & Hooks *@
-                        <div class="space-y-4">
-                            <div class="space-y-1.5">
-                                <label class="text-xs font-semibold text-foreground/80 flex items-center gap-1.5 uppercase tracking-wider">
-                                    <span class="text-blue-400">✏️</span> Instructions
-                                </label>
-                                <textarea class="w-full bg-background border border-border rounded text-[11px] px-2 py-1.5 focus:border-primary/50 focus:outline-none resize-none h-16"
-                                          placeholder="e.g. Focus on ancient ruins..."
-                                          @bind="PromptConfig.CustomInstructions" @bind:event="oninput"></textarea>
-                            </div>
-
+                        <div class="space-y-3 h-full flex flex-col">
+                            <label class="text-[10px] font-bold text-muted-foreground flex items-center gap-1.5 uppercase tracking-widest pl-1">
+                                <span class="text-blue-400">✏️</span> Instructions
+                            </label>
+                            <textarea class="w-full bg-card border border-border/60 rounded-lg text-xs px-3 py-2 focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 focus:outline-none transition-shadow resize-none flex-grow min-h-[120px]"
+                                      placeholder="e.g. Focus on ancient ruins, use cinematic lighting, keep the subject centered..."
+                                      @bind="PromptConfig.CustomInstructions" @bind:event="oninput"></textarea>
                         </div>
-
-                    </div>
-                    <div class="mt-3 text-right">
-                         <p class="text-[10px] text-muted-foreground italic inline-block bg-background/50 px-2 py-1 rounded">💡 Apply Config changes using "Re-Classify" or "Generate Prompts"</p>
                     </div>
                 </div>
             }
         </div>
 
         @* === Global Visual Effects Panel === *@
-        <div class="card p-0 overflow-hidden mb-4 border-amber-500/20">
-            <button class="w-full flex items-center justify-between p-4 bg-amber-500/5 hover:bg-amber-500/10 transition-colors"
+        <div class="card p-0 overflow-hidden mb-4 border border-amber-500/20 shadow-sm transition-all duration-300 @(_showGlobalEffectsPanel ? "bg-card/80 backdrop-blur-sm" : "bg-card/40 hover:bg-amber-500/5")">
+            <button class="w-full flex items-center justify-between p-4 transition-colors"
                     @onclick="() => _showGlobalEffectsPanel = !_showGlobalEffectsPanel">
                 <div class="flex items-center gap-3">
-                    <div class="h-8 w-8 rounded-lg bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center">
+                    <div class="h-8 w-8 rounded-lg bg-gradient-to-br from-amber-500/20 to-orange-500/20 border border-amber-500/30 flex items-center justify-center shadow-sm">
                         <svg class="h-4 w-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
                     </div>
                     <div>
-                        <p class="text-sm font-semibold text-left text-amber-500">✨ Global Visual Effects</p>
-                        <div class="flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
-                            @if (_globalFilter != VideoFilter.None) { <span class="text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded">Filter: @_globalFilter</span> }
-                            @if (_globalTexture != VideoTexture.None) { <span class="text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded">Texture: @_globalTexture</span> }
-                            @if (_globalFilter == VideoFilter.None && _globalTexture == VideoTexture.None) { <span>Apply effects to all segments</span> }
+                        <p class="text-sm font-semibold text-left text-amber-500">Global Visual Effects</p>
+                        <div class="flex flex-wrap items-center gap-1.5 mt-0.5 text-[10px] text-muted-foreground/80 font-medium">
+                            @if (_globalFilter != VideoFilter.None) { <span class="text-blue-400 bg-blue-500/10 border border-blue-500/20 px-1.5 py-0.5 rounded-md">Filter: @_globalFilter</span> }
+                            @if (_globalTexture != VideoTexture.None) { <span class="text-purple-400 bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 rounded-md">Texture: @_globalTexture</span> }
+                            @if (_globalFilter == VideoFilter.None && _globalTexture == VideoTexture.None) { <span>Apply unified visual styles to all segments</span> }
                         </div>
                     </div>
                 </div>
-                <svg class="@(_showGlobalEffectsPanel ? "rotate-180" : "") h-4 w-4 text-amber-500/70 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                <div class="h-8 w-8 rounded-full border border-amber-500/30 flex items-center justify-center bg-card/50">
+                    <svg class="@(_showGlobalEffectsPanel ? "rotate-180" : "") h-4 w-4 text-amber-500 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                </div>
             </button>
 
             @if (_showGlobalEffectsPanel)
             {
-                <div class="border-t border-amber-500/20 p-4 bg-muted/5">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="border-t border-border/40 p-5 bg-background/30">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                         @* Filter *@
-                        <div class="space-y-3">
-                            <label class="text-xs font-semibold text-foreground/80 flex items-center gap-1.5 uppercase tracking-wider">
+                        <div class="space-y-4">
+                            <label class="text-[10px] font-bold text-muted-foreground flex items-center gap-1.5 uppercase tracking-widest pl-1">
                                 <span class="text-blue-400">🎨</span> Global Filter
                             </label>
-                            <select class="input w-full text-sm h-10" @bind="_globalFilter">
+                            <select class="w-full bg-card border border-border/60 rounded-lg text-sm px-3 py-2.5 focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/50 focus:outline-none transition-shadow" @bind="_globalFilter">
                                 @foreach (var filter in Enum.GetValues<VideoFilter>())
                                 {
                                     <option value="@filter">@GetFilterDisplayName(filter)</option>
                                 }
                             </select>
                             
-                            <div class="flex items-center gap-3">
-                                <span class="text-xs text-muted-foreground w-16">Intensity</span>
-                                <input type="range" min="0" max="100" class="w-full accent-amber-500 h-1.5"
+                            <div class="flex items-center gap-4 bg-muted/20 px-4 py-3 rounded-lg border border-border/40">
+                                <span class="text-xs font-medium text-muted-foreground w-16">Intensity</span>
+                                <input type="range" min="0" max="100" class="w-full accent-amber-500 h-1.5 bg-muted rounded-full appearance-none cursor-pointer"
                                        @bind="_globalFilterIntensity" @bind:event="oninput" disabled="@(_globalFilter == VideoFilter.None)" />
-                                <span class="text-xs text-muted-foreground w-8 text-right font-mono">@(_globalFilterIntensity)%</span>
+                                <span class="text-xs text-amber-500 font-bold w-10 text-right font-mono">@(_globalFilterIntensity)%</span>
                             </div>
                         </div>
 
                         @* Texture *@
-                        <div class="space-y-3">
-                            <label class="text-xs font-semibold text-foreground/80 flex items-center gap-1.5 uppercase tracking-wider">
+                        <div class="space-y-4">
+                            <label class="text-[10px] font-bold text-muted-foreground flex items-center gap-1.5 uppercase tracking-widest pl-1">
                                 <span class="text-purple-400">✨</span> Global Texture
                             </label>
-                            <select class="input w-full text-sm h-10" @bind="_globalTexture">
+                            <select class="w-full bg-card border border-border/60 rounded-lg text-sm px-3 py-2.5 focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/50 focus:outline-none transition-shadow" @bind="_globalTexture">
                                 @foreach (var texture in Enum.GetValues<VideoTexture>())
                                 {
                                     <option value="@texture">@GetTextureDisplayName(texture)</option>
                                 }
                             </select>
                             
-                            <div class="flex items-center gap-3">
-                                <span class="text-xs text-muted-foreground w-16">Opacity</span>
-                                <input type="range" min="0" max="100" class="w-full accent-amber-500 h-1.5"
+                            <div class="flex items-center gap-4 bg-muted/20 px-4 py-3 rounded-lg border border-border/40">
+                                <span class="text-xs font-medium text-muted-foreground w-16">Opacity</span>
+                                <input type="range" min="0" max="100" class="w-full accent-amber-500 h-1.5 bg-muted rounded-full appearance-none cursor-pointer"
                                        @bind="_globalTextureOpacity" @bind:event="oninput" disabled="@(_globalTexture == VideoTexture.None)" />
-                                <span class="text-xs text-muted-foreground w-8 text-right font-mono">@(_globalTextureOpacity)%</span>
+                                <span class="text-xs text-amber-500 font-bold w-10 text-right font-mono">@(_globalTextureOpacity)%</span>
                             </div>
                         </div>
                     </div>
 
-                    <div class="flex justify-between items-center mt-5 pt-4 border-t border-border/50">
+                    <div class="flex justify-between items-center mt-6 pt-5 border-t border-border/40">
                         <div>
-                            <button class="btn-ghost text-xs px-4 py-2 text-amber-500 hover:bg-amber-500/10 border border-transparent hover:border-amber-500/20 transition-colors flex items-center gap-1.5" 
-                                    title="Hapus semua video Ken Burns (image tetap aman)"
+                            <button class="text-xs px-4 py-2 font-medium text-amber-500 hover:text-amber-400 bg-amber-500/5 hover:bg-amber-500/10 border border-transparent hover:border-amber-500/20 rounded-lg transition-all duration-200 active:scale-95 flex items-center gap-1.5" 
+                                    title="Hapus semua efek visual dan kembalikan ke video asli"
                                     @onclick="() => OnResetAllVideoStates.InvokeAsync()">
                                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                                Reset All KB Videos
+                                Reset All Visual Effects
                             </button>
                         </div>
                         <div class="flex items-center gap-3">
-                            <button class="btn-ghost text-xs px-4 py-2 text-muted-foreground" @onclick="ClearGlobalEffects">
+                            <button class="text-xs px-4 py-2 font-medium text-muted-foreground hover:text-foreground bg-muted hover:bg-muted/80 border border-border rounded-lg transition-all duration-200 active:scale-95" @onclick="ClearGlobalEffects">
                                 Clear Selections
                             </button>
-                            <button class="btn-primary flex items-center gap-2 bg-amber-600 hover:bg-amber-500 border-amber-500 text-sm px-6 py-2" 
+                            <button class="flex items-center gap-2 bg-gradient-to-r from-amber-600 to-orange-500 hover:from-amber-500 hover:to-orange-400 text-white font-medium text-sm px-6 py-2.5 rounded-lg shadow-sm hover:shadow-amber-500/25 transition-all duration-200 active:scale-95" 
                                     @onclick="ApplyGlobalEffects">
-                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                                Apply to All Segments
+                                <svg class="h-4 w-4 filter drop-shadow" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                <span class="filter drop-shadow">Apply to All Segments</span>
                             </button>
                         </div>
                     </div>
@@ -585,6 +658,7 @@
     [Parameter] public int ClassifyTotalSegments { get; set; }
     [Parameter] public int ClassifyCompletedSegments { get; set; }
     [Parameter] public string? ClassifyError { get; set; }
+    [Parameter] public string? WarningMessage { get; set; }
     
     [Parameter] public bool IsSearchingBroll { get; set; }
     [Parameter] public bool IsRegeneratingAllKeywords { get; set; }
@@ -633,6 +707,12 @@
     [Parameter] public ImagePromptConfig PromptConfig { get; set; } = new();
     [Parameter] public GlobalScriptContext? GlobalContext { get; set; }
     [Parameter] public EventCallback OnRegenerateContext { get; set; }
+    
+    [Parameter] public EventCallback OnMergePreview { get; set; }
+    [Parameter] public EventCallback OnMergeReal { get; set; }
+    [Parameter] public bool IsMergingVideo { get; set; }
+    [Parameter] public string? MergeProgress { get; set; }
+    [Parameter] public string? MergedVideoPath { get; set; }
 
     private bool _showSegmentPreview = true; // Default open so user sees segments after import
     private bool _showConfigPanel = false;   // Collapsed by default in post-classification view

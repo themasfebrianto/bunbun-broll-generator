@@ -481,6 +481,9 @@ public partial class ScriptGenerator
         public VideoTexture Texture { get; set; }
         public string? FilteredVideoPath { get; set; }
         public TextOverlay? TextOverlay { get; set; }
+        public double EstimatedDurationSeconds { get; set; }
+        public double StartTimeSeconds { get; set; }
+        public double EndTimeSeconds { get; set; }
     }
 
 }
