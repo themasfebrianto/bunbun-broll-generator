@@ -81,4 +81,26 @@ public class PromptCompressorTests
         Assert.DoesNotContain("expressive painterly textures", prompt);
         Assert.DoesNotContain("atmospheric depth", prompt);
     }
+
+    [Fact]
+    public void Compress_RemovesRedundantScalePhrases()
+    {
+        var input = "Ultra-wide aerial shot, massive parted sea with towering walls, figures dwarfed by immense scale of the water walls rising stories high, semi-realistic painting, high-detail";
+        var result = PromptCompressor.Compress(input);
+
+        // Should strip known scale-stacking phrases
+        Assert.DoesNotContain("figures dwarfed by immense scale", result);
+        Assert.DoesNotContain("rising stories high", result);
+        // Should keep at most one size adjective
+        Assert.Contains("massive", result); // first encountered is kept
+    }
+
+    [Fact]
+    public void Compress_RemovesEraTextbookLabels()
+    {
+        var input = "Low-angle shot, prophet on hilltop, Late Ancient era Bronze Age coastal setting, dramatic lighting, semi-realistic painting, high-detail";
+        var result = PromptCompressor.Compress(input);
+
+        Assert.DoesNotContain("Late Ancient era Bronze Age", result);
+    }
 }

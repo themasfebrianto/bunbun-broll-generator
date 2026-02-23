@@ -21,14 +21,25 @@ public static class PromptCompressor
         "intricate details",
         "masterpiece",
         "trending on artstation",
-        "award winning"
+        "award winning",
+        // Scale stacking phrases
+        "figures dwarfed by immense scale",
+        "dwarfed by immense scale",
+        "rising stories high",
+        "establishing miracle and scale",
+        // Era textbook labels
+        "Late Ancient era Bronze Age",
+        "Late Ancient Roman Empire era",
+        "6th century BC Ancient Babylon",
+        "coastal desert landscape stretching beyond"
     };
 
     // Redundant size adjectives (keep only first one found)
     private static readonly string[] SizeAdjectives = new[]
     {
         "massive", "huge", "large", "big", "enormous", "giant", "vast",
-        "immense", "towering", "colossal", "mammoth", "gigantic"
+        "immense", "towering", "colossal", "mammoth", "gigantic",
+        "imposing", "monumental"
     };
 
     /// <summary>

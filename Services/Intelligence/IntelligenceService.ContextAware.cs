@@ -83,12 +83,14 @@ VISUAL DECISION RULES (for suggestedLighting, suggestedPalette, suggestedAngle):
   * Overview/expository → BirdsEye
 
 ERA SELECTION (use these exact era names):
-- Lost ancient civilization ruins era (for ancient times, mystery)
-- Late Ancient Roman Empire era (for decline, fall of civilization)
-- 6th century BC Ancient Babylon era (for ancient kings, mystery)
+- 7th century Arabia Islamic era (for prophetic atmosphere)
 - 6th century Pre-Islamic Arabia era (for jahiliyya, ancient Arabian)
+- 1500 BC Ancient Egypt era (for prophetic confrontation, exodus)
+- 6th century BC Ancient Babylon era (for ancient kings, mystery)
+- Late Ancient Roman Empire era (for decline, fall of civilization)
 - 21st century modern urban era (for contemporary, technology)
 - Islamic End Times era (for apocalypse, judgment day)
+- Lost ancient civilization ruins era (for ancient times, mystery)
 - Metaphysical void era (for abstract, existential reflection)
 - Cosmic end-of-world era (for finality, cosmic scale)
 ";
@@ -240,11 +242,17 @@ ERA SELECTION (use these exact era names):
 
         // --- Era for this segment ---
         var era = ctx.GetEraForSegment(currentItem.Index);
+        var eraInstruction = "";
         if (era != null)
         {
             sb.AppendLine($"CURRENT ERA: {era.Era}");
             if (!string.IsNullOrEmpty(era.Description))
                 sb.AppendLine($"ERA CONTEXT: {era.Description}");
+            eraInstruction = $"starting EXACTLY with the CURRENT ERA ({era.Era}), do not mix eras";
+        }
+        else
+        {
+            eraInstruction = $"starting with an appropriate ERA PREFIX:\n{EraLibrary.GetEraSelectionInstructions()}";
         }
 
         // --- Mood beat for this segment ---
@@ -320,7 +328,7 @@ RULES:
 - STRICT PROMPT HIERARCHY (Follow exactly in this order):
   1. Shot Type / Camera Perspective: [Use SUGGESTED ANGLE from context if available, else cinematic shot]
   2. Primary Subject: [Who/what is the focus, concrete noun]
-  3. Environment / Setting: [Physical world description, starting with ERA PREFIX: {EraLibrary.GetEraSelectionInstructions()}]
+  3. Environment / Setting: [Physical world description, {eraInstruction}]
   4. Scale & Composition Cues: [Scale language, e.g. figures tiny against immense scale]
   5. Lighting: [Use SUGGESTED LIGHTING from context if available, else appropriately matched lighting]
   6. Atmosphere & Mood: [Use CURRENT MOOD and VISUAL KEYWORDS from context, 1-3 descriptors max]
@@ -329,9 +337,12 @@ RULES:
 - ERA CONSISTENCY: Commit to ONE historical era. DO NOT blur or mix eras.
 - AVOID ABSTRACTION: Do not use theological phrases (e.g., 'prophetic confrontation'). Describe visually.
 - NO REDUNDANCY: If two phrases describe the same thing, delete one. Precision > poetry. No adjective stacking.
+- SCALE DISCIPLINE: Use at most ONE scale cue per prompt (e.g. 'figures tiny against immense environment'). Delete ALL duplicate size/scale phrases. NEVER stack scale language.
+- ERA LABELS: Do NOT insert the era as a textbook classification string (e.g. 'Late Ancient era Bronze Age coastal desert landscape'). Let visual elements imply the era. Use the era ONLY to guide your choice of architecture, clothing, and props.
+- SPATIAL COHERENCE: Ensure spatial descriptions are internally consistent. If thousands walk through a space, it must be 'vast', not 'narrow'. Cross-check adjectives against quantities and subjects.
+- STYLE COMMITMENT: Match the final style tag to the camera language. If describing cinematic camera angles (aerial, tracking, God's-eye), end with 'high-detail cinematic realism'. If describing a painted composition, end with the painting style tag. NEVER mix 'cinematic' camera with 'painting' style.
 - PHYSICAL LOGIC: Ensure environments make physical sense (e.g., exposed seabeds are wet sand or rippled mud, not cracked dry clay).
 - MOOD CLARITY: No abstract mood phrasing (e.g., 'wonder collapsing into foreboding irony'). Models do not render irony.
-- STYLE CONSISTENCY: Do not mix conflicting styles (e.g., 'cinematic' vs 'painting').
 - CHARACTER RULES: {Models.CharacterRules.GENDER_RULES}
 - PROPHET RULES: {Models.CharacterRules.PROPHET_RULES}
 - Maintain visual consistency with adjacent segments.
