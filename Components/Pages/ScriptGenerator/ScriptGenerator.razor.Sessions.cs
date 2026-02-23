@@ -145,6 +145,8 @@ public partial class ScriptGenerator
                 Console.WriteLine($"[DEBUG] Session is completed. Loading results and prompts...");
                 await LoadResultSections(session);
                 await LoadBrollPromptsFromDisk();
+                await LoadImageConfigFromDisk();
+                await LoadGlobalContextFromDisk();
 
                 // B-Roll data is now populated from Step 2's expanded SRT via ResetAndInitializeBrollFromSrt()
                 // No auto-parse fallback — user must complete Step 2 to populate Step 3

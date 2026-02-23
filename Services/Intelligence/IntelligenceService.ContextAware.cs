@@ -317,14 +317,24 @@ OUTPUT (Just the search query, no quotes):");
             sb.AppendLine($@"TASK: Generate a detailed, high-quality image generation prompt for Whisk/Imagen.
 RULES:
 - Output ONLY the prompt string.
-- Follow this structure: [ERA PREFIX] [Detailed Description]{{LOCKED_STYLE}}
-- ERA PREFIXES: {EraLibrary.GetEraSelectionInstructions()}
+- STRICT PROMPT HIERARCHY (Follow exactly in this order):
+  1. Shot Type / Camera Perspective: [Use SUGGESTED ANGLE from context if available, else cinematic shot]
+  2. Primary Subject: [Who/what is the focus, concrete noun]
+  3. Environment / Setting: [Physical world description, starting with ERA PREFIX: {EraLibrary.GetEraSelectionInstructions()}]
+  4. Scale & Composition Cues: [Scale language, e.g. figures tiny against immense scale]
+  5. Lighting: [Use SUGGESTED LIGHTING from context if available, else appropriately matched lighting]
+  6. Atmosphere & Mood: [Use CURRENT MOOD and VISUAL KEYWORDS from context, 1-3 descriptors max]
+  7. Style & Rendering: {effectiveStyleSuffix}
+- Be specific but BRIEF. Avoid abstract narrative terms. Models render nouns better than philosophy.
+- ERA CONSISTENCY: Commit to ONE historical era. DO NOT blur or mix eras.
+- AVOID ABSTRACTION: Do not use theological phrases (e.g., 'prophetic confrontation'). Describe visually.
+- NO REDUNDANCY: If two phrases describe the same thing, delete one. Precision > poetry. No adjective stacking.
+- PHYSICAL LOGIC: Ensure environments make physical sense (e.g., exposed seabeds are wet sand or rippled mud, not cracked dry clay).
+- MOOD CLARITY: No abstract mood phrasing (e.g., 'wonder collapsing into foreboding irony'). Models do not render irony.
+- STYLE CONSISTENCY: Do not mix conflicting styles (e.g., 'cinematic' vs 'painting').
 - CHARACTER RULES: {Models.CharacterRules.GENDER_RULES}
 - PROPHET RULES: {Models.CharacterRules.PROPHET_RULES}
-- LOCKED STYLE: {effectiveStyleSuffix}
-- Use the MOOD and VISUAL KEYWORDS from context above to color the visual description.
 - Maintain visual consistency with adjacent segments.
-{IMAGE_GEN_COMPOSITION_RULES}
 OUTPUT (Just the prompt, no quotes):");
         }
 

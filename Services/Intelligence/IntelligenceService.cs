@@ -414,12 +414,16 @@ public partial class IntelligenceService : IIntelligenceService
     {
         var sequence = new[] 
         {
-            ImageComposition.CinematicWide,
-            ImageComposition.CloseUp,
-            ImageComposition.LowAngle,
-            ImageComposition.WideShot,
-            ImageComposition.BirdsEye,
-            ImageComposition.CloseUp
+            ImageComposition.UltraWideEstablishing,
+            ImageComposition.GroundLevelWide,
+            ImageComposition.LowAngleHero,
+            ImageComposition.CloseUpEnvironmental,
+            ImageComposition.HighAngleTopDown,
+            ImageComposition.OverTheShoulder,
+            ImageComposition.DynamicAction,
+            ImageComposition.CinematicSilhouette,
+            ImageComposition.InteriorPerspective,
+            ImageComposition.DistantHorizon
         };
         return sequence[index % sequence.Length];
     }
@@ -434,10 +438,31 @@ COMPOSITION RULES (CRITICAL - MUST FOLLOW):
 - The image must depict ONE moment, ONE location, ONE continuous scene.
 - Do NOT use words like 'split', 'divided', 'left side / right side', 'juxtapose', 'contrast between two scenes', 'half and half'.
 - If comparing eras, pick ONE era per image, not both.
-- NO ERA BLENDING: Each image must exist in ONE single time period. NEVER combine ancient and modern elements in the same scene (e.g. NO ancient scrolls next to computer monitors, NO clay pots in server rooms, NO castles behind modern screens). If the script mentions both eras, choose the PRIMARY era for this segment only.
-- FULL BLEED: The image must fill the entire frame edge-to-edge. NO black bars, NO letterboxing, NO borders, NO cinematic bars at top/bottom or sides. The scene extends to all edges of the canvas.
-- NO TEXT: The image must contain ZERO text, letters, words, numbers, captions, titles, watermarks, or any written content. Pure visual scene only.
-- VISUAL VARIETY (CRITICAL): NEVER repeat the same primary subject as adjacent segments. Cycle through different visual categories: wide landscape/environment, architectural detail, object close-up, atmospheric/sky, interior space, natural element. If the previous segment showed an object (e.g. clay jar), this segment MUST show something different (e.g. wide cave interior, desert landscape, dramatic sky). Vary focal distance: alternate between wide shots, medium shots, and close-ups across consecutive segments.";
+- NO ERA BLENDING: Each image must exist in ONE single time period. NEVER combine ancient and modern elements in the same scene.
+- FULL BLEED: The image must fill the entire frame edge-to-edge. NO black bars, NO letterboxing.
+- NO TEXT: Pure visual scene only.
+- VISUAL VARIETY (CRITICAL): NEVER repeat the same primary subject as adjacent segments. Cycle through different visual categories: wide landscape/environment, architectural detail, object close-up, atmospheric/sky, interior space, natural element. If the previous segment showed an object (e.g. clay jar), this segment MUST show something different (e.g. wide cave interior, desert landscape, dramatic sky).
+- CAMERA ANGLE PROVIDED: The composition/angle for this shot will be locked via a style suffix. Just describe the scene that fits the scene.
+
+REALISM VS SURREALISM (STRICT — CONTEXT-DEPENDENT):
+- CONCRETE/HISTORICAL segments (people, events, places, battles, journeys, dialogues, narrating what happened): MUST be REALISTIC and PHYSICALLY GROUNDED like a professional documentary or historical film still.
+  * NO surreal imagery: NO giant heads/figures emerging from ground, NO ghostly/translucent/phantom/spectral objects, NO impossible physics, NO dream-like distortions, NO symbolic objects unnaturally placed (e.g. hourglasses in desert, bones as decoration, floating chains).
+  * For METAPHORICAL script language (e.g. 'chains of the mind', 'psychological prison', 'shackles of fear'): depict CONCRETE REALISTIC scenes. Use body language, facial expressions, posture, and environment to convey emotion — NOT surreal visual metaphors. Example: 'mental chains' → a man sitting alone head-bowed in empty desert. 'Freedom without direction' → a crowd standing still in open wilderness.
+- ABSTRACT/PHILOSOPHICAL segments (pure existential reflection, metaphysical ideas with NO specific people/place/event): Surreal and symbolic imagery IS ALLOWED.
+- SUPERNATURAL QURANIC EVENTS (Red Sea parting, manna from sky, etc.): depict as scripture describes but keep environment realistic. Do NOT add extra fantastical elements beyond what scripture states.
+- Divine light on prophets' faces is ALWAYS required per Islamic rules.
+
+PROMPT DISCIPLINE (STRICT — PROFESSIONAL QUALITY):
+- CONCISE PROMPTS: Keep total prompt length between 80-150 words. Do NOT write essay-length prompts. Excessive length confuses the image generator and produces incoherent outputs.
+- EARLY COMPOSITION CUES: Put important composition cues (e.g. 'ultra-wide cinematic shot') at the BEGINNING. Image models prioritize early tokens.
+- CONCRETE VISUALS: Do NOT use abstract narrative concepts (e.g. 'prophetic confrontation'). Use specific visual cues ('lone robed prophet holding a staff at front of crowd').
+- ATMOSPHERIC PERSPECTIVE: To make massive scale feel real, add small physical cues (e.g. 'mist between water walls', 'birds circling above', 'foam detail at base', 'small figures against massive scale').
+- SINGLE AESTHETIC: Do NOT mix conflicting styles (e.g. 'semi-realistic painting' with '8k photoreal'). Pick ONE dominant visual style.
+- NO REDUNDANT ADJECTIVES: Do NOT stack synonyms or near-synonyms. Write 'amber light' NOT 'warm amber golden bronze terracotta ochre burnt sienna sunlight'. Pick ONE or TWO color descriptors, not six.
+- NO CONTRADICTORY DESCRIPTIONS: Do NOT describe both 'harsh dramatic light' and 'soft diffused ambient glow' in the same prompt. Pick ONE lighting mood.
+- SIMPLE STRUCTURE: Follow this order exactly: [1] Camera angle + main subject [2] Key action or state [3] Environment/setting [4] ONE lighting description [5] ONE-TWO color tones [6] Mood in 2-3 words.
+- PROFESSIONAL REFERENCE: Think like a film director giving a single clear shot description to a cinematographer, NOT like a poet writing flowery prose.
+- AVOID THESE WORDS: 'ethereal', 'ghostly', 'phantom', 'spectral', 'translucent chains', 'impossible', 'supernatural glow' (except for prophet divine light), 'dream-like', 'otherworldly', 'cosmic', 'cathedral-like', 'frozen in time'.";
 
     private const string BROLL_NO_HUMAN_RULES = @"ABSOLUTE RULE: NO PEOPLE, NO HUMAN BODY PARTS, NO FACES, NO SILHOUETTES.
 - Use NATURE or URBAN imagery depending on context.

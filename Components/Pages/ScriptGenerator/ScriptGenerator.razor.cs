@@ -158,6 +158,8 @@ public partial class ScriptGenerator
                 if (QueryView == "broll-prompts")
                 {
                     await LoadBrollPromptsFromDisk();
+                    await LoadImageConfigFromDisk();
+                    await LoadGlobalContextFromDisk();
                     _currentView = "broll-prompts";
                     if (_brollPromptItems.Any(i => i.MediaType == BrollMediaType.BrollVideo && i.SearchResults.Count == 0))
                     {
@@ -174,6 +176,8 @@ public partial class ScriptGenerator
                 else
                 {
                     await LoadBrollPromptsFromDisk();
+                    await LoadImageConfigFromDisk();
+                    await LoadGlobalContextFromDisk();
                     _currentView = "broll-prompts";
                     _ = AutoSearchMissingBrollSegments();
                 }

@@ -59,7 +59,8 @@ public class WhiskImageGenerator
         {
             Directory.CreateDirectory(outputDirectory);
 
-            var enhancedPrompt = BuildEnhancedPrompt(prompt);
+            var (enhancedPrompt, metrics) = BuildEnhancedPromptWithMetrics(prompt);
+            result.Metrics = metrics;
             var args = BuildWhiskArguments(enhancedPrompt, outputDirectory);
 
             _logger.LogDebug("Running whisk CLI: {Command} {Args}", GetWhiskCommand(), args);
@@ -175,11 +176,17 @@ public class WhiskImageGenerator
         return results;
     }
 
-    private string BuildEnhancedPrompt(string originalPrompt)
+    private (string Prompt, PromptMetrics Metrics) BuildEnhancedPromptWithMetrics(string originalPrompt)
     {
-        var prompt = originalPrompt;
+        var metrics = new PromptMetrics
+        {
+            OriginalLength = originalPrompt.Length
+        };
 
-        // STEP 1: Sanitize - strip words that cause black bars/letterboxing
+        // Step 1: Compress the prompt first to remove bloat
+        var prompt = PromptCompressor.Compress(originalPrompt);
+
+        // Step 2: Sanitize - strip words that cause black bars/letterboxing
         var blackBarTriggers = new[] {
             "cinematic bars", "letterbox", "pillarbox", "widescreen bars",
             "black bars", "black border", "black frame", "dark border",
@@ -187,8 +194,7 @@ public class WhiskImageGenerator
         };
         foreach (var trigger in blackBarTriggers)
         {
-            prompt = System.Text.RegularExpressions.Regex.Replace(
-                prompt, System.Text.RegularExpressions.Regex.Escape(trigger), "", 
+            prompt = System.Text.RegularExpressions.Regex.Replace(prompt, System.Text.RegularExpressions.Regex.Escape(trigger), "",
                 System.Text.RegularExpressions.RegexOptions.IgnoreCase);
         }
 
@@ -198,23 +204,23 @@ public class WhiskImageGenerator
         if (!string.IsNullOrEmpty(_config.StylePrefix))
             prompt = $"{_config.StylePrefix.Trim()}: {prompt}";
 
-        // STEP 2: PREPEND anti-black-bar rule (image generators prioritize early text)
-        var fullBleedPrefix = "FULL BLEED image filling entire canvas edge-to-edge, NO black bars, NO borders, NO letterboxing. ";
+        // Step 3: PREPEND anti-black-bar rule (image generators prioritize early text)
+        var fullBleedPrefix = "FULL BLEED, no black bars. ";
 
-        // Append other constraints at the end
+        // Step 4: Append constraints at the end (more compact format)
         var constraints = new List<string>();
 
-        // Anti weird/distorted images
-        constraints.Add("NO distorted facial features, NO surreal body modifications, NO reflections or objects embedded inside human skin or faces, NO uncanny valley effects. All human anatomy must appear natural and anatomically correct.");
+        // Anti weird/distorted images (condensed)
+        constraints.Add("NO distorted faces, NO surreal anatomy.");
 
-        // Prophet face light enforcement
+        // Prophet face light enforcement (only when needed)
         if (prompt.Contains("Prophet", StringComparison.OrdinalIgnoreCase) ||
             prompt.Contains("Nabi", StringComparison.OrdinalIgnoreCase) ||
             prompt.Contains("Musa", StringComparison.OrdinalIgnoreCase) ||
             prompt.Contains("Muhammad", StringComparison.OrdinalIgnoreCase) ||
             prompt.Contains("divine light", StringComparison.OrdinalIgnoreCase))
         {
-            constraints.Add("CRITICAL: Any prophet or nabi figure MUST have their ENTIRE face and head COMPLETELY replaced by an intense, solid, opaque white-golden divine radiant light. There must be ZERO visible facial features whatsoever - no eyes, no nose, no mouth, no skin texture. The light must be a solid bright glow that entirely obscures the head and face area, making it impossible to discern any human feature underneath.");
+            constraints.Add("PROPHET: face covered by bright white-golden light, NO facial features.");
         }
 
         if (constraints.Count > 0)
@@ -222,8 +228,11 @@ public class WhiskImageGenerator
             prompt += " " + string.Join(" ", constraints);
         }
 
+        var finalPrompt = fullBleedPrefix + prompt;
+        metrics.CompressedLength = finalPrompt.Length;
+
         // Prefix goes FIRST so image generator sees it first
-        return fullBleedPrefix + prompt;
+        return (finalPrompt, metrics);
     }
 
     private string BuildWhiskArguments(string prompt, string outputDirectory)
@@ -310,4 +319,7 @@ public class WhiskGenerationResult
     public bool Success { get; set; }
     public string? Error { get; set; }
     public TimeSpan Duration { get; set; }
+
+    /// <summary>Prompt compression metrics for this generation</summary>
+    public PromptMetrics? Metrics { get; set; }
 }

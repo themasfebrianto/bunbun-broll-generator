@@ -142,13 +142,31 @@ public class BrollPersistenceService : IBrollPersistenceService
                 EndTimeSeconds = s.EndTimeSeconds
             }).ToList();
 
-            // Sanitize paths on load
+            // Sanitize paths on load — normalize backslashes to forward slashes
+            // and fix legacy paths with "output\scripts\" prefix
             bool changed = false;
             foreach (var item in items)
             {
-                if (!string.IsNullOrEmpty(item.WhiskImagePath) && item.WhiskImagePath.Contains("output\\scripts\\"))
+                // Normalize all backslashes in media paths (fixes Windows-style paths on Linux)
+                if (!string.IsNullOrEmpty(item.WhiskImagePath) && item.WhiskImagePath.Contains('\\'))
                 {
-                    item.WhiskImagePath = item.WhiskImagePath.Replace("output\\scripts\\", "output\\");
+                    item.WhiskImagePath = item.WhiskImagePath.Replace('\\', '/');
+                    changed = true;
+                }
+                if (!string.IsNullOrEmpty(item.WhiskVideoPath) && item.WhiskVideoPath.Contains('\\'))
+                {
+                    item.WhiskVideoPath = item.WhiskVideoPath.Replace('\\', '/');
+                    changed = true;
+                }
+                if (!string.IsNullOrEmpty(item.FilteredVideoPath) && item.FilteredVideoPath.Contains('\\'))
+                {
+                    item.FilteredVideoPath = item.FilteredVideoPath.Replace('\\', '/');
+                    changed = true;
+                }
+                // Fix legacy "output/scripts/" prefix
+                if (!string.IsNullOrEmpty(item.WhiskImagePath) && item.WhiskImagePath.Contains("output/scripts/"))
+                {
+                    item.WhiskImagePath = item.WhiskImagePath.Replace("output/scripts/", "output/");
                     changed = true;
                 }
             }

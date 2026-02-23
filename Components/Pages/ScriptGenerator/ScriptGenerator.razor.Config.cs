@@ -175,6 +175,8 @@ public partial class ScriptGenerator
                                 _resultSession = completedSession;
                                 await LoadResultSections(completedSession);
                                 await LoadBrollPromptsFromDisk();
+                                await LoadImageConfigFromDisk();
+                                await LoadGlobalContextFromDisk();
                                 _currentView = "broll-prompts";
                                 _ = AutoSearchMissingBrollSegments();
                             }

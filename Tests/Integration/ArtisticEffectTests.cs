@@ -35,6 +35,8 @@ public class ArtisticEffectTests : IDisposable
         services.AddLogging(builder => builder.AddConsole());
         services.AddSingleton<VideoStyleSettings>();
         services.AddSingleton<KenBurnsService>();
+        services.AddSingleton<VoSyncService>();
+        services.AddSingleton<ISrtService, SrtService>();
         services.AddSingleton<VideoComposer>();
 
         _serviceProvider = services.BuildServiceProvider();

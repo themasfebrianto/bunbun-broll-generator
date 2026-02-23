@@ -26,9 +26,20 @@ public class BrollImageService : IBrollImageService
 
         try
         {
-            var outputDir = !string.IsNullOrEmpty(outputDirectory)
-                ? Path.Combine(outputDirectory, "whisks_images")
-                : Path.Combine(Directory.GetCurrentDirectory(), "output", sessionId ?? "temp", "whisks_images");
+            // Always construct path using CWD/output/sessionId to avoid issues with
+            // Windows-style backslashes in stored OutputDirectory creating literal
+            // directory names on Linux (e.g., "output\9f092d36" as a single dir name)
+            var effectiveSessionId = sessionId ?? "temp";
+            if (!string.IsNullOrEmpty(outputDirectory))
+            {
+                // Extract session ID from outputDirectory (e.g., "output/9f092d36" or "output\9f092d36")
+                var normalized = outputDirectory.Replace('\\', '/').TrimEnd('/');
+                var lastSegment = normalized.Split('/').LastOrDefault();
+                if (!string.IsNullOrEmpty(lastSegment) && lastSegment != "output")
+                    effectiveSessionId = lastSegment;
+            }
+            
+            var outputDir = Path.Combine(Directory.GetCurrentDirectory(), "output", effectiveSessionId, "whisks_images");
             Directory.CreateDirectory(outputDir);
 
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(120));

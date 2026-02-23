@@ -136,7 +136,7 @@ public class DramaDetectionTests : IDisposable
 
         // Assert
         Assert.False(result.IsSuccess);
-        Assert.Equal("LLM returned empty response", result.ErrorMessage);
+        Assert.Contains("Drama detection failed", result.ErrorMessage);
     }
 
     [Fact]

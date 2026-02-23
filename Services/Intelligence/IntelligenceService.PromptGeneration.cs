@@ -68,6 +68,11 @@ public partial class IntelligenceService
         }
 
         var effectiveStyleSuffix = activeConfig.EffectiveStyleSuffix;
+        var lightingSuffix = activeConfig.Lighting != ImageLighting.Auto ? 
+            ImageStyleMappings.GetLightingSuffix(activeConfig.Lighting) : "appropriately matched lighting";
+        var compositionSuffix = activeConfig.Composition != ImageComposition.Auto ? 
+            ImageStyleMappings.GetCompositionSuffix(activeConfig.Composition) : "cinematic shot";
+
         var eraBias = activeConfig.DefaultEra != VideoEra.None
             ? $"\nDEFAULT ERA: Bias toward {activeConfig.DefaultEra} era visual style.\n"
             : string.Empty;
@@ -94,23 +99,36 @@ OUTPUT (Just the search query, no quotes):";
         }
         else // ImageGeneration
         {
-            systemPrompt = $@"You are an AI image prompt generator for Islamic video essays.
-Your task: Generate a detailed, high-quality image generation prompt for Whisk/Imagen.
+            systemPrompt = $"""
+You are an AI image prompt generator for Islamic video essays.
+Your task: Generate a CONCISE image generation prompt (under 200 words).
 
 CONTEXT: {topic}
 {eraBias}
 RULES for IMAGE_GEN:
-- Output ONLY the prompt string.
-- Follow this structure: [ERA PREFIX] [Detailed Description]{{LOCKED_STYLE}}
-- ERA PREFIXES: {EraLibrary.GetEraSelectionInstructions()}
+- Output ONLY the prompt string, no explanations.
+- STRICT PROMPT HIERARCHY (Follow exactly in this order):
+  1. Shot Type / Camera Perspective: {compositionSuffix}
+  2. Primary Subject: [Who/what is the focus, concrete noun]
+  3. Environment / Setting: [Physical world description, starting with ERA PREFIX: {EraLibrary.GetEraSelectionInstructions()}]
+  4. Scale & Composition Cues: [Scale language, e.g. figures tiny against immense scale]
+  5. Lighting: {lightingSuffix}
+  6. Atmosphere & Mood: [1-3 descriptors max, e.g. epic scale, awe, tense]
+  7. Style & Rendering: {effectiveStyleSuffix}
+- Be specific but BRIEF. Avoid abstract narrative terms. Models render nouns better than philosophy.
+- ERA CONSISTENCY: Commit to ONE historical era. DO NOT blur or mix eras.
+- AVOID ABSTRACTION: Do not use theological phrases (e.g., 'prophetic confrontation'). Describe visually.
+- NO REDUNDANCY: If two phrases describe the same thing, delete one. Precision > poetry. No adjective stacking.
+- PHYSICAL LOGIC: Ensure environments make physical sense (e.g., exposed seabeds are wet sand or rippled mud, not cracked dry clay).
+- MOOD CLARITY: No abstract mood phrasing (e.g., 'wonder collapsing into foreboding irony'). Models do not render irony.
+- STYLE CONSISTENCY: Do not mix conflicting styles (e.g., 'cinematic' vs 'painting').
 - CHARACTER RULES: {Models.CharacterRules.GENDER_RULES}
 - PROPHET RULES: {Models.CharacterRules.PROPHET_RULES}
-- LOCKED STYLE: {effectiveStyleSuffix}
-{IMAGE_GEN_COMPOSITION_RULES}
 {customInstr}
-SCRIPT SEGMENT: ""{scriptText}""
+SCRIPT SEGMENT: "{scriptText}"
 
-OUTPUT (Just the prompt, no quotes):";
+OUTPUT (concise prompt, no quotes):
+""";
         }
 
         var result = await GenerateContentAsync(systemPrompt, $"Generate prompt for: {scriptText}", maxTokens: 300, temperature: 0.7, cancellationToken: cancellationToken);

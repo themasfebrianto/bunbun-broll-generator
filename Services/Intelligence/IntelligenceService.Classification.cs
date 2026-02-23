@@ -260,6 +260,11 @@ public partial class IntelligenceService
     private string BuildClassifyWithPromptsSystemPrompt(string topic, ImagePromptConfig? config)
     {
         var effectiveStyleSuffix = config?.EffectiveStyleSuffix ?? Models.ImageVisualStyle.BASE_STYLE_SUFFIX;
+        var lightingSuffix = config?.Lighting != ImageLighting.Auto && config != null ? 
+            ImageStyleMappings.GetLightingSuffix(config.Lighting) : "appropriately matched lighting";
+        var compositionSuffix = config?.Composition != ImageComposition.Auto && config != null ? 
+            ImageStyleMappings.GetCompositionSuffix(config.Composition) : "cinematic shot";
+            
         var eraBiasInstruction = BuildEraBiasInstruction(config);
         var customInstructionsSection = BuildCustomInstructionsSection(config);
 
@@ -284,12 +289,15 @@ LOCKED VISUAL STYLE (REQUIRED FOR ALL IMAGE_GEN PROMPTS):
 {effectiveStyleSuffix}
 
 
-For IMAGE_GEN segments: Generate a detailed Whisk-style prompt following this structure:
-  [ERA PREFIX] [Detailed scene description: setting, action, lighting, atmosphere, characters]{{LOCKED_STYLE}}
-  - Start with one era prefix from the list above
-  - Include character descriptions with syar'i dress for females
-  - If prophets appear: add 'face replaced by intense white-golden divine light, facial features not visible'
-  - End with style suffix: '{effectiveStyleSuffix}'
+For IMAGE_GEN segments: Generate a detailed Whisk-style prompt following this STRICT 7-tier hierarchy in order:
+  1. Shot Type / Camera Perspective: {compositionSuffix}
+  2. Primary Subject: [Who/what is the focus, concrete noun]
+  3. Environment / Setting: [Physical world description, starting with one ERA PREFIX from the list above]
+  4. Scale & Composition Cues: [Scale language, e.g. figures tiny against immense scale]
+  5. Lighting: {lightingSuffix}
+  6. Atmosphere & Mood: [1-3 descriptors max, e.g. epic scale, awe, tense]
+  7. Style & Rendering: {effectiveStyleSuffix}
+- Be specific but BRIEF. Avoid abstract narrative terms. Models render nouns better than philosophy.
 {customInstructionsSection}
 
 RESPOND WITH JSON ONLY (no markdown):
@@ -306,7 +314,15 @@ RULES:
 - Translate all prompts to English
 - Include era prefix, detailed scene, locked style suffix
 - Never depict prophet faces
-- Avoid sensitive/haram visual triggers";
+- Avoid sensitive/haram visual triggers
+- REALISM (STRICT): For CONCRETE/HISTORICAL segments: REALISTIC scenes only, like a documentary film still. NO surreal imagery (no giant heads, no ghostly/phantom objects, no impossible physics, no symbolic objects unnaturally placed). For metaphors, use body language and environment to convey emotion. For ABSTRACT/PHILOSOPHICAL segments (no specific people/place/event): surreal imagery IS allowed. Divine light on prophets always required.
+- PROMPT DISCIPLINE (STRICT): Keep prompts 80-150 words MAX. ONE clear subject per prompt. NO contradictory lighting.
+- ERA CONSISTENCY: Commit to ONE historical era. DO NOT blur or mix eras.
+- AVOID ABSTRACTION: Do not use theological phrases (e.g., 'prophetic confrontation'). Describe visually.
+- NO REDUNDANCY: If two phrases describe the same thing, delete one. Precision > poetry. No adjective stacking.
+- PHYSICAL LOGIC: Ensure environments make physical sense (e.g., exposed seabeds are wet sand or rippled mud, not cracked dry clay).
+- MOOD CLARITY: No abstract mood phrasing (e.g., 'wonder collapsing into foreboding irony'). Models do not render irony.
+- STYLE CONSISTENCY: Do not mix conflicting styles (e.g., 'cinematic' vs 'painting').\";
     }
 
     private string BuildClassifyOnlySystemPrompt(ImagePromptConfig? config)

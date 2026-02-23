@@ -70,16 +70,26 @@ public enum ImageComposition
 {
     /// <summary>Let AI decide the best angle per scene</summary>
     Auto,
-    /// <summary>Wide establishing shot showing full environment</summary>
-    WideShot,
-    /// <summary>Close-up detail shot focusing on subject</summary>
-    CloseUp,
-    /// <summary>Overhead bird's eye view</summary>
-    BirdsEye,
-    /// <summary>Low angle looking upward for dramatic effect</summary>
-    LowAngle,
-    /// <summary>Ultra-wide cinematic aspect with dramatic framing</summary>
-    CinematicWide
+    /// <summary>Ultra-Wide Establishing Shot (God’s-eye epic scale)</summary>
+    UltraWideEstablishing,
+    /// <summary>Ground-Level Wide Shot (Human perspective)</summary>
+    GroundLevelWide,
+    /// <summary>Low-Angle Hero Shot (Prophet focus)</summary>
+    LowAngleHero,
+    /// <summary>Over-the-Shoulder Shot (Emotional immersion)</summary>
+    OverTheShoulder,
+    /// <summary>High-Angle Top-Down Shot (Miracle geometry)</summary>
+    HighAngleTopDown,
+    /// <summary>Close-Up Environmental Shot (Texture realism)</summary>
+    CloseUpEnvironmental,
+    /// <summary>Action Shot (Dynamic motion)</summary>
+    DynamicAction,
+    /// <summary>Silhouette Shot (Mythic tone)</summary>
+    CinematicSilhouette,
+    /// <summary>Interior Perspective (Unique angle inside environment)</summary>
+    InteriorPerspective,
+    /// <summary>Wide Distant Horizon Shot (Aftermath/calm)</summary>
+    DistantHorizon
 }
 
 // === Style suffix string mappings ===
@@ -127,11 +137,16 @@ public static class ImageStyleMappings
     public static string GetCompositionSuffix(ImageComposition composition) => composition switch
     {
         ImageComposition.Auto => "",
-        ImageComposition.WideShot => "wide establishing shot, full environment visible, expansive framing",
-        ImageComposition.CloseUp => "close-up shot, detailed focus on subject, shallow depth of field",
-        ImageComposition.BirdsEye => "bird's eye view, overhead perspective, top-down angle",
-        ImageComposition.LowAngle => "low angle shot looking upward, dramatic perspective, imposing framing",
-        ImageComposition.CinematicWide => "ultra-wide cinematic framing, 2.39:1 aspect composition, dramatic horizontal staging",
+        ImageComposition.UltraWideEstablishing => "ultra-wide aerial shot, God's-eye epic scale, tiny figures against immense environment, establishing miracle and scale",
+        ImageComposition.GroundLevelWide => "wide ground-level shot from behind subject, immersive perspective inside the event, epic atmosphere",
+        ImageComposition.LowAngleHero => "low-angle shot, heroic authority and leadership focus, imposing scale with background elements rising behind",
+        ImageComposition.OverTheShoulder => "over-the-shoulder shot, emotional immersion, viewer placed inside the action looking toward the leader",
+        ImageComposition.HighAngleTopDown => "high-angle top-down shot, showing geometric relationships and divine scale patterns from above",
+        ImageComposition.CloseUpEnvironmental => "close-up of environmental texture and grounding physical details, intense depth of field",
+        ImageComposition.DynamicAction => "dynamic action shot, violent energy and motion blur, disaster realism, contrast of forces",
+        ImageComposition.CinematicSilhouette => "silhouette shot against glowing background, deep shadows, timeless mythic feel",
+        ImageComposition.InteriorPerspective => "interior perspective looking outward through element, refracted light, unique striking angle",
+        ImageComposition.DistantHorizon => "wide distant horizon shot, emotional release and calm aftermath, open space",
         _ => ""
     };
 }
@@ -178,47 +193,9 @@ public class ImagePromptConfig
         || DefaultEra != VideoEra.None
         || !string.IsNullOrWhiteSpace(CustomInstructions);
 
-    /// <summary>Build the effective style suffix from individual components</summary>
-    public string EffectiveStyleSuffix
-    {
-        get
-        {
-            var parts = new List<string>();
-
-            // Art style
-            if (ArtStyle == ImageArtStyle.Custom && !string.IsNullOrWhiteSpace(CustomArtStyle))
-                parts.Add(CustomArtStyle);
-            else if (ArtStyle != ImageArtStyle.Custom)
-            {
-                var artSuffix = ImageStyleMappings.GetArtStyleSuffix(ArtStyle);
-                if (!string.IsNullOrEmpty(artSuffix)) parts.Add(artSuffix);
-            }
-
-            // Lighting - skip Auto
-            if (Lighting != ImageLighting.Auto)
-            {
-                var lightSuffix = ImageStyleMappings.GetLightingSuffix(Lighting);
-                if (!string.IsNullOrEmpty(lightSuffix)) parts.Add(lightSuffix);
-            }
-
-            // Color Palette - skip Auto
-            if (ColorPalette != ImageColorPalette.Auto)
-            {
-                var colorSuffix = ImageStyleMappings.GetColorPaletteSuffix(ColorPalette);
-                if (!string.IsNullOrEmpty(colorSuffix)) parts.Add(colorSuffix);
-            }
-
-            // Composition - skip Auto
-            if (Composition != ImageComposition.Auto)
-            {
-                var compSuffix = ImageStyleMappings.GetCompositionSuffix(Composition);
-                if (!string.IsNullOrEmpty(compSuffix)) parts.Add(compSuffix);
-            }
-
-            // Always append quality tags
-            parts.Add("expressive painterly textures, atmospheric depth, ultra-detailed, sharp focus, 8k quality, consistent visual tone");
-
-            return ", " + string.Join(", ", parts);
-        }
-    }
+    /// <summary>
+    /// Build the effective style suffix from individual components.
+    /// Uses compact tag format for reduced token usage.
+    /// </summary>
+    public string EffectiveStyleSuffix => CompactStyleTags.BuildCompactSuffix(this);
 }

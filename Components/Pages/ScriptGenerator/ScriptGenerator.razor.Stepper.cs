@@ -45,6 +45,12 @@ public partial class ScriptGenerator
 
         _storedMetadata = metadata;
 
+        if (_expandedEntries == null || _expandedEntries.Count == 0)
+        {
+            // If we navigated here from list view, _expandedEntries might not be loaded yet
+            await DetectExistingVoAndSrt();
+        }
+
         var (currentCount, currentDuration) = ComputeSrtFingerprint();
 
         bool countChanged = currentCount != metadata.SrtEntryCount;
@@ -63,7 +69,7 @@ public partial class ScriptGenerator
     /// Direct navigation to a step without triggering smart navigation logic.
     /// Used after validation has already been performed.
     /// </summary>
-    private void GoToStepDirect(int step)
+    private async Task GoToStepDirect(int step)
     {
         if (step < 0 || step >= _stepperSteps.Length) return;
 
@@ -80,7 +86,9 @@ public partial class ScriptGenerator
 
         if (step == 2 && _brollPromptItems.Count == 0)
         {
-            _ = LoadBrollPromptsFromDisk();
+            await LoadBrollPromptsFromDisk();
+            await LoadImageConfigFromDisk();
+            await LoadGlobalContextFromDisk();
         }
 
         StateHasChanged();
@@ -104,13 +112,13 @@ public partial class ScriptGenerator
                     {
                         await ResetAndInitializeBrollFromSrt();
                         _canProceedToStep3 = true;
-                        GoToStepDirect(2);
+                        await GoToStepDirect(2);
                     });
                 break;
 
             case SrtChangeStatus.Unchanged:
                 _canProceedToStep3 = true;
-                GoToStepDirect(2);
+                await GoToStepDirect(2);
                 break;
 
             case SrtChangeStatus.Changed:
@@ -125,7 +133,7 @@ public partial class ScriptGenerator
                     {
                         await ResetAndInitializeBrollFromSrt();
                         _canProceedToStep3 = true;
-                        GoToStepDirect(2);
+                        await GoToStepDirect(2);
                     });
                 break;
                 
@@ -138,7 +146,7 @@ public partial class ScriptGenerator
                         await ResetAndInitializeBrollFromSrt();
                         _brollWarning = null;
                         _canProceedToStep3 = true;
-                        GoToStepDirect(2);
+                        await GoToStepDirect(2);
                     });
                 break;
         }
@@ -175,7 +183,7 @@ public partial class ScriptGenerator
         // Auto-detect existing files when entering Step 2
         if (step == 1)
         {
-            DetectExistingVoAndSrt();
+            await DetectExistingVoAndSrt();
         }
         
         StateHasChanged();
@@ -204,7 +212,7 @@ public partial class ScriptGenerator
                 async () =>
                 {
                     await ResetAndInitializeBrollFromSrt();
-                    GoToStepDirect(2);
+                    await GoToStepDirect(2);
                 });
         }
         else if (status == SrtChangeStatus.Changed)
@@ -219,7 +227,7 @@ public partial class ScriptGenerator
                 async () =>
                 {
                     await ResetAndInitializeBrollFromSrt();
-                    GoToStepDirect(2);
+                    await GoToStepDirect(2);
                 });
         }
         else if (status == SrtChangeStatus.LegacyNeedsUpgrade)
@@ -231,12 +239,12 @@ public partial class ScriptGenerator
                 {
                     await ResetAndInitializeBrollFromSrt();
                     _brollWarning = null;
-                    GoToStepDirect(2);
+                    await GoToStepDirect(2);
                 });
         }
         else
         {
-            GoToStepDirect(2);
+            await GoToStepDirect(2);
         }
     }
 

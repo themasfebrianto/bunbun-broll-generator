@@ -60,7 +60,8 @@ public partial class ScriptGenerator
         try
         {
             var file = e.File;
-            var ext = Path.GetExtension(file.Name).ToLower();
+            var sanitizedFileName = file.Name.Replace('\\', '/').Split('/').Last();
+            var ext = Path.GetExtension(sanitizedFileName).ToLower();
             if (ext != ".mp3" && ext != ".wav" && ext != ".m4a")
             {
                 _assemblyError = "Invalid voiceover format. Please upload MP3, WAV, or M4A.";
@@ -101,7 +102,8 @@ public partial class ScriptGenerator
         try
         {
             var file = e.File;
-            var ext = Path.GetExtension(file.Name).ToLower();
+            var sanitizedFileName = file.Name.Replace('\\', '/').Split('/').Last();
+            var ext = Path.GetExtension(sanitizedFileName).ToLower();
             if (ext != ".srt" && ext != ".lrc")
             {
                 _assemblyError = "Invalid subtitle format. Please upload SRT or LRC.";

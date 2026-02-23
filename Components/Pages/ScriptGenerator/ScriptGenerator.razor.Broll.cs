@@ -34,7 +34,7 @@ public partial class ScriptGenerator
             _canProceedToStep3 = true;
         }
 
-        GoToStepDirect(1);
+        await GoToStepDirect(1);
     }
 
     private async Task ResetAndInitializeBrollFromSrt()

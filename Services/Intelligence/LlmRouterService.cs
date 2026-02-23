@@ -75,10 +75,11 @@ public class LlmRouterService : ILlmRouterService
             {
                 var candidate = pool[currentIndex];
                 
+                // Always advance for the NEXT call to ensure round-robin rotation
+                currentIndex = (currentIndex + 1) % pool.Length;
+                
                 if (IsOnCooldown(candidate))
                 {
-                    // Move to next candidate
-                    currentIndex = (currentIndex + 1) % pool.Length;
                     continue;
                 }
 

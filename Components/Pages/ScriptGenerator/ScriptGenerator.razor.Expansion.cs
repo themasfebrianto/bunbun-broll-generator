@@ -38,7 +38,7 @@ public partial class ScriptGenerator
     [Inject] private ISrtExpansionService SrtExpansionService { get; set; } = null!;
     [Inject] private IVoSlicingService VoSlicingService { get; set; } = null!;
 
-    private async void DetectExistingVoAndSrt()
+    private async Task DetectExistingVoAndSrt()
     {
         var outputDir = Path.Combine(Directory.GetCurrentDirectory(), "output", _sessionId ?? "");
         if (string.IsNullOrEmpty(_sessionId) || !Directory.Exists(outputDir)) return;
@@ -203,7 +203,9 @@ public partial class ScriptGenerator
                 try { File.Delete(old); } catch { }
             }
 
-            var filePath = Path.Combine(outputDir, "original_vo" + Path.GetExtension(file.Name));
+            // Sanitize file name in case of Windows path being sent by browser
+            var sanitizedFileName = file.Name.Replace('\\', '/').Split('/').Last();
+            var filePath = Path.Combine(outputDir, "original_vo" + Path.GetExtension(sanitizedFileName));
             using var stream = file.OpenReadStream(maxAllowedSize: 100 * 1024 * 1024);
             using var fs = new FileStream(filePath, FileMode.Create);
             await stream.CopyToAsync(fs);
