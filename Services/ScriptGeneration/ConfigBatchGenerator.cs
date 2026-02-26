@@ -156,11 +156,12 @@ CRITICAL: Setiap beat HARUS berupa poin SINGKAT (maksimal 10-15 kata).
 Beat adalah outline/peta konten, BUKAN narasi lengkap.
 
 ATURAN:
-1. SINGKAT & PADAT: Maks 15 kata per beat. Tulis sebagai poin outline, bukan paragraf.
-2. KONTEN SPESIFIK: Sebutkan nama, angka, tahun, atau sumber konkret di setiap beat.
-3. REFERENSI: Cantumkan QS. X:Y, HR. Nama No.X, Nama Kitab, Tokoh, Tahun.
-4. HINDARI: Kalimat panjang, instruksi visual, dramatic pause, pertanyaan langsung.
-5. TOTAL: 15-20 beats ringkas untuk seluruh video.
+1. HOOK PERTAMA: Beat PERTAMA WAJIB merangkum ide utama dari 'Outline' yang diberikan (sebagai pengenalan topik sebelum masuk detail).
+2. SINGKAT & PADAT: Maks 15 kata per beat. Tulis sebagai poin outline, bukan paragraf.
+3. KONTEN SPESIFIK: Sebutkan nama, angka, tahun, atau sumber konkret di setiap beat.
+4. REFERENSI: Cantumkan QS. X:Y, HR. Nama No.X, Nama Kitab, Tokoh, Tahun.
+5. HINDARI: Kalimat panjang, instruksi visual, dramatic pause, pertanyaan langsung.
+6. TOTAL: 15-20 beats ringkas untuk seluruh video.
 
 CONTOH BEAT YANG BENAR:
 - ""Pembuka: ilusi kekayaan modern vs nilai intrinsik emas""
@@ -183,8 +184,8 @@ Return ONLY this JSON structure (no markdown text):
   ""outline"": ""Ringkasan alur cerita dalam 2-3 kalimat..."",
   ""sourceReferences"": ""QS. Al-Mulk: 1-5, HR. Muslim No. 203, Kitab Al-Bidaya wan Nihaya Vol 3"",
   ""mustHaveBeats"": [
-    ""Pembuka: observasi luas tentang fenomena X"",
-    ""Data: angka/statistik spesifik tentang Y"",
+    ""Hook Pembuka: [Rangkuman dari Outline yang diberikan]"",
+    ""Data: angka/statistik spesifik tentang permasalahan"",
     ""QS. X:Y — konteks ayat terkait tema"",
     ""HR. Nama No.X — hadits pendukung argumen"",
     ""Kitab Z oleh Tokoh A — analisis klasik"",
