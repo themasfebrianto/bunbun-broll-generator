@@ -1,8 +1,6 @@
 @inherits LayoutComponentBase
 @inject NavigationManager NavigationManager
-@inject BunbunBroll.Services.ILlmRouterService RouterService
 @inject BunbunBroll.Services.ToastService ToastService
-@implements IDisposable
 
 <AuthGuard>
     <div class="min-h-screen flex w-full bg-background text-foreground">
@@ -21,6 +19,7 @@
                     <a href="/" class="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Dashboard</a>
                     <a href="/projects" class="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Projects</a>
                     <a href="/video" class="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">Video</a>
+                    <LlmSelector />
                     <ThemeToggle />
                     <SignOutButton />
                 </div>
@@ -37,25 +36,5 @@
         <Toast />
     </div>
 </AuthGuard>
-
 @code {
-    protected override void OnInitialized()
-    {
-        RouterService.OnModelSwitched += HandleModelSwitched;
-    }
-
-    private void HandleModelSwitched(string message)
-    {
-        InvokeAsync(() => 
-        {
-            // Use Warning toast since model rotations usually indicate a rate limit or failover
-            ToastService.ShowWarning(message);
-            StateHasChanged();
-        });
-    }
-
-    public void Dispose()
-    {
-        RouterService.OnModelSwitched -= HandleModelSwitched;
-    }
 }

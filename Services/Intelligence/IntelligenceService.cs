@@ -147,18 +147,18 @@ public partial class IntelligenceService : IIntelligenceService
     private readonly HttpClient _httpClient;
     private readonly ILogger<IntelligenceService> _logger;
     private readonly GeminiSettings _settings;
-    private readonly ILlmRouterService _router;
+    private readonly ILlmSelectorService _selector;
 
     public IntelligenceService(
         HttpClient httpClient, 
         ILogger<IntelligenceService> logger, 
         IOptions<GeminiSettings> settings,
-        ILlmRouterService router)
+        ILlmSelectorService selector)
     {
         _httpClient = httpClient;
         _logger = logger;
         _settings = settings.Value;
-        _router = router;
+        _selector = selector;
     }
 
     // =============================================
@@ -174,7 +174,7 @@ public partial class IntelligenceService : IIntelligenceService
         double temperature = 0.3,
         int maxTokens = 300,
         CancellationToken cancellationToken = default,
-        bool requiresHighReasoning = true)
+        bool requiresHighReasoning = true) // Parameter kept for backwards compatibility but ignored
     {
         const int maxRetries = 3;
         int attempt = 0;
@@ -182,7 +182,7 @@ public partial class IntelligenceService : IIntelligenceService
         while (attempt < maxRetries)
         {
             attempt++;
-            var modelId = _router.GetModel(requiresHighReasoning);
+            var modelId = _selector.CurrentModel;
 
             var request = new GeminiChatRequest
             {
@@ -211,11 +211,16 @@ public partial class IntelligenceService : IIntelligenceService
                     
                     _logger.LogWarning($"LLM Error {statusCode} using {modelId}: {errorContent}");
                     
-                    // 429 Too Many Requests, 500 Server Error, or "insufficient quota" -> report failure & fallback
+                    // 429 Too Many Requests, 500 Server Error, or "insufficient quota" -> simple backoff retry
                     if (statusCode == 429 || statusCode >= 500 || errorContent.Contains("quota", StringComparison.OrdinalIgnoreCase))
                     {
-                        _router.ReportFailure(modelId, $"API Error {statusCode} - Exhausted quota or rate limited");
-                        continue; // try the next model
+                        if (attempt < maxRetries)
+                        {
+                            var delaySeconds = (int)Math.Pow(2, attempt);
+                            _logger.LogInformation($"Retrying in {delaySeconds}s...");
+                            await Task.Delay(TimeSpan.FromSeconds(delaySeconds), cancellationToken);
+                        }
+                        continue;
                     }
 
                     response.EnsureSuccessStatusCode(); // Force throw if it's a client bad request (e.g., 400)
@@ -229,7 +234,10 @@ public partial class IntelligenceService : IIntelligenceService
                 if (string.IsNullOrWhiteSpace(content))
                 {
                     _logger.LogWarning($"LLM {modelId} returned an empty response.");
-                    _router.ReportFailure(modelId, "Returned empty response");
+                    if (attempt < maxRetries)
+                    {
+                        await Task.Delay(1000, cancellationToken);
+                    }
                     continue;
                 }
 
@@ -237,18 +245,18 @@ public partial class IntelligenceService : IIntelligenceService
             }
             catch (HttpRequestException ex) when (attempt < maxRetries)
             {
-                _logger.LogWarning($"Network error communicating with {modelId}: {ex.Message}. Failing over...");
-                _router.ReportFailure(modelId, "Network/Timeout error");
+                _logger.LogWarning($"Network error communicating with {modelId}: {ex.Message}. Retrying...");
+                await Task.Delay(TimeSpan.FromSeconds(attempt), cancellationToken);
             }
             catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested && attempt < maxRetries)
             {
-                _logger.LogWarning($"Timeout communicating with {modelId}. Failing over...");
-                _router.ReportFailure(modelId, "Timeout");
+                _logger.LogWarning($"Timeout communicating with {modelId}. Retrying...");
+                await Task.Delay(TimeSpan.FromSeconds(attempt), cancellationToken);
             }
         }
 
         // Exhausted retries
-        throw new Exception($"Failed to complete LLM request after {maxRetries} attempts across available models.");
+        throw new Exception($"Failed to complete LLM request after {maxRetries} attempts manually using model: {_selector.CurrentModel}.");
     }
 
     // =============================================

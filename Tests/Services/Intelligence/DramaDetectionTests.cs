@@ -34,10 +34,10 @@ public class DramaDetectionTests : IDisposable
             Model = "test-model"
         });
 
-        var routerMock = new Mock<ILlmRouterService>();
-        routerMock.Setup(r => r.GetModel(It.IsAny<bool>())).Returns("test-model");
+        var selectorMock = new Mock<ILlmSelectorService>();
+        selectorMock.Setup(s => s.CurrentModel).Returns("test-model");
 
-        _service = new IntelligenceService(_httpClient, _logger, settings, routerMock.Object);
+        _service = new IntelligenceService(_httpClient, _logger, settings, selectorMock.Object);
     }
 
     public void Dispose()

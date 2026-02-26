@@ -38,6 +38,14 @@ public class ConfigBatchGenerator
             bool success = false;
             int retryCount = 0;
 
+            // Determine assigned topic and formula based on index
+            var exampleTopics = pattern.Configuration.ExampleTopics;
+            bool hasTopics = exampleTopics != null && exampleTopics.Count > 0;
+            string? assignedTopic = hasTopics ? exampleTopics[i % exampleTopics!.Count] : null;
+            
+            int formulaIndex = i % 10; // 0 to 9
+            string assignedFormula = GetTitleFormula(formulaIndex);
+
             while (!success && retryCount < 3)
             {
                 try
@@ -45,7 +53,7 @@ public class ConfigBatchGenerator
                     onProgress?.Invoke(currentNumber, count);
 
                     // 1. Build context-aware prompt focusing on CREDIBLE SOURCES and PATTERN STRUCTURE
-                    var prompt = BuildSingleConfigPrompt(theme, channelName, seed, generatedTopics, pattern);
+                    var prompt = BuildSingleConfigPrompt(theme, channelName, seed, generatedTopics, pattern, assignedTopic, assignedFormula);
 
                     _logger.LogInformation("Generating config {Current}/{Total} (Attempt {Retry})", currentNumber, count, retryCount + 1);
 
@@ -92,11 +100,15 @@ public class ConfigBatchGenerator
         return generatedConfigs;
     }
 
-    private string BuildSingleConfigPrompt(string theme, string channelName, string? seed, HashSet<string> existingTopics, ScriptPattern pattern)
+    private string BuildSingleConfigPrompt(string theme, string channelName, string? seed, HashSet<string> existingTopics, ScriptPattern pattern, string? assignedTopic, string assignedFormula)
     {
         var context = existingTopics.Any()
             ? $"\nCONTEXT - DO NOT REPEAT THESE TOPICS:\n- {string.Join("\n- ", existingTopics)}"
             : "";
+
+        var assignedTopicInstruction = assignedTopic != null
+            ? $"DEVELOP video dari topik ini secara spesifik: '{assignedTopic}' (Tema umum: '{theme}')"
+            : $"Theme: '{theme}'.";
 
         // Build phase beat templates
         var templateBuilder = new PhaseBeatTemplateBuilder();
@@ -105,7 +117,7 @@ public class ConfigBatchGenerator
 
         return $@"
 Generate 1 (ONE) unique video configuration JSON for channel '{channelName}'.
-Theme: '{theme}'.
+{assignedTopicInstruction}
 Language: INDONESIAN (Bahasa Indonesia) for Topic, Outline, and Beats.
 {context}
 Seed/Instruction: {seed ?? "None"}
@@ -114,18 +126,8 @@ Seed/Instruction: {seed ?? "None"}
 {GetThemeGuidance(theme)}
 
 === REQUIREMENTS ===
-1. TITLE (Topic): CRITICAL - YOU MUST USE one of the following 10 formulas:
-
-   Formula 1: Angka + Subjek + yang Bisa/Mungkin + Konsekuensi
-   Formula 2: Durasi + Kata Kerja Memahami + Kenapa + Subjek + Kata Kunci Emosional
-   Formula 3: Beginilah Nasib/Keadaan + [Tempat/Orang] Setelah + [X Tahun/Kejadian]
-   Formula 4: Ketika + Ide/Agama/Metode + Untuk + Hasil/Peristiwa + [Tokoh]
-   Formula 5: Mereka Dibilang X, Tapi Y. Apakah Kebetulan?
-   Formula 6: Mitos Atau Fakta: [Klaim Provokatif]
-   Formula 7: [Nama Orang] dan [Nama Orang] di Catatan [Pelaku/Tokoh Misterius]
-   Formula 8: Seberapa [Adjektif Ekstrem] + [Periode/Peristiwa] + ?
-   Formula 9: Bagaimana Jika + Hipotesis/Perubahan + [Konsekuensi Besar]
-   Formula 10: Reportase singkat: [Tempat/Peristiwa] — [Frasa Menarik]
+1. TITLE (Topic): CRITICAL - YOU MUST USE THIS EXACT FORMULA:
+   {assignedFormula}
 
 2. DURATION: Between 15 - 35 minutes.
 3. SOURCES (SourceReferences): THIS IS CRITICAL. You must cite specific valid sources (Quran Surah:Ayat, Hadith Narrator/Number, Name of Classical Kitab/Book).
@@ -179,6 +181,25 @@ Return ONLY this JSON structure (no markdown text):
     ""... (lanjutkan untuk SEMUA 5 phase, total 15-25 beats yang substansial dan naratif)""
   ]
 }}";
+    }
+
+    private string GetTitleFormula(int index)
+    {
+        var formulas = new[]
+        {
+            "Formula 1: Angka + Subjek + yang Bisa/Mungkin + Konsekuensi",
+            "Formula 2: Durasi + Kata Kerja Memahami + Kenapa + Subjek + Kata Kunci Emosional",
+            "Formula 3: Beginilah Nasib/Keadaan + [Tempat/Orang] Setelah + [X Tahun/Kejadian]",
+            "Formula 4: Ketika + Ide/Agama/Metode + Untuk + Hasil/Peristiwa + [Tokoh]",
+            "Formula 5: Mereka Dibilang X, Tapi Y. Apakah Kebetulan?",
+            "Formula 6: Mitos Atau Fakta: [Klaim Provokatif]",
+            "Formula 7: [Nama Orang] dan [Nama Orang] di Catatan [Pelaku/Tokoh Misterius]",
+            "Formula 8: Seberapa [Adjektif Ekstrem] + [Periode/Peristiwa] + ?",
+            "Formula 9: Bagaimana Jika + Hipotesis/Perubahan + [Konsekuensi Besar]",
+            "Formula 10: Reportase singkat: [Tempat/Peristiwa] — [Frasa Menarik]"
+        };
+        
+        return formulas[index % formulas.Length];
     }
 
     private GeneratedConfig? ParseSingleConfig(string response)

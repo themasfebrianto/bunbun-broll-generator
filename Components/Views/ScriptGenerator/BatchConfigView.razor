@@ -42,11 +42,17 @@
 
         <div class="grid grid-cols-2 gap-4">
             @* Count *@
-            <div>
+            <div class="col-span-2 sm:col-span-1">
                 <label class="block text-xs font-medium text-muted-foreground mb-1.5">Jumlah Config</label>
-                <input type="number" class="input w-full" min="1" max="20" 
+                <input type="number" class="input w-full" min="1" max="50" 
                        value="@Count"
                        @onchange="@(e => { if (int.TryParse(e.Value?.ToString(), out int val)) { Count = val; CountChanged.InvokeAsync(Count); } })" />
+                @if (SelectedPattern != null && SelectedPattern.Configuration.ExampleTopics?.Count > 0)
+                {
+                    <p class="text-[10px] text-muted-foreground mt-1.5">
+                        🔄 @SelectedPattern.Configuration.ExampleTopics.Count topik akan dirotasi
+                    </p>
+                }
             </div>
             @* Pattern *@
             <div>
@@ -84,13 +90,27 @@
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                <span>Generating @Count configs...</span>
+                <span>Generating... (@ProgressCurrent of @ProgressTotal)</span>
             }
             else
             {
                 <span>🚀 Generate @Count Configs</span>
             }
         </button>
+
+        @if (IsGenerating && ProgressTotal > 0)
+        {
+            var percentage = Math.Clamp((int)Math.Round((double)ProgressCurrent / ProgressTotal * 100), 0, 100);
+            <div class="space-y-1.5 mt-4">
+                <div class="flex justify-between text-xs text-muted-foreground">
+                    <span>Processing config @ProgressCurrent of @ProgressTotal</span>
+                    <span>@percentage%</span>
+                </div>
+                <div class="h-2 w-full bg-secondary/50 rounded-full overflow-hidden">
+                    <div class="h-full bg-primary transition-all duration-300 ease-out" style="width: @percentage%"></div>
+                </div>
+            </div>
+        }
     </div>
 
     @* === Batch Results === *@
@@ -142,6 +162,8 @@
     [Parameter] public List<string> ChannelNames { get; set; } = new();
     [Parameter] public List<ScriptPattern> AvailablePatterns { get; set; } = new();
     [Parameter] public bool IsGenerating { get; set; }
+    [Parameter] public int ProgressCurrent { get; set; }
+    [Parameter] public int ProgressTotal { get; set; }
     [Parameter] public string? ErrorMessage { get; set; }
     [Parameter] public List<GeneratedConfig> Results { get; set; } = new();
 
@@ -165,8 +187,11 @@
     [Parameter] public EventCallback OnUseAll { get; set; }
     [Parameter] public EventCallback<GeneratedConfig> OnUseConfig { get; set; }
 
+    private ScriptPattern? SelectedPattern => AvailablePatterns.FirstOrDefault(p => p.Id == PatternId);
+
     private bool CanGenerate => !string.IsNullOrWhiteSpace(Theme)
         && !string.IsNullOrWhiteSpace(ChannelName)
+        && !string.IsNullOrWhiteSpace(PatternId)
         && !IsGenerating;
 
     public class GeneratedConfig

@@ -1,0 +1,46 @@
+@using BunbunBroll.Services
+@inject ILlmSelectorService SelectorService
+@implements IDisposable
+
+<div class="flex items-center gap-2">
+    <div class="relative group">
+        <select class="appearance-none bg-muted/50 border border-border text-foreground text-xs rounded-md pl-3 pr-8 py-1.5 outline-none hover:bg-muted focus:ring-1 focus:ring-primary transition-colors cursor-pointer"
+                value="@SelectorService.CurrentModel"
+                @onchange="HandleModelChange">
+            @foreach (var model in SelectorService.AvailableModels)
+            {
+                <option value="@model">@model</option>
+            }
+        </select>
+        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-muted-foreground">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+            </svg>
+        </div>
+    </div>
+</div>
+
+@code {
+    protected override void OnInitialized()
+    {
+        SelectorService.OnModelChanged += OnModelChangedExternally;
+    }
+
+    private void HandleModelChange(ChangeEventArgs e)
+    {
+        if (e.Value is string newModel)
+        {
+            SelectorService.SelectModel(newModel);
+        }
+    }
+
+    private void OnModelChangedExternally(string _)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        SelectorService.OnModelChanged -= OnModelChangedExternally;
+    }
+}

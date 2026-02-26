@@ -29,6 +29,9 @@ public class PatternConfiguration
     [JsonPropertyName("ruleTemplates")]
     public Dictionary<string, RuleTemplate> RuleTemplates { get; set; } = new();
 
+    [JsonPropertyName("exampleTopics")]
+    public List<string> ExampleTopics { get; set; } = new();
+
     /// <summary>
     /// Get phases ordered by their sequence number.
     /// </summary>

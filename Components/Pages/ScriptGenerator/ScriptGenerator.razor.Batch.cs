@@ -22,6 +22,8 @@ public partial class ScriptGenerator
         _batchTheme = "";
         _batchSeed = null;
         _batchError = null;
+        _batchProgressCurrent = 0;
+        _batchProgressTotal = 0;
         _batchResults.Clear();
     }
 
@@ -46,6 +48,8 @@ public partial class ScriptGenerator
 
         _isBatchGenerating = true;
         _batchError = null;
+        _batchProgressCurrent = 0;
+        _batchProgressTotal = _batchCount;
         _batchResults.Clear();
         StateHasChanged();
 
@@ -56,7 +60,8 @@ public partial class ScriptGenerator
             // Define progress callback
             Action<int, int> onProgress = (current, total) =>
             {
-                _batchError = $"Generating config {current} of {total}...";
+                _batchProgressCurrent = current;
+                _batchProgressTotal = total;
                 InvokeAsync(StateHasChanged);
             };
 

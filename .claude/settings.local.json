@@ -34,7 +34,8 @@
       "Bash(findstr:*)",
       "Bash(cmd //c \"tasklist | findstr bunbun\")",
       "Bash(ls:*)",
-      "Bash(git worktree list:*)"
+      "Bash(git worktree list:*)",
+      "Bash(find:*)"
     ]
   }
 }

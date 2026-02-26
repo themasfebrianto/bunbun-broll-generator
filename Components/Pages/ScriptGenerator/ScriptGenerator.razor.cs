@@ -99,6 +99,8 @@ public partial class ScriptGenerator
     private string? _batchSeed;
     private bool _isBatchGenerating;
     private string? _batchError;
+    private int _batchProgressCurrent;
+    private int _batchProgressTotal;
     private List<BatchConfigView.GeneratedConfig> _batchResults = new();
     private bool _isDeleting;
 
