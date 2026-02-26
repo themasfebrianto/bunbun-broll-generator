@@ -109,7 +109,6 @@ builder.Services.AddSingleton<BunbunBroll.Models.WhiskConfig>(sp =>
 });
 builder.Services.AddScoped<WhiskImageGenerator>();
 
-// Configure HttpClient for Gemini (Local LLM) - Uses IOptions pattern for env var support
 builder.Services.AddHttpClient<IIntelligenceService, IntelligenceService>()
 .ConfigureHttpClient((sp, client) =>
 {

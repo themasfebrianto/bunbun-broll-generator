@@ -1,7 +1,7 @@
 {
   "name": "jazirah-ilmu",
-  "description": "Video Essay Investigatif & Intelektual - 5 fase dengan pendekatan dokumenter, berbasis data/sejarah, menghindari kesan ceramah/menggurui",
-  "version": "3.0-GoldenStandard",
+  "description": "Video Essay Investigatif & Intelektual - 5 fase dengan pendekatan sinematik berbasis data dan sejarah, menghindari kesan ceramah atau menggurui",
+  "version": "3.1-RefinedFramework",
   "phases": [
     {
       "id": "opening-hook",
@@ -16,34 +16,27 @@
         "max": 200
       },
       "requiredElements": [
-        "Cold Open: Langsung masuk ke narasi/cerita TANPA salam pembuka",
-        "Kalimat PANJANG MENGALIR dari awal (WAJIB) - JANGAN mulai dengan kalimat pendek-terpisah",
-        "Misteri: Bangun ketegangan/pertanyaan besar sebelum menyebut topik utama",
-        "Statement paradoks atau fakta kontraintuitif yang menantang asumsi umum",
-        "Framing topik sebagai misteri intelektual, bukan sekadar nasehat moral"
+        "Buka dengan SATU kalimat panjang yang langsung masuk narasi dan membangun misteri (tanpa salam di kalimat pertama)",
+        "Setelah kalimat pembuka selesai, WAJIB sisipkan: 'Assalamualaikum warahmatullahi wabarakatuh.' sebagai kalimat terpisah",
+        "Bangun rasa penasaran sebelum menyebut topik utama secara eksplisit",
+        "Sajikan paradoks atau fakta yang mengguncang asumsi umum",
+        "Posisikan topik sebagai teka-teki intelektual, bukan nasihat moral"
       ],
       "forbiddenPatterns": [
-        "Mengucapkan salam/halo di awal audio (HARAM)",
-        "Bayangkan...",
-        "Pernahkah Anda berpikir...",
-        "Pada kesempatan ini...",
-        "Pertanyaan retoris yang klise/lemah (misal: 'Tahukah kamu?')",
-        "Kalimat pembuka yang bertele-tele",
-        "Kalimat pendek-terpisah di awal seperti 'Menunduk dalam. Khusyuk. Mata tak berkedip' - GUNAKAN kalimat panjang mengalir"
+        "Memulai audio dengan salam sebelum narasi misteri",
+        "Kalimat klise seperti 'Bayangkan...' atau 'Pernahkah Anda berpikir...'",
+        "Pembukaan bertele-tele",
+        "Pertanyaan retoris lemah",
+        "Kalimat pendek terpisah sebelum kalimat panjang pembuka"
       ],
-      "guidanceTemplate": "Mulai dengan 'Cold Open' seperti dokumenter Jazirah Ilmu. JANGAN ucapkan salam. MULAI dengan kalimat PANJANG yang mengalir. Contoh JI: 'Dunia hari ini terlihat tenang. Layar menyala, pasar bergerak, teknologi berkembang seolah semuanya terkendali. Tapi di balik itu semua, ada satu titik rapuh...' atau 'Sejak manusia mengenal kekuasaan, ada satu pola yang selalu berulang di hampir semua peradaban, yaitu penguasa tidak pernah puas hanya disebut kuat...'",
+      "guidanceTemplate": "Mulai dengan satu kalimat panjang yang sinematik dan penuh ketegangan. Setelah itu, beri jeda alami lalu ucapkan 'Assalamualaikum warahmatullahi wabarakatuh.' sebagai transisi, kemudian lanjutkan penguncian topik.",
       "customRules": {
         "cognitiveDisturbance": "high",
         "hookStyle": "Investigative Mystery",
-        "coldOpen": "true"
+        "coldOpen": "true",
+        "salamPlacement": "after_first_long_sentence"
       },
-      "emotionalArc": "Intrik (Misteri) -> Skeptis (Paradoks) -> Ingin Tahu (Hook)",
-      "openingExamples": [
-        "Contoh 1 (Smartphone Addiction): 'Dunia hari ini terlihat tenang. Layar menyala, pasar bergerak, teknologi berkembang seolah semuanya terkendali. Tapi di balik itu semua, ada satu titik rapuh yang menahan seluruh sistem agar tidak runtuh, dan titik rapuh itu berada tepat di telapak tangan kita. Sejarah mencatat bahwa manusia pernah mengelilingi patung batu, membungkuk pada berhala yang terukir dari kayu, dan menyembah sosok yang mereka ciptakan sendiri dengan tangan mereka sendiri. Kita sering mengira tradisi tersebut telah lama mati, terkubur oleh masa dan kemajuan peradaban. Namun, cobalah lihat ke sekeliling ruangan ini saat ini. Di setiap sudut, terdapat puluh bahkan ratusan orang yang menunduk dalam keheningan, mata tak berkedip menatap cahaya buatan, jempol bergerak ritmis tanpa henti, seolah mereka sedang melakukan ritual ibadah yang abadi.'",
-        "Contoh 2 (Social Media Validation): 'Sejak manusia mengenal kekuasaan, ada satu pola yang selalu berulang di hampir semua peradaban, yaitu penguasa tidak pernah puas hanya disebut kuat. Mereka ingin disebut sah, suci, dan ditakdirkan, dan mereka akan melakukan segala cara untuk melegitimasi posisi tersebut, termasuk menulis ulang sejarah dan menciptakan silsilah dewa. Di abad ke-21, pola yang sama muncul kembali, tetapi bukan di istana kerajaan atau takhta kekaisaran, melainkan di kantong celana dan dompet setiap orang. Kita sekarang memiliki mata uang baru yang menentukan nilai diri seseorang, dan mata uang itu diberi nama yang sangat sederhana: like. Sebuah angka yang muncul di layar ketika seseorang menyetujui keberadaan kita, sebuah tanda bahwa kita dilihat, diakui, dan dianggap ada.'",
-        "Contoh 3 (Climate Eschatology): 'Ada satu masa dalam sejarah umat manusia ketika seluruh peradaban merasa sudah mencapai puncak kejayaan. Gedung-gedung menjulang, perdagangan berkembang, dan ilmu pengetahuan maju pesat seolah-olah tidak ada batas lagi yang bisa ditembus. Namun di balik kemegahan yang tampak itu, ada satu kebenaran yang sering terlupakan: segala sesuatu yang naik, suatu saat akan turun. Kitab suci umat berbagai agama telah mencatat fenomena ini ribuan tahun yang lalu, bukan sebagai ramalan mistis, melainkan sebagai pola sejarah yang berulang. Peradaban besar bangkit, mencapai puncak kejayaan, dan kemudian runtuh bukan karena serangan musuh dari luar, melainkan karena keropos dari dalam.'",
-        "Contoh 4 (Wealth Materialism): 'Nabi Muhammad Shallallahu alaihi wa sallam pernah bersabda tentang golongan orang yang akan celaka, dan beliau menyebut mereka dengan sebutan yang sangat spesifik: Hamba dinar, hamba dirham. Dalam bahasa Arab klasik, kata abdu berarti hamba sahaya, seseorang yang sepenuhnya dimiliki oleh tuannya, yang tidak memiliki kebebasan untuk bergerak tanpa izin. Di masa kini, mata uangnya mungkin berubah namanya, tetapi pola perilaku tetap sama. Kita mungkin tidak lagi menyembah koin emas dan perak secara fisik, tetapi hati kita masih dapat diperbudak oleh sesuatu yang lebih halus, lebih abstrak, namun jauh lebih kuat cengkeramnya.'"
-      ]
+      "emotionalArc": "Intrik -> Skeptis -> Ingin Tahu"
     },
     {
       "id": "contextualization",
@@ -58,24 +51,24 @@
         "max": 550
       },
       "requiredElements": [
-        "Minimal 2 DATA KERAS (Angka, Tahun, Nama Tokoh, Lokasi Spesifik)",
-        "Studi kasus nyata atau peristiwa sejarah yang JARANG diketahui",
-        "High Stakes: Jelaskan konsekuensi vital jika masalah ini dibiarkan (e.g., Kehancuran sistem, Perang, Hilangnya iman)",
-        "Definisi ulang masalah: Mengubah persepsi audiens dari 'ini masalah biasa' menjadi 'ini masalah sistemik/krusial'",
-        "Kalimat transisi yang menghubungkan makro (dunia) ke mikro (kita)"
+        "Minimal dua data konkret (angka, tahun, tokoh, lokasi)",
+        "Peristiwa nyata atau studi kasus yang jarang dibahas",
+        "Jelaskan apa yang dipertaruhkan jika pola ini terus berlanjut",
+        "Ubah cara pandang audiens dari masalah biasa menjadi persoalan sistemik",
+        "Transisi halus dari skala global ke dampaknya dalam kehidupan sehari-hari"
       ],
       "forbiddenPatterns": [
-        "Generalisasi tanpa bukti ('Banyak orang berkata...')",
-        "Kutipan dalil tanpa konteks realitas",
-        "Bahasa yang terlalu abstrak/filosofis tanpa pijakan bumi"
+        "Generalisasi tanpa rujukan",
+        "Dalil agama tanpa konteks realitas",
+        "Bahasa terlalu abstrak tanpa contoh nyata"
       ],
-      "guidanceTemplate": "Jangan ceramah. Tunjukkan BUKTI. Sebutkan tahun kejadian, nama perjanjian, jumlah korban, atau statistik spesifik. Jangan hanya mendefinisikan masalah; ceritakan apa yang DIPERTARUHKAN (The Stakes). Buat audiens merasa 'lebih pintar' setelah mendengar bagian ini.",
-      "transitionHint": "Namun, data sejarah mencatat anomali yang mengerikan...",
+      "guidanceTemplate": "Tampilkan fakta dan detail konkret. Biarkan data berbicara. Kaitkan dengan dampaknya bagi kehidupan nyata.",
+      "transitionHint": "Namun catatan sejarah menunjukkan sesuatu yang jarang disadari...",
       "customRules": {
         "mustHaveConcreteData": "true",
         "narrativeMode": "Expository-Analytic"
       },
-      "emotionalArc": "Terkejut (Fakta baru) -> Rasional (Analisis) -> Concern (Implikasi)"
+      "emotionalArc": "Terkejut -> Rasional -> Peduli"
     },
     {
       "id": "multi-dimensi",
@@ -90,25 +83,24 @@
         "max": 1300
       },
       "requiredElements": [
-        "The Domino Effect: Jelaskan bagaimana satu sebab kecil memicu kehancuran besar (Sebab-Akibat Material)",
-        "The Psychological Trap: Analisis sisi gelap psikologi manusia/behavioral science",
-        "The Ultimate Consequence (Eskatologi): Perspektif akhir zaman yang rasional (bukan mistis)",
-        "Penggunaan istilah teknis yang tepat (misal: 'Hedonic Treadmill', 'Cognitive Dissonance', 'Istidraj')",
-        "Studi kasus pembanding (Komparasi zaman dulu vs sekarang dengan detail)"
+        "Uraikan bagaimana sebuah keputusan atau kebiasaan kecil dapat berkembang menjadi dampak luas bagi masyarakat.",
+        "Jelaskan sisi psikologis yang membuat manusia sulit keluar dari pola merugikan.",
+        "Tinjau kemungkinan konsekuensi jangka panjang terhadap stabilitas sosial dan peradaban.",
+        "Gunakan konsep ilmiah atau istilah teknis seperlunya untuk memperkuat argumen, tanpa terasa menggurui.",
+        "Bandingkan pola masa lalu dan masa kini secara konkret untuk menunjukkan pengulangan sejarah."
       ],
       "forbiddenPatterns": [
-        "Pengulangan poin yang sama dengan kata berbeda",
-        "Judgemental language ('Kita semua berdosa', 'Anda salah')",
-        "Bahasa 'langit' yang tidak membumi",
-        "Menjelaskan definisi istilah tanpa konteks cerita (Kamus berjalan)"
+        "Pengulangan ide yang sama secara berputar-putar",
+        "Bahasa menghakimi",
+        "Penjelasan definisi tanpa konteks cerita"
       ],
-      "guidanceTemplate": "Gunakan struktur 'Progressive Escalation'. Masalah ini bukan cuma soal X, tapi memicu Y, dan akhirnya menghancurkan Z. Setiap paragraf harus menaikkan taruhan (raise the stakes). Gunakan perspektif multidisiplin (Sains + Agama). JANGAN kaku seperti skripsi.",
-      "transitionHint": "Dan di sinilah letak ironi terbesarnya...",
+      "guidanceTemplate": "Naikkan taruhan secara bertahap. Tunjukkan bagaimana satu hal memicu hal lain hingga membesar. Gunakan pendekatan lintas disiplin secara alami.",
+      "transitionHint": "Di titik inilah paradoksnya mulai terlihat...",
       "customRules": {
         "progressiveStakes": "true",
         "interdisciplinary": "true"
       },
-      "emotionalArc": "Fokus (Analisis mendalam) -> Gelisah (Koneksi ke realitas diri) -> Takut/Awe (Skala masalah membesar)"
+      "emotionalArc": "Fokus -> Gelisah -> Takjub"
     },
     {
       "id": "climax",
@@ -123,25 +115,23 @@
         "max": 650
       },
       "requiredElements": [
-        "Satu METAFORA VISUAL yang menyentuh PERASAAN (bukan cuma logika)",
-        "Konfrontasi intelektual: Menghadapkan audiens pada pilihan logis, bukan emosional murahan",
-        "Call to Mind (bukan just Call to Action): Mengubah cara pikir",
-        "Penggunaan 'Silent Pauses' dalam naskah untuk efek dramatis"
+        "Gunakan satu metafora visual yang kuat dan menyentuh emosi",
+        "Hadapkan audiens pada pilihan rasional, bukan manipulasi emosi",
+        "Dorong perubahan cara pikir, bukan sekadar ajakan bertindak",
+        "Gunakan ritme kalimat yang lebih singkat dan tegas untuk efek dramatis"
       ],
       "forbiddenPatterns": [
-        "Menangis-nangis atau over-dramatisasi",
-        "Solusi instan/gampangan ('Pokoknya tobat')",
-        "Menyalahkan pihak tertentu secara vulgar",
-        "Dramatic pauses format seperti '(Hening total selama 3 detik. Layar gelap gulita)' - gunakan narasi visual saja",
-        "Direct confrontation questions like 'Siapa Tuanmu?' tanpa konteks - gunakan metafor visual yang lebih halus"
+        "Over-dramatisasi",
+        "Solusi instan",
+        "Menyalahkan pihak tertentu secara kasar"
       ],
-      "guidanceTemplate": "Hantam dengan realitas. Bongkar ilusi kenyamanan. Gunakan kalimat pendek, tajam, dan ritmik (Staccato). Jangan minta audiens berubah, tapi tunjukkan konsekuensi logis jika TIDAK berubah.",
-      "transitionHint": "Maka, kita tersudut pada satu pertanyaan yang tak bisa dihindari...",
+      "guidanceTemplate": "Persempit fokus ke realitas paling tajam. Gunakan kalimat pendek dan ritmis. Biarkan konsekuensi berbicara sendiri.",
+      "transitionHint": "Maka kita sampai pada persimpangan yang tak bisa dihindari...",
       "customRules": {
-        "sentenceStyle": "Staccato (Short, Punchy)",
+        "sentenceStyle": "Short and Punchy",
         "visualMetaphor": "required"
       },
-      "emotionalArc": "Tegang (Konfrontasi) -> Hening (Refleksi) -> Tercerahkan (Shift perspective)"
+      "emotionalArc": "Tegang -> Hening -> Tercerahkan"
     },
     {
       "id": "eschatology",
@@ -156,59 +146,59 @@
         "max": 500
       },
       "requiredElements": [
-        "Zoom out: Kembali ke *big picture*",
-        "Open loop: Pertanyaan yang dibawa pulang (lingering thought)",
-        "Closing statement yang rendah hati (Sikap 'Kita sama-sama belajar')",
-        "Salam penutup lengkap"
+        "Tarik kembali ke gambaran besar",
+        "Sisakan satu pertanyaan yang menggantung untuk direnungkan",
+        "Gunakan nada rendah hati dan reflektif",
+        "Tutup dengan salam penutup lengkap"
       ],
       "forbiddenPatterns": [
-        "Kesimpulan yang mematikan diskusi (Absolute ending)",
-        "Kesan 'Saya lebih suci dari Anda'",
+        "Kesimpulan absolut",
+        "Kesan paling benar sendiri",
         "Promosi berlebihan"
       ],
-      "guidanceTemplate": "Tutup dengan elegan. Jangan simpulkan semuanya untuk audiens; biarkan mereka menyimpulkan sendiri. Posisi narator: Teman berpikir, bukan guru moral.",
-      "transitionHint": "Pada akhirnya, sejarah akan mencatat pilihan kita...",
+      "guidanceTemplate": "Tutup dengan elegan dan reflektif. Biarkan audiens menyelesaikan kesimpulan di benak mereka sendiri.",
+      "transitionHint": "Pada akhirnya, sejarah akan menilai pilihan kita...",
       "customRules": {
         "humility": "max",
         "lingeringThought": "true"
       },
-      "emotionalArc": "Reda (De-escalation) -> Hangat (Connection) -> Kontemplatif (Closing)"
+      "emotionalArc": "Reda -> Hangat -> Kontemplatif"
     }
   ],
   "globalRules": {
-    "tone": "Video Essay Dokumenter: Cinematic Tension, Cerdas tapi Membumi (Smart Casual). Hindari bahasa akademis yang kaku atau istilah teknis yang tidak perlu.",
-    "voice": "Investigative Journalist meets Storyteller. Bicara seperti menjelaskan ke teman pintar, bukan kuliah dosen.",
-    "perspective": "Objective Observer. Gunakan 'Kita' untuk refleksi bersama.",
-    "vocabulary": "Gunakan Bahasa Indonesia baku yang ENARIC (Enak Dibaca & Didengar). Hindari istilah sains/teknis yang membuat kening berkerut (misal: 'variabel', 'kausalitas', 'anomali data' -> GANTI DENGAN 'faktor', 'sebab-akibat', 'keanehan').",
-    "narrativeStructure": "Progressive Escalation (Maju & Membesar) & High Stakes Building (Membangun Taruhan).",
-    "intellectualSurprise": "Setiap fase HARUS menyajikan minimal 1 fakta/insight baru.",
-    "authoritativeGuidelines": "Sebutkan perbedaan pendapat ulama (Khilafiyah) secara adil. Hindari narasi absolut/tunggal pada masalah khilafiyah.",
-    "referenceRequirement": "Setiap dalil/klaim agama WAJIB menyertakan referensi (Nama Kitab, Nomor Hadits, atau Derajat Hadits). Jangan kutip 'Kata Ulama' tanpa nama.",
-    "narrativeHumility": "Gunakan frasa kerendahan hati: 'Wallahu a'lam', 'Menurut sebagian pendapat', untuk menghindari kesan otoriter.",
+    "tone": "Video Essay sinematik: cerdas namun tetap membumi. Hindari bahasa akademis kaku dan istilah teknis berlebihan.",
+    "voice": "Pengamat investigatif yang bercerita seperti kepada teman berpikir.",
+    "perspective": "Observer objektif dengan refleksi kolektif menggunakan 'kita'.",
+    "vocabulary": "Gunakan bahasa Indonesia baku yang enak didengar. Pilih istilah sederhana tanpa mengorbankan makna.",
+    "narrativeStructure": "Bangun eskalasi bertahap dan naikkan taruhan secara alami.",
+    "intellectualSurprise": "Setiap fase menyajikan minimal satu insight baru.",
+    "authoritativeGuidelines": "Jika menyentuh isu khilafiyah, tampilkan perbedaan pendapat secara adil.",
+    "referenceRequirement": "Setiap dalil agama wajib disertai sumber yang jelas.",
+    "narrativeHumility": "Gunakan frasa rendah hati untuk menjaga keseimbangan.",
     "language": "Bahasa Indonesia"
   },
   "styleCharacteristics": {
-    "visualThinking": "Tulis naskah untuk MATA (Visual). Deskripsikan adegan nyata.",
-    "dataIntegration": "Sebutkan data secara natural dalam kalimat, jangan kaku.",
-    "rhetoricalStrategy": "Ajak audiens berpikir kritis dengan bahasa sehari-hari yang tajam."
+    "visualThinking": "Tulis dengan imajinasi visual yang kuat.",
+    "dataIntegration": "Masukkan data secara alami dalam alur cerita.",
+    "rhetoricalStrategy": "Ajak audiens berpikir kritis dengan bahasa tajam namun santai."
   },
   "productionChecklist": {
     "factCheck": [
-      "Apakah ada Data Keras (Angka/Nama/Tahun)?",
-      "Apakah ada Studi Kasus Nyata?"
+      "Apakah ada data konkret?",
+      "Apakah ada studi kasus nyata?"
     ],
     "toneCheck": [
-      "Apakah bahasanya terlalu 'tinggi/ilmiah'? Jika ya, SEDERHANAKAN.",
-      "Apakah terdengar pretensius? Gunakan 'Bahasa Manusia' saja.",
-      "Apakah ada 'Intellectual Surprise'?"
+      "Apakah terlalu kaku? Jika ya, sederhanakan.",
+      "Apakah terdengar menggurui?",
+      "Apakah ada insight baru?"
     ]
   },
   "exampleTopics": [
-    "Geopolitik Chip Semikonduktor (TSMC)",
+    "Geopolitik Chip Semikonduktor",
     "Sejarah Mata Uang Fiat & Riba",
     "Psikologi Massa di Era Algoritma",
-    "Keruntuhan Peradaban Islam Andalusia (Studi Kasus)",
-    "Eskatologi Iklim & Lingkungan"
+    "Keruntuhan Andalusia",
+    "Eskatologi Iklim"
   ],
   "forbiddenPhrases": [
     "Marilah kita...",

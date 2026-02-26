@@ -22,81 +22,93 @@ public class ConfigBatchGenerator
 
     public async Task<List<GeneratedConfig>> GenerateConfigsAsync(string theme, string channelName, int count, ScriptPattern? pattern, string? seed = null, Action<int, int>? onProgress = null, CancellationToken cancellationToken = default)
     {
-        var generatedConfigs = new List<GeneratedConfig>();
-        var generatedTopics = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        _logger.LogInformation("Starting sequential generation of {Count} configs for theme '{Theme}' using pattern '{Pattern}'", count, theme, pattern?.Name ?? "Unknown");
-
         if (pattern == null)
         {
             throw new ArgumentNullException(nameof(pattern), "Pattern configuration is missing or invalid. Batch generation requires a valid pattern.");
         }
 
-        for (int i = 0; i < count; i++)
+        _logger.LogInformation("Starting parallel generation of {Count} configs for theme '{Theme}' using pattern '{Pattern}' (max 3 concurrent)", count, theme, pattern?.Name ?? "Unknown");
+
+        var semaphore = new SemaphoreSlim(3); // max 3 concurrent LLM calls
+        var completedCount = 0;
+        var results = new GeneratedConfig?[count];
+
+        var tasks = Enumerable.Range(0, count).Select(async i =>
         {
-            int currentNumber = i + 1;
-            bool success = false;
-            int retryCount = 0;
-
-            // Determine assigned topic and formula based on index
-            var exampleTopics = pattern.Configuration.ExampleTopics;
-            bool hasTopics = exampleTopics != null && exampleTopics.Count > 0;
-            string? assignedTopic = hasTopics ? exampleTopics[i % exampleTopics!.Count] : null;
-            
-            int formulaIndex = i % 10; // 0 to 9
-            string assignedFormula = GetTitleFormula(formulaIndex);
-
-            while (!success && retryCount < 3)
+            await semaphore.WaitAsync(cancellationToken);
+            try
             {
-                try
+                int currentNumber = i + 1;
+                int retryCount = 0;
+
+                // Determine assigned topic and formula based on index
+                var exampleTopics = pattern.Configuration.ExampleTopics;
+                bool hasTopics = exampleTopics != null && exampleTopics.Count > 0;
+                string? assignedTopic = hasTopics ? exampleTopics[i % exampleTopics!.Count] : null;
+
+                int formulaIndex = i % 10;
+                string assignedFormula = GetTitleFormula(formulaIndex);
+
+                while (retryCount < 3)
                 {
-                    onProgress?.Invoke(currentNumber, count);
-
-                    // 1. Build context-aware prompt focusing on CREDIBLE SOURCES and PATTERN STRUCTURE
-                    var prompt = BuildSingleConfigPrompt(theme, channelName, seed, generatedTopics, pattern, assignedTopic, assignedFormula);
-
-                    _logger.LogInformation("Generating config {Current}/{Total} (Attempt {Retry})", currentNumber, count, retryCount + 1);
-
-                    // 2. Call LLM
-                    var response = await _intelligenceService.GenerateContentAsync(
-                        systemPrompt: "You are a creative Director for a high-end Islamic Documentary YouTube channel. You prioritize ACCURACY (Dalil/Sources) and Storytelling. You output strictly valid JSON.",
-                        userPrompt: prompt,
-                        maxTokens: 2500,
-                        temperature: 0.85,
-                        cancellationToken: cancellationToken);
-
-                    if (string.IsNullOrEmpty(response)) throw new InvalidOperationException("Empty response from LLM");
-
-                    // 3. Parse Response
-                    var config = ParseSingleConfig(response);
-
-                    if (config != null)
+                    try
                     {
-                        // Post-processing & Validation
-                        config.ChannelName = channelName;
-                        if (config.Topic.Length > 100) config.Topic = config.Topic.Substring(0, 97) + "...";
+                        // Build prompt (no shared topic dedup during parallel gen — dedup at end)
+                        var prompt = BuildSingleConfigPrompt(theme, channelName, seed, new HashSet<string>(), pattern, assignedTopic, assignedFormula);
 
-                        generatedConfigs.Add(config);
-                        generatedTopics.Add(config.Topic);
-                        success = true;
+                        _logger.LogInformation("Generating config {Current}/{Total} (Attempt {Retry})", currentNumber, count, retryCount + 1);
 
-                        Console.WriteLine($"[SUCCESS] Generated: {config.Topic}");
+                        var response = await _intelligenceService.GenerateContentAsync(
+                            systemPrompt: "You are a creative Director for a high-end Islamic Documentary YouTube channel. You prioritize ACCURACY (Dalil/Sources) and Storytelling. You output strictly valid JSON.",
+                            userPrompt: prompt,
+                            maxTokens: 2500,
+                            temperature: 0.85,
+                            cancellationToken: cancellationToken);
 
-                        // Delay to prevent Rate Limits
-                        if (i < count - 1) await Task.Delay(1500, cancellationToken);
+                        if (string.IsNullOrEmpty(response)) throw new InvalidOperationException("Empty response from LLM");
+
+                        var config = ParseSingleConfig(response);
+
+                        if (config != null)
+                        {
+                            config.ChannelName = channelName;
+                            if (config.Topic.Length > 100) config.Topic = config.Topic.Substring(0, 97) + "...";
+
+                            results[i] = config;
+                            var done = Interlocked.Increment(ref completedCount);
+                            onProgress?.Invoke(done, count);
+                            Console.WriteLine($"[SUCCESS] Config {currentNumber}: {config.Topic}");
+                            return;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        retryCount++;
+                        _logger.LogWarning("Failed to generate config {Current}: {Message}. Retrying ({Retry}/3)...", currentNumber, ex.Message, retryCount);
+                        await Task.Delay(1000 * retryCount, cancellationToken);
                     }
                 }
-                catch (Exception ex)
-                {
-                    retryCount++;
-                    _logger.LogWarning("Failed to generate config {Current}: {Message}. Retrying...", currentNumber, ex.Message);
+            }
+            finally
+            {
+                semaphore.Release();
+            }
+        });
 
-                    // Exponential backoff
-                    await Task.Delay(2000 * retryCount, cancellationToken);
-                }
+        await Task.WhenAll(tasks);
+
+        // Post-generation: collect results and deduplicate by topic
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var generatedConfigs = new List<GeneratedConfig>();
+        foreach (var config in results)
+        {
+            if (config != null && seen.Add(config.Topic))
+            {
+                generatedConfigs.Add(config);
             }
         }
 
+        _logger.LogInformation("Parallel generation complete: {Success}/{Total} unique configs", generatedConfigs.Count, count);
         return generatedConfigs;
     }
 
@@ -138,33 +150,30 @@ Each phase has specific REQUIRED ELEMENTS that must be reflected in the beats:
 
 {beatTemplateSection}
 
-=== BEAT QUALITY RULES (JAZIRAH ILMU STYLE) ===
+=== BEAT FORMAT RULES ===
 
-ATURAN PENULISAN BEAT YANG WAJIB DIPATUHI:
+CRITICAL: Setiap beat HARUS berupa poin SINGKAT (maksimal 10-15 kata).
+Beat adalah outline/peta konten, BUKAN narasi lengkap.
 
-1. NARATIF-FOCUSED: Setiap beat harus berisi KONTEN CERITA, bukan instruksi visual. Tulis apa yang Diceritakan, bukan apa yang Dilihat.
-2. KALIMAT PANJANG MENGALIR: Setiap beat harus berupa narasi panjang yang mengalir (3-5 klausa), bukan poin-poin pendek.
-3. REFERENSI JELAS: Sebutkan QS. X:Y, HR. Nama#Nomor, Nama Kitab, Nama Tokoh, Tahun sebagai FAKTA SEJARAH.
-4. DATA KONKRET: Sertakan angka, nama, tahun, atau fakta spesifik dalam setiap beat.
-5. HINDARI: Visual instructions (close-up, zoom, fade), dramatic pauses (Hening 3 detik), direct confrontation (Siapa Tuanamu?).
-6. JI STYLE: Gunakan pola Jazirah Ilmu - observasi luas -> hidden reality -> analisis mendalam -> refleksi.
+ATURAN:
+1. SINGKAT & PADAT: Maks 15 kata per beat. Tulis sebagai poin outline, bukan paragraf.
+2. KONTEN SPESIFIK: Sebutkan nama, angka, tahun, atau sumber konkret di setiap beat.
+3. REFERENSI: Cantumkan QS. X:Y, HR. Nama No.X, Nama Kitab, Tokoh, Tahun.
+4. HINDARI: Kalimat panjang, instruksi visual, dramatic pause, pertanyaan langsung.
+5. TOTAL: 15-20 beats ringkas untuk seluruh video.
 
-KHUSUS UNTUK OPEN LOOP/REFLEKSI (Phase Terakhir):
-- JANGAN gunakan pertanyaan langsung seperti Siapa Tuanmu? atau Apakah kamu siap?
-- GUNAKAN pernyataan reflektif yang menggantungkan kesimpulan pada audiens
-- CONTOH JI: Di titik inilah abad pertengahan benar-benar berakhir. Bukan karena kegelapan menghilang sepenuhnya, melainkan karena manusia mulai berani menyalakan cahaya mereka sendiri.
+CONTOH BEAT YANG BENAR:
+- ""Pembuka: ilusi kekayaan modern vs nilai intrinsik emas""
+- ""Nixon Shock 1971 — dolar putus dari emas""
+- ""Ibnu Khaldun, Al-Muqaddimah: emas-perak sebagai standar nilai""
+- ""QS. Al-Baqarah:275 — riba vs jual beli""
+- ""Inflasi = pajak tersembunyi, erosi daya beli kelas pekerja""
+- ""HR. Ahmad 16244: masa di mana hanya Dinar-Dirham yang bermanfaat""
+- ""CBDC — kontrol absolut transaksi oleh otoritas terpusat""
+- ""Refleksi: kesejahteraan sejati tak lahir dari sistem berbasis riba""
 
-CONTOH BEAT YANG BAIK (JI STYLE):
-- Beat 1: Narasi pembuka panjang yang mengalir - mulai dengan observasi luas tentang dunia yang tampak tenang, lalu perlahan mengarah ke anomali. Contoh JI: Dunia hari ini terlihat tenang. Layar menyala, pasar bergerak, teknologi berkembang seolah semuanya terkendali. Tapi di balik itu semua, ada satu titik rapuh.
-- Beat 2: DATA KONKRET - Sajikan angka/statistik dengan naratif yang mengalir. Contoh: Jika dikalkulasi, hampir sepertiga usia produktif kita habis dalam posisi menunduk pada layar, melakukan sujud digital yang durasinya jauh melampaui waktu yang kita berikan untuk Tuhan pemilik semesta.
-- Beat 3: REFERENSI KITAB - Sebut tokoh/kitab sebagai konsep analisis. Contoh: Dalam kitab Majmu Fatawa Jilid 10, Ibnu Taimiyah menjelaskan bahwa Ilah bukan sekadar yang kita sembah dalam ritual, melainkan apa yang membuat hati tenang karenanya, jiwamu bergantung padanya.
-- Beat 4: OPEN LOOP - Pernyataan reflektif, BUKAN pertanyaan. Contoh: Pada akhirnya, pertanyaan bukan lagi tentang kebenaran klaim keagamaan di masa lalu, melainkan tentang apakah kita memiliki kebijaksanaan untuk membedakan antara keyakinan yang memerdekakan dan fanatisme yang memperbudak.
-
-CONTOH BEAT YANG BURUK:
-- Beat: Visual close-up iris mata yang memantulkan logo... (Ini instruksi visual, bukan narasi)
-- Beat: Pertanyaan tajam: Siapa Tuanmu yang sebenarnya sekarang? (Direct confrontation, tidak JI style)
-- Beat: Pertanyaan konfrontatif: Apakah kamu siap menghadapi hari ketika... (JANGAN gunakan pertanyaan langsung)
-- Beat: Momen Hening: Layar menjadi hitam total selama 3 detik. (Dramatic pause, bukan narasi)
+CONTOH BEAT YANG SALAH (JANGAN SEPERTI INI):
+- ""Dunia modern mendefinisikan kekayaan melalui deretan angka yang berkedip di layar digital dan tumpukan kertas berwarna yang tersusun rapi di lemari besi, sebuah ilusi massal yang kita sepakati bersama..."" (TERLALU PANJANG!)
 
 === OUTPUT FORMAT (STRICT JSON) ===
 Return ONLY this JSON structure (no markdown text):
@@ -174,11 +183,13 @@ Return ONLY this JSON structure (no markdown text):
   ""outline"": ""Ringkasan alur cerita dalam 2-3 kalimat..."",
   ""sourceReferences"": ""QS. Al-Mulk: 1-5, HR. Muslim No. 203, Kitab Al-Bidaya wan Nihaya Vol 3"",
   ""mustHaveBeats"": [
-    ""Narasi pembuka panjang yang mengalir: 'Dunia hari ini terlihat tenang. Layar menyala...' (Gunakan kalimat panjang dengan klausa yang terhubung)"",
-    ""DATA KONKRET: Sertakan angka/tahun/nama spesifik dengan narasi yang mengalir, bukan hanya sebut data mentah"",
-    ""REFERENSI KITAB: Sebut tokoh/kitab sebagai FAKTA SEJARAH dalam analisis, bukan untuk dakwah"",
-    ""OPEN LOOP/REFLEKSI: Pernyataan reflektif, BUKAN pertanyaan langsung. Contoh: Pada akhirnya, pertanyaan bukan lagi tentang kebenaran klaim keagamaan di masa lalu, melainkan tentang apakah kita memiliki kebijaksanaan..."",
-    ""... (lanjutkan untuk SEMUA 5 phase, total 15-25 beats yang substansial dan naratif)""
+    ""Pembuka: observasi luas tentang fenomena X"",
+    ""Data: angka/statistik spesifik tentang Y"",
+    ""QS. X:Y — konteks ayat terkait tema"",
+    ""HR. Nama No.X — hadits pendukung argumen"",
+    ""Kitab Z oleh Tokoh A — analisis klasik"",
+    ""Studi kasus: peristiwa konkret tahun XXXX"",
+    ""Refleksi: pernyataan penutup yang menggantung""
   ]
 }}";
     }

@@ -49,7 +49,7 @@ public class BeatQualityValidator
 
             // Check for substantial indicators (good indicators)
             bool isSubstantial = SubstantialIndicators.Any(i => cleanBeat.ToLower().Contains(i.ToLower()))
-                || cleanBeat.Length > 100; // Longer beats tend to be more substantial
+                || cleanBeat.Length > 30; // Short concise beats with content are substantial
 
             // Check for specific patterns that indicate substance
             bool hasSpecificContent = cleanBeat.Contains("'") || cleanBeat.Contains("\"")

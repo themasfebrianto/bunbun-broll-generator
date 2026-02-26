@@ -57,9 +57,9 @@ public class OverlayDetectionService : IOverlayDetectionService
             var arabicMatch = Regex.Match(contentBlock, @"\[ARABIC\](?<arabic>.*?)(?=\[|$)", RegexOptions.Singleline);
             var arabic = arabicMatch.Success ? arabicMatch.Groups["arabic"].Value.Trim() : null;
 
-            // Extract the actual spoken text that follows the [MM:SS] timestamp marker
+            // Extract the actual spoken text that follows the [TEXT] marker
             // We want to link the overlay to the beginning of this spoken text block.
-            var textMatch = Regex.Match(contentBlock, @"\[\d{2}:\d{2}\](?<text>.*?)(?=\z)", RegexOptions.Singleline);
+            var textMatch = Regex.Match(contentBlock, @"\[TEXT\](?<text>.*?)(?=\z)", RegexOptions.Singleline);
             var fullText = textMatch.Success ? textMatch.Groups["text"].Value.Trim() : contentBlock.Trim();
 
             // Find the best matching SrtEntry based on the first few words of the fullText

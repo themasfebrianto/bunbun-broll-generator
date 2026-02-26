@@ -79,7 +79,18 @@ public class PromptBuilder
             parts.Add($"Channel: {context.Config.ChannelName}");
 
         if (!string.IsNullOrEmpty(context.Config.Outline))
-            parts.Add($"Outline: {context.Config.Outline}");
+        {
+            parts.Add($"Outline Global: {context.Config.Outline}");
+            
+            // If this is the FIRST phase, explicitly instruct the LLM to use the outline as the hook
+            if (phase.IsFirstPhase)
+            {
+                parts.Add("");
+                parts.Add("🎯 INSTRUKSI KHUSUS UNTUK PHASE 1 (HOOK):");
+                parts.Add("Gunakan Outline Global di atas sebagai HOOK ATAU PEMBUKA SCRIPT.");
+                parts.Add("Jangan langsung melompat ke pembahasan teknis/detail. Mulailah dengan menarasikan ide utama dari outline tersebut secara elegan agar penonton langsung tahu apa isi video ini sejak detik pertama.");
+            }
+        }
 
         if (!string.IsNullOrEmpty(context.Config.SourceReferences))
             parts.Add($"Sumber: {context.Config.SourceReferences}");
@@ -302,31 +313,29 @@ public class PromptBuilder
             "",
             "### FORMAT OUTPUT",
             "",
-            "HANYA tulis Timestamp dan Narasi. TANPA header, label, atau komentar.",
+            "HANYA tulis narasi dan overlay. TANPA timestamp, header, label, atau komentar.",
             "",
-            "Contoh narasi biasa:",
-            "[00:00] Narasi dimulai di sini...",
+            "Contoh narasi biasa (langsung tulis kalimatnya):",
+            "Narasi mengalir di sini tanpa embel-embel...",
             "",
-            "Contoh Text Overlay (Untuk Ayat, Hadits, atau Kutipan Pendek):",
+            "Contoh Overlay (Format WAJIB SERAGAM untuk semua tipe):",
             "[OVERLAY:QuranVerse]",
-            "[ARABIC] بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيمِ",
-            "[REF] Surah Al-Fatiha 1:1",
-            "[00:15] Dengan menyebut nama Allah Yang Maha Pengasih lagi Maha Penyayang.",
+            "[ARABIC] بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيمِ (Opsional)",
+            "[REF] Surah Al-Fatiha 1:1 (Opsional)",
+            "[TEXT] Dengan menyebut nama Allah Yang Maha Pengasih lagi Maha Penyayang.",
             "",
-            "Contoh KeyPhrase Overlay (Kutipan Pendek/Punchy, WAJIB pakai [TEXT]):",
+            "Contoh KeyPhrase Overlay:",
             "[OVERLAY:KeyPhrase]",
             "[TEXT] Musuh Terbesar Adalah Ketakutan",
-            "[00:30] Narasi lengkap di sini yang akan dibacakan oleh voice over...",
             "",
             "PENTING TENTANG OVERLAY:",
-            "1. Teks narasi di bawah tag `OVERLAY` akan DIBACAKAN ALOUD oleh Voice Over.",
-            "2. Khusus untuk Quran/Hadits, Voice Over HANYA membacakan terjemahan Bahasa Indonesianya saja. JADI, jangan tulis teks bahasa Arab di baris narasi!",
-            "3. Teks Arab khusus ditaruh di tag `[ARABIC]` (opsional, tidak dibacakan, hanya untuk ditampilkan di layar).",
-            "4. Referensi ditaruh di tag `[REF]` (opsional, hanya untuk layar).",
-            "5. Tipe overlay yang didukung: QuranVerse, Hadith, RhetoricalQuestion, KeyPhrase.",
-            "6. Untuk KeyPhrase: WAJIB sertakan `[TEXT]` berisi frasa pendek dan punchy (maks 5-8 kata). JANGAN copy paste narasi panjang ke [TEXT].",
+            "1. Teks di tag `[TEXT]` adalah yang akan dibacakan oleh Voice Over ATAU ditampilkan di layar.",
+            "2. Khusus untuk Quran/Hadits, Voice Over HANYA membacakan terjemahan di tag `[TEXT]`.",
+            "3. WAJIB ikuti urutan: OVERLAY -> ARABIC (ops) -> REF (ops) -> TEXT.",
+            "4. Tipe overlay yang didukung: QuranVerse, Hadith, RhetoricalQuestion, KeyPhrase.",
             "",
             "### ⛔ KONSTRAIN FORMAT",
+            "- JANGAN gunakan timestamp ([00:00])",
             "- JANGAN gunakan header (## Judul)",
             "- JANGAN gunakan label [Visual], [Audio], **The Domino Effect**",
             "- JANGAN gunakan meta-comments (instruksi musik/suara)"
