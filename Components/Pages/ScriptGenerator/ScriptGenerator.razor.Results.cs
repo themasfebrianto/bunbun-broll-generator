@@ -179,73 +179,22 @@ public partial class ScriptGenerator
     {
         var sb = new System.Text.StringBuilder();
         var globalOffset = TimeSpan.Zero;
-        // Regex to parse [mm:ss] or [mm:ss.f] or [mm:ss.ff] or [mm:ss.fff]
-        // \d{1,3} : minutes (can be > 99)
-        // \d{2}   : seconds
-        // (?:.(\d{1,3}))? : optional milliseconds part
-        var timestampPattern = new System.Text.RegularExpressions.Regex(@"\[(\d{1,3}):(\d{2})(?:\.(\d{1,3}))?\]", System.Text.RegularExpressions.RegexOptions.Compiled);
 
         foreach (var section in _resultSections.OrderBy(s => s.Order))
         {
             if (string.IsNullOrWhiteSpace(section.Content)) continue;
-            var entries = ParseTimestampedEntries(section.Content, timestampPattern);
 
-            if (entries.Count == 0)
+            // Since we removed [MM:SS] timestamps from the LLM prompt, we must rely entirely on estimation
+            var cleaned = CleanSubtitleText(section.Content);
+            if (!string.IsNullOrWhiteSpace(cleaned))
             {
-                var cleaned = CleanSubtitleText(section.Content);
-                if (!string.IsNullOrWhiteSpace(cleaned))
-                {
-                    var durationSec = EstimateDuration(cleaned);
-                    var duration = TimeSpan.FromSeconds(durationSec);
-                    
-                    var lines = SplitAndTimestampText(cleaned, globalOffset, duration);
-                    foreach(var line in lines) sb.AppendLine(line);
-
-                    globalOffset = globalOffset.Add(duration);
-                }
-                continue;
-            }
-
-            var phaseBase = entries[0].Timestamp;
-            
-            for (int i = 0; i < entries.Count; i++)
-            {
-                var entry = entries[i];
-                var normalizedTime = entry.Timestamp - phaseBase;
-                if (normalizedTime < TimeSpan.Zero) normalizedTime = TimeSpan.Zero;
-                var absoluteTime = globalOffset.Add(normalizedTime);
+                var durationSec = EstimateDuration(cleaned);
+                var duration = TimeSpan.FromSeconds(durationSec);
                 
-                var cleaned = CleanSubtitleText(entry.Text);
-                if (string.IsNullOrWhiteSpace(cleaned)) continue;
-
-                TimeSpan entryDuration;
-                if (i < entries.Count - 1)
-                {
-                     var nextNormalized = entries[i + 1].Timestamp - phaseBase;
-                     if (nextNormalized < TimeSpan.Zero) nextNormalized = TimeSpan.Zero;
-                     entryDuration = nextNormalized - normalizedTime;
-                }
-                else
-                {
-                     entryDuration = TimeSpan.FromSeconds(EstimateDuration(entry.Text));
-                }
-
-                // If duration is too short (e.g. same timestamp), fallback to estimate
-                if (entryDuration.TotalSeconds < 1)
-                     entryDuration = TimeSpan.FromSeconds(EstimateDuration(entry.Text));
-
-                var lines = SplitAndTimestampText(cleaned, absoluteTime, entryDuration);
+                var lines = SplitAndTimestampText(cleaned, globalOffset, duration);
                 foreach(var line in lines) sb.AppendLine(line);
-            }
 
-            // Update globalOffset for next phase
-            if (entries.Count > 0)
-            {
-                var lastEntry = entries.Last();
-                var lastNormTime = lastEntry.Timestamp - phaseBase;
-                if (lastNormTime < TimeSpan.Zero) lastNormTime = TimeSpan.Zero;
-                var lastEntryDuration = TimeSpan.FromSeconds(EstimateDuration(lastEntry.Text));
-                globalOffset = globalOffset.Add(lastNormTime).Add(lastEntryDuration);
+                globalOffset = globalOffset.Add(duration);
             }
         }
 
@@ -408,12 +357,14 @@ public partial class ScriptGenerator
         // Strip overlay tags and their content entirely (these are visual overlay markers, not narration)
         // Remove [OVERLAY:Type] or OVERLAY:Type tags
         result = System.Text.RegularExpressions.Regex.Replace(result, @"\[?OVERLAY:\w+\]?", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-        // Remove [ARABIC] and everything until the next tag or end of line
+        // Remove [ARABIC] and its content entirely since it shouldn't be spoken in the pure narration
         result = System.Text.RegularExpressions.Regex.Replace(result, @"\[?ARABIC\]?:?\s*.*?(?=\[?(?:REF|TEXT|OVERLAY)\]?|$)", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Singleline);
-        // Remove [REF] and its content
+        // Remove [REF] and its content entirely
         result = System.Text.RegularExpressions.Regex.Replace(result, @"(?:\[?REF\]?|\bREF\b)\s*:?\s*.*?(?=\[?(?:TEXT|OVERLAY)\]?|$)", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Singleline);
-        // Remove [TEXT] and its content
-        result = System.Text.RegularExpressions.Regex.Replace(result, @"\[?TEXT\]?\s*:?\s*.*?(?=\[?\d{2}:\d{2}\]?|$)", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Singleline);
+        
+        // For [TEXT], we ONLY want to strip the tag itself, but KEEP the narration text!
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"\[?TEXT\]?\s*:?\s*", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        
         // Clean up any remaining standalone tag remnants
         result = System.Text.RegularExpressions.Regex.Replace(result, @"\[?ARABIC\]?:?", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
         result = System.Text.RegularExpressions.Regex.Replace(result, @"\[?REF\]?:?", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
