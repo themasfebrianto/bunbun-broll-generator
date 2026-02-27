@@ -157,8 +157,11 @@ public class ScriptProcessor : IScriptProcessor
                 text = text.Replace(refMatch.Value, "");
             }
 
-            // Parse [TEXT] tag for explicit display text (used for KeyPhrase short text)
-            var textTagMatch = System.Text.RegularExpressions.Regex.Match(text, @"\[?TEXT\]?\s*:?\s*(.+?)(?=\[?\d{2}:\d{2}\]?|$)", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Singleline);
+            // Parse [TEXT] tag for explicit display text (used for KeyPhrase short text).
+            // We use [ENDTEXT] as an explicit delimiter injected by Broll generator, 
+            // or fallback to end of line / timestamp for legacy data.
+            var textTagMatch = System.Text.RegularExpressions.Regex.Match(text, @"\[?TEXT\]?\s*:?\s*(.+?)(?=\[ENDTEXT\]|\[?$)", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Singleline);
+            
             if (textTagMatch.Success)
             {
                 displayText = textTagMatch.Groups[1].Value.Trim();
@@ -170,6 +173,7 @@ public class ScriptProcessor : IScriptProcessor
             text = System.Text.RegularExpressions.Regex.Replace(text, @"\[?ARABIC\]?:?", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
             text = System.Text.RegularExpressions.Regex.Replace(text, @"\[?REF\]?:?", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
             text = System.Text.RegularExpressions.Regex.Replace(text, @"\[?TEXT\]?:?", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            text = System.Text.RegularExpressions.Regex.Replace(text, @"\[ENDTEXT\]", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
             
             text = text.Trim();
 

@@ -67,7 +67,7 @@ public partial class ScriptGenerator
                 if (!string.IsNullOrWhiteSpace(dto.Reference))
                     marker += $" [REF]{dto.Reference}";
                 if (!string.IsNullOrWhiteSpace(dto.Text))
-                    marker += $" [TEXT]{dto.Text}";
+                    marker += $" [TEXT]{dto.Text}[ENDTEXT]"; // Use [ENDTEXT] to unambiguously delineate
                     
                 entry.Text = $"{marker} {entry.Text}";
             }
