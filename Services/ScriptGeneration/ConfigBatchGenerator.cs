@@ -156,7 +156,7 @@ CRITICAL: Setiap beat HARUS berupa poin SINGKAT (maksimal 10-15 kata).
 Beat adalah outline/peta konten, BUKAN narasi lengkap.
 
 ATURAN:
-1. HOOK PERTAMA: Beat PERTAMA WAJIB merangkum ide utama dari 'Outline' yang diberikan (sebagai pengenalan topik sebelum masuk detail).
+1. HOOK PERTAMA: Beat PERTAMA WAJIB menyajikan sisi PALING GELAP dan MISTERIUS dari topik — bukan sekadar rangkuman, tapi pernyataan yang MENGGUNCANG asumsi penonton. Tuliskan seolah membuka tabir rahasia.
 2. SINGKAT & PADAT: Maks 15 kata per beat. Tulis sebagai poin outline, bukan paragraf.
 3. KONTEN SPESIFIK: Sebutkan nama, angka, tahun, atau sumber konkret di setiap beat.
 4. REFERENSI: Cantumkan QS. X:Y, HR. Nama No.X, Nama Kitab, Tokoh, Tahun.
@@ -184,7 +184,7 @@ Return ONLY this JSON structure (no markdown text):
   ""outline"": ""Ringkasan alur cerita dalam 2-3 kalimat..."",
   ""sourceReferences"": ""QS. Al-Mulk: 1-5, HR. Muslim No. 203, Kitab Al-Bidaya wan Nihaya Vol 3"",
   ""mustHaveBeats"": [
-    ""Hook Pembuka: [Rangkuman dari Outline yang diberikan]"",
+    ""Hook Pembuka: [Pernyataan bombastis dan misterius yang mengguncang — bukan rangkuman datar]"",
     ""Data: angka/statistik spesifik tentang permasalahan"",
     ""QS. X:Y — konteks ayat terkait tema"",
     ""HR. Nama No.X — hadits pendukung argumen"",

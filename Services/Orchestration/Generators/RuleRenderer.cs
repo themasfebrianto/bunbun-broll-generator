@@ -62,8 +62,14 @@ public class RuleRenderer
             "emotionalIntensity" =>
                 $"Intensitas emosional: {value} — buat momen yang menghantam perasaan",
 
+            "dramaticIntensity" when value is "maximum" or "high" =>
+                "INTENSITAS DRAMATIS MAKSIMAL: Buka dengan pernyataan yang mengguncang, gelap, dan penuh misteri. " +
+                "Penonton harus merasa seperti baru menemukan rahasia besar yang seharusnya tidak terungkap. " +
+                "Gunakan suspense intelektual: tahan jawaban, bangun ketegangan, buat mereka HARUS melanjutkan.",
+
             "hookStyle" =>
-                $"Gaya Hook: {value} — mulai dengan cara yang memikat",
+                $"Gaya Hook: {value} — buka dengan pernyataan paling gelap, misterius, dan bombastis tentang topik. " +
+                "Penonton harus merasa terguncang dan penasaran berat sejak kalimat pertama.",
 
             // Metaphor rules
             "mustHaveDarkMetaphor" when value is "true" or "preferred" =>

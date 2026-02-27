@@ -60,10 +60,10 @@ public class PhaseBeatTemplateBuilder
         {
             "opening-hook" => new List<string>
             {
-                "Beat 1: Narasi pembuka panjang yang mengalir - mulai dengan observasi luas tentang dunia yang tampak tenang/normal, lalu perlahan mengarah ke anomali atau paradoks yang tersembunyi. Contoh JI: 'Dunia hari ini terlihat tenang. Layar menyala, pasar bergerak... Tapi di balik itu semua, ada satu titik rapuh...'",
-                "Beat 2: Koneksi ke konteks historis/keagamaan - ceritakan bagaimana peradaban masa lalu menghadapi fenomena serupa (penyembahan berhala), lalu hubungkan ke kondisi masa kini. GUNAKAN kalimat panjang yang mengalir dengan klausa 'yang', 'namun', 'tapi'.",
-                "Beat 3: Pengenalan topik sebagai misteri intelektual - bukan sebagai peringatan moral, tapi sebagai investigasi tentang apa yang sebenarnya terjadi di balik layar/ponsel. Buat audiens penasaran, bukan merasa digurui.",
-                "Beat 4 (Opsional): Reinforcement paradoks - tunjukkan kontras antara apa yang kita kira (kita pengguna bebas) vs realita (kita sedang dimanipulasi)."
+                "Beat 1: PERNYATAAN MENGGUNCANG — buka dengan satu kalimat panjang yang mengungkap sisi gelap/tersembunyi dari topik. Contoh JI: 'Ada satu kebenaran yang sengaja dikubur dari kesadaran publik, yaitu bahwa sistem yang kita percaya sebagai pilar kemajuan ternyata berdiri di atas fondasi yang bisa runtuh kapan saja tanpa peringatan.'",
+                "Beat 2: PARADOKS GELAP — hubungkan fakta historis/keagamaan yang kontras tajam dengan realita hari ini. Gunakan kata-kata berat: 'ironi terbesar', 'tragedi tersembunyi', 'manipulasi sistemik'. BUAT penonton merasa ada sesuatu yang SALAH dengan dunia mereka.",
+                "Beat 3: SUSPENSE INTELEKTUAL — posisikan topik sebagai misteri yang HARUS dipecahkan. Bukan 'mari kita pelajari X' tapi 'ada teka-teki yang jika terpecahkan akan mengubah cara kita memandang seluruh Y'. Bangun urgensi: mengapa ini HARUS diketahui SEKARANG.",
+                "Beat 4 (Opsional): VONIS YANG MENGGANTUNG — akhiri hook dengan pernyataan bombastis yang belum terbukti, menciptakan tension besar: 'Dan jika dugaan ini benar, maka kita semua sedang hidup dalam ilusi yang kita bangun sendiri.'"
             },
             "contextualization" => new List<string>
             {

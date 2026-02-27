@@ -16,27 +16,29 @@
         "max": 200
       },
       "requiredElements": [
-        "Buka dengan SATU kalimat panjang yang langsung masuk narasi dan membangun misteri (tanpa salam di kalimat pertama)",
+        "Buka dengan SATU kalimat panjang yang MENGGUNCANG — sebuah fakta gelap, paradoks tajam, atau vonis yang belum terbukti, yang membuat penonton merasa HARUS tahu kelanjutannya (tanpa salam di kalimat pertama)",
         "Setelah kalimat pembuka selesai, WAJIB sisipkan: 'Assalamualaikum warahmatullahi wabarakatuh.' sebagai kalimat terpisah",
-        "Bangun rasa penasaran sebelum menyebut topik utama secara eksplisit",
-        "Sajikan paradoks atau fakta yang mengguncang asumsi umum",
-        "Posisikan topik sebagai teka-teki intelektual, bukan nasihat moral"
+        "Bangun ketegangan layaknya pembukaan thriller — seolah penonton baru saja menemukan rahasia yang seharusnya tersembunyi",
+        "Sajikan paradoks GELAP atau fakta yang MENGHANCURKAN asumsi umum — bukan sekadar fakta menarik, tapi fakta yang membuat penonton mempertanyakan seluruh pemahamannya",
+        "Gunakan SUSPENSE INTELEKTUAL: tahan jawaban, buat penonton merasa 'apa yang sebenarnya terjadi?' — posisikan topik sebagai misteri yang HARUS dipecahkan"
       ],
       "forbiddenPatterns": [
         "Memulai audio dengan salam sebelum narasi misteri",
         "Kalimat klise seperti 'Bayangkan...' atau 'Pernahkah Anda berpikir...'",
-        "Pembukaan bertele-tele",
+        "Pembukaan bertele-tele atau datar tanpa tension",
         "Pertanyaan retoris lemah",
-        "Kalimat pendek terpisah sebelum kalimat panjang pembuka"
+        "Kalimat pendek terpisah sebelum kalimat panjang pembuka",
+        "Opening yang terasa 'aman' atau 'netral' — harus langsung menghantam"
       ],
-      "guidanceTemplate": "Mulai dengan satu kalimat panjang yang sinematik dan penuh ketegangan. Setelah itu, beri jeda alami lalu ucapkan 'Assalamualaikum warahmatullahi wabarakatuh.' sebagai transisi, kemudian lanjutkan penguncian topik.",
+      "guidanceTemplate": "Mulai dengan satu kalimat panjang yang MENGGUNCANG dan penuh suspense — seolah membuka tabir konspirasi intelektual. Kalimat pertama harus membuat penonton merasa menemukan rahasia gelap. Setelah itu, beri jeda alami lalu ucapkan 'Assalamualaikum warahmatullahi wabarakatuh.' sebagai transisi, kemudian kunci topik dengan pernyataan bombastis yang membangun urgensi.",
       "customRules": {
         "cognitiveDisturbance": "high",
-        "hookStyle": "Investigative Mystery",
+        "dramaticIntensity": "maximum",
+        "hookStyle": "Cinematic Thriller — buka dengan pernyataan paling gelap dan misterius tentang topik",
         "coldOpen": "true",
         "salamPlacement": "after_first_long_sentence"
       },
-      "emotionalArc": "Intrik -> Skeptis -> Ingin Tahu"
+      "emotionalArc": "Terguncang -> Penasaran Berat -> Harus Tahu"
     },
     {
       "id": "contextualization",

@@ -88,7 +88,11 @@ public class PromptBuilder
                 parts.Add("");
                 parts.Add("🎯 INSTRUKSI KHUSUS UNTUK PHASE 1 (HOOK):");
                 parts.Add("Gunakan Outline Global di atas sebagai HOOK ATAU PEMBUKA SCRIPT.");
-                parts.Add("Jangan langsung melompat ke pembahasan teknis/detail. Mulailah dengan menarasikan ide utama dari outline tersebut secara elegan agar penonton langsung tahu apa isi video ini sejak detik pertama.");
+                parts.Add("⚡ BUAT HOOK YANG MENGGUNCANG: Jangan soft opening. Kalimat pertama HARUS membuat penonton merasa menemukan rahasia gelap. " +
+                    "Tulis seolah kamu membuka tabir konspirasi intelektual yang selama ini tersembunyi.");
+                parts.Add("🔥 BOMBASTIS & MISTERIUS: Gunakan kata-kata yang berat dan berbobot — 'menghancurkan', 'runtuh', 'terselubung', 'dimanipulasi', 'terjebak'. " +
+                    "Bukan kata-kata lembut seperti 'menarik' atau 'penting'.");
+                parts.Add("🎬 SUSPENSE: Tahan informasi kunci, bangun ketegangan bertahap dalam satu kalimat panjang, baru ungkap implikasinya di akhir paragraf.");
             }
         }
 
@@ -264,7 +268,11 @@ public class PromptBuilder
 
             parts.Add("❌ JANGAN: 'Bayangkan jika setiap suara notifikasi... Kita sering merasa aman. Menunduk dalam. Khusyuk. Mata tak berkedip...'");
             parts.Add("");
-            parts.Add("KUNCI: Mulai dengan kalimat PANJANG (3-5 klausa) yang mengalir, bukan kalimat pendek terpisah.");
+            parts.Add("✅ CONTOH BOMBASTIS: 'Ada sebuah sistem yang diam-diam mengendalikan cara kita berpikir, berbelanja, bahkan beribadah — dan bagian yang paling mengerikan, sistem itu dirancang agar kita tidak pernah menyadari keberadaannya, melainkan justru membelanya mati-matian seolah itu adalah pilihan bebas kita sendiri.'");
+            parts.Add("");
+            parts.Add("✅ CONTOH MISTERIUS: 'Di suatu titik dalam sejarah yang jarang dibicarakan, sekelompok orang membuat keputusan yang mengubah nasib miliaran manusia untuk selamanya — dan sampai hari ini, hampir tidak ada yang tahu bahwa keputusan itu pernah terjadi.'");
+            parts.Add("");
+            parts.Add("KUNCI: Mulai dengan kalimat PANJANG (3-5 klausa) yang MENGGUNCANG dan penuh suspense. Gunakan kata-kata berat, bukan kalimat pendek terpisah.");
             parts.Add("");
         }
 
