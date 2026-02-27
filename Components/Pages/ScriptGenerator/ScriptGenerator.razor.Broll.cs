@@ -49,65 +49,102 @@ public partial class ScriptGenerator
 
         // 2. Build overlay lookup from expansion result
         var overlayLookup = _expansionResult?.DetectedOverlays ?? new Dictionary<int, TextOverlayDto>();
+        var pauseDurations = _pauseDurations ?? _expansionResult?.PauseDurations ?? new Dictionary<int, double>();
 
-        // 2a. Inject overlay markers back into expanded entries BEFORE merging so MergeToSegments preserves them
-        foreach (var (entryIndex, dto) in overlayLookup)
-        {
-            if (entryIndex < 0 || entryIndex >= _expandedEntries.Count) continue;
-            var entry = _expandedEntries[entryIndex];
-            
-            // Clean up old markers if they exist to prevent duplication or legacy marker format bleeding
-            // This regex strips anything resembling [OVERLAY:...], [ARABIC]..., [REF]..., [TEXT]..., and [ENDTEXT]
-            string cleanText = entry.Text;
-            cleanText = System.Text.RegularExpressions.Regex.Replace(cleanText, @"\[?OVERLAY:\w+\]?\s*", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-            cleanText = System.Text.RegularExpressions.Regex.Replace(cleanText, @"\[?ARABIC\]?:?.*?(?=\[REF\]|\[TEXT\]|$)", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-            cleanText = System.Text.RegularExpressions.Regex.Replace(cleanText, @"\[?REF\]?:?.*?(?=\[TEXT\]|$)", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-            cleanText = System.Text.RegularExpressions.Regex.Replace(cleanText, @"\[?TEXT\]?:?.*?(\[ENDTEXT\]|$)", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-            cleanText = cleanText.Trim();
-            
-            var marker = $"[OVERLAY:{dto.Type}]";
-            if (!string.IsNullOrWhiteSpace(dto.Arabic))
-                marker += $" [ARABIC]{dto.Arabic}";
-            if (!string.IsNullOrWhiteSpace(dto.Reference))
-                marker += $" [REF]{dto.Reference}";
-            if (!string.IsNullOrWhiteSpace(dto.Text))
-                marker += $" [TEXT]{dto.Text}[ENDTEXT]"; // Use [ENDTEXT] to unambiguously delineate
-                
-            entry.Text = $"{marker} {cleanText}";
-        }
+        // 2a. Filter out overlay gap entries that FormatExpandedSrt baked into the SRT.
+        //     When reloading from disk, _expandedEntries may contain these extra entries
+        //     (their text starts with [OVERLAY:...]). We need only the spoken entries.
+        var spokenEntries = _expandedEntries
+            .Where(e => !e.Text.TrimStart().StartsWith("[OVERLAY:", StringComparison.OrdinalIgnoreCase))
+            .ToList();
 
-        // 3. Merge micro-segments (~500) into logical scenes (~50-80) NOW WITH OVERLAYS INTACT
-        var mergedSegments = SrtService.MergeToSegments(_expandedEntries, maxDurationSeconds: 20.0);
+        // 3. Merge micro-segments into logical scenes — spoken text only
+        var mergedSegments = SrtService.MergeToSegments(spokenEntries, maxDurationSeconds: 20.0);
 
-
-        // 4. Convert merged segments to BrollPromptItems
-        int idx = 0;
+        // 4a. Convert merged spoken segments to BrollPromptItems (no overlay attached)
+        var spokenItems = new List<BrollPromptItem>();
         foreach (var (startTime, endTime, timestamp, text) in mergedSegments)
         {
             string textForParsing = text;
-            var overlay = ScriptProcessor.ExtractTextOverlay(ref textForParsing);
-
-            if (overlay != null && string.IsNullOrWhiteSpace(overlay.Text))
-            {
-                overlay.Text = overlay.Type == TextOverlayType.KeyPhrase
-                    ? BunbunBroll.Services.ScriptProcessor.TruncateForKeyPhrase(textForParsing)
-                    : textForParsing;
-            }
+            // Strip any residual overlay markers that may have leaked from the SRT text
+            ScriptProcessor.ExtractTextOverlay(ref textForParsing);
 
             var duration = (endTime - startTime).TotalSeconds;
 
-            _brollPromptItems.Add(new BrollPromptItem
+            spokenItems.Add(new BrollPromptItem
             {
-                Index = idx++,
+                Index = 0, // will be re-assigned after merge
                 Timestamp = timestamp,
                 ScriptText = textForParsing,
-                TextOverlay = overlay,
-                MediaType = overlay != null ? BrollMediaType.BrollVideo : BrollMediaType.ImageGeneration,
+                TextOverlay = null,
+                MediaType = BrollMediaType.ImageGeneration,
                 EstimatedDurationSeconds = duration,
                 StartTimeSeconds = startTime.TotalSeconds,
                 EndTimeSeconds = endTime.TotalSeconds
             });
         }
+
+        // 4b. Create standalone BrollPromptItems for each overlay using gap timestamps.
+        //     Uses pauseDurations (keyed by original entry index) for gap duration, and
+        //     the spoken entry's EndTime for the gap start position.
+        var overlayItems = new List<BrollPromptItem>();
+        foreach (var (entryIndex, dto) in overlayLookup)
+        {
+            if (entryIndex < 0 || entryIndex >= spokenEntries.Count) continue;
+
+            var associatedEntry = spokenEntries[entryIndex];
+
+            // Gap duration comes from _pauseDurations which is always keyed by the original index
+            double gapDurationSec = pauseDurations.TryGetValue(entryIndex, out var pd) ? pd : 0;
+            if (gapDurationSec <= 0) gapDurationSec = 2.0; // fallback minimum for overlay display
+
+            var gapStart = associatedEntry.EndTime;
+            var gapEnd = gapStart.Add(TimeSpan.FromSeconds(gapDurationSec));
+
+            var minutes = (int)gapStart.TotalMinutes;
+            var gapTimestamp = $"[{minutes:D2}:{gapStart.Seconds:D2}.{gapStart.Milliseconds:D3}]";
+
+            // Build the TextOverlay model from the DTO
+            Enum.TryParse<TextOverlayType>(dto.Type, true, out var parsedType);
+            var overlay = new TextOverlay
+            {
+                Type = parsedType,
+                Text = dto.Text ?? string.Empty,
+                ArabicText = dto.Arabic,
+                Reference = dto.Reference,
+                Style = parsedType switch
+                {
+                    TextOverlayType.QuranVerse => TextStyle.Quran,
+                    TextOverlayType.Hadith => TextStyle.Hadith,
+                    TextOverlayType.RhetoricalQuestion => TextStyle.Question,
+                    _ => TextStyle.Default
+                }
+            };
+
+            // Use overlay text or associated script text as the ScriptText for prompt generation
+            var scriptText = !string.IsNullOrWhiteSpace(dto.Text) ? dto.Text : associatedEntry.Text;
+
+            overlayItems.Add(new BrollPromptItem
+            {
+                Index = 0, // will be re-assigned after merge
+                Timestamp = gapTimestamp,
+                ScriptText = scriptText,
+                TextOverlay = overlay,
+                MediaType = BrollMediaType.BrollVideo,
+                EstimatedDurationSeconds = gapDurationSec,
+                StartTimeSeconds = gapStart.TotalSeconds,
+                EndTimeSeconds = gapEnd.TotalSeconds
+            });
+        }
+
+        // 4c. Combine spoken + overlay items, sort by start time, and re-index
+        var allItems = new List<BrollPromptItem>(spokenItems);
+        allItems.AddRange(overlayItems);
+        allItems.Sort((a, b) => a.StartTimeSeconds.CompareTo(b.StartTimeSeconds));
+        for (int i = 0; i < allItems.Count; i++)
+            allItems[i].Index = i;
+
+        _brollPromptItems.AddRange(allItems);
 
         // 5. Save SRT metadata for change detection
         var (entryCount, totalDuration) = ComputeSrtFingerprint();
