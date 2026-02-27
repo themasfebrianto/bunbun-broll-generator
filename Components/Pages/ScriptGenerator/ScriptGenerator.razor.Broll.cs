@@ -66,6 +66,9 @@ public partial class ScriptGenerator
                     marker += $" [ARABIC]{dto.Arabic}";
                 if (!string.IsNullOrWhiteSpace(dto.Reference))
                     marker += $" [REF]{dto.Reference}";
+                if (!string.IsNullOrWhiteSpace(dto.Text))
+                    marker += $" [TEXT]{dto.Text}";
+                    
                 entry.Text = $"{marker} {entry.Text}";
             }
         }

@@ -59,18 +59,19 @@ public class OverlayDetectionService : IOverlayDetectionService
 
             // Extract the actual spoken text that follows the [TEXT] marker
             // We want to link the overlay to the beginning of this spoken text block.
-            var textMatch = Regex.Match(contentBlock, @"\[TEXT\](?<text>.*?)(?=\z)", RegexOptions.Singleline);
+            var textMatch = Regex.Match(contentBlock, @"\[TEXT\]\s*:?\s*(?<text>.*)", RegexOptions.Singleline | RegexOptions.IgnoreCase);
             var fullText = textMatch.Success ? textMatch.Groups["text"].Value.Trim() : contentBlock.Trim();
 
             // Find the best matching SrtEntry based on the first few words of the fullText
-            var words = fullText.Split(new[] { ' ', '\n', '\r', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+            // Clean punctuation first, replace with space
+            var cleanFullTextChars = fullText.Select(c => char.IsPunctuation(c) ? ' ' : c).ToArray();
+            var cleanFullText = new string(cleanFullTextChars);
+            var words = cleanFullText.Split(new[] { ' ', '\n', '\r', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+            
             if (words.Length == 0) continue;
 
             // Just take the first 3-4 words to match the start of the sentence
             var searchPhrase = string.Join(" ", words.Take(Math.Min(4, words.Length))).ToLowerInvariant();
-            
-            // Clean punctuation for better matching
-            searchPhrase = new string(searchPhrase.Where(c => !char.IsPunctuation(c)).ToArray());
 
             int foundIndex = -1;
             for (int i = 0; i < expandedEntries.Count; i++)
@@ -82,11 +83,13 @@ public class OverlayDetectionService : IOverlayDetectionService
                     entryTextRaw += " " + expandedEntries[i + 1].Text;
                 }
                 
-                // Replace all whitespace components (newlines, tabs) with spaces so words don't squash together when stripping punctuation
-                entryTextRaw = Regex.Replace(entryTextRaw, @"\s+", " ");
-                var entryText = new string(entryTextRaw.ToLowerInvariant().Where(c => !char.IsPunctuation(c)).ToArray());
+                // Replace all whitespace components (newlines, tabs) and punctuation with spaces
+                var cleanEntryChars = entryTextRaw.Select(c => char.IsPunctuation(c) ? ' ' : c).ToArray();
+                var cleanEntryText = new string(cleanEntryChars);
+                var entryWords = cleanEntryText.Split(new[] { ' ', '\n', '\r', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+                var entryPhrase = string.Join(" ", entryWords).ToLowerInvariant();
                 
-                if (entryText.Contains(searchPhrase))
+                if (entryPhrase.Contains(searchPhrase))
                 {
                     foundIndex = i;
                     break;
@@ -111,17 +114,18 @@ public class OverlayDetectionService : IOverlayDetectionService
             {
                 // Try a very relaxed search as fallback (just the first two words)
                 var fallbackPhrase = string.Join(" ", words.Take(2)).ToLowerInvariant();
-                fallbackPhrase = new string(fallbackPhrase.Where(c => !char.IsPunctuation(c)).ToArray());
                 
                 for (int i = 0; i < expandedEntries.Count; i++)
                 {
                     var entryTextRaw = expandedEntries[i].Text;
                     if (i < expandedEntries.Count - 1) entryTextRaw += " " + expandedEntries[i + 1].Text;
                     
-                    entryTextRaw = Regex.Replace(entryTextRaw, @"\s+", " ");
-                    var entryText = new string(entryTextRaw.ToLowerInvariant().Where(c => !char.IsPunctuation(c)).ToArray());
+                    var cleanEntryChars = entryTextRaw.Select(c => char.IsPunctuation(c) ? ' ' : c).ToArray();
+                    var cleanEntryText = new string(cleanEntryChars);
+                    var entryWords = cleanEntryText.Split(new[] { ' ', '\n', '\r', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+                    var entryPhrase = string.Join(" ", entryWords).ToLowerInvariant();
                     
-                    if (entryText.Contains(fallbackPhrase))
+                    if (entryPhrase.Contains(fallbackPhrase))
                     {
                         foundIndex = i;
                         break;
