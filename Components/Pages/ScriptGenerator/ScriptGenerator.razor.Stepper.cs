@@ -200,52 +200,10 @@ public partial class ScriptGenerator
 
     private async Task OnExpansionComplete()
     {
+        // Unconditionally regenerate B-roll from SRT when proceeding via the Step 2 button
+        await ResetAndInitializeBrollFromSrt();
         _canProceedToStep3 = true;
-
-        var status = await CheckSrtChangeStatus();
-
-        if (status == SrtChangeStatus.NoBrollData)
-        {
-            RequestConfirmation(
-                "Proceed to B-Roll Prompts",
-                "Ready to generate B-Roll prompts from expanded SRT. Proceed?",
-                async () =>
-                {
-                    await ResetAndInitializeBrollFromSrt();
-                    await GoToStepDirect(2);
-                });
-        }
-        else if (status == SrtChangeStatus.Changed)
-        {
-            var (currentCount, currentDuration) = ComputeSrtFingerprint();
-            RequestConfirmation(
-                "SRT Has Changed",
-                $"⚠️ SRT content has changed since B-Roll prompts were generated.\n\n" +
-                $"Old: {_storedMetadata!.SrtEntryCount} entries, {_storedMetadata.SrtTotalDuration:F1}s\n" +
-                $"New: {currentCount} entries, {currentDuration:F1}s\n\n" +
-                "This will reset ALL B-Roll prompts. Continue?",
-                async () =>
-                {
-                    await ResetAndInitializeBrollFromSrt();
-                    await GoToStepDirect(2);
-                });
-        }
-        else if (status == SrtChangeStatus.LegacyNeedsUpgrade)
-        {
-            RequestConfirmation(
-                "Upgrade Project Lama",
-                "⚠️ Data project versi lama terdeteksi (durasi video 0s).\n\nMengklik Continue akan mereset segment B-Roll untuk mengkalkulasi durasi yang akurat dari SRT. Lanjutkan?",
-                async () =>
-                {
-                    await ResetAndInitializeBrollFromSrt();
-                    _brollWarning = null;
-                    await GoToStepDirect(2);
-                });
-        }
-        else
-        {
-            await GoToStepDirect(2);
-        }
+        await GoToStepDirect(2);
     }
 
     private void OnBrollPromptsComplete()

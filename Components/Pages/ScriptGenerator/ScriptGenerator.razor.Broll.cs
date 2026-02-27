@@ -58,19 +58,25 @@ public partial class ScriptGenerator
         {
             if (entryIndex < 0 || entryIndex >= _expandedEntries.Count) continue;
             var entry = _expandedEntries[entryIndex];
-            // Only inject if not already present
-            if (!entry.Text.Contains("[OVERLAY:", StringComparison.OrdinalIgnoreCase))
-            {
-                var marker = $"[OVERLAY:{dto.Type}]";
-                if (!string.IsNullOrWhiteSpace(dto.Arabic))
-                    marker += $" [ARABIC]{dto.Arabic}";
-                if (!string.IsNullOrWhiteSpace(dto.Reference))
-                    marker += $" [REF]{dto.Reference}";
-                if (!string.IsNullOrWhiteSpace(dto.Text))
-                    marker += $" [TEXT]{dto.Text}[ENDTEXT]"; // Use [ENDTEXT] to unambiguously delineate
-                    
-                entry.Text = $"{marker} {entry.Text}";
-            }
+            
+            // Clean up old markers if they exist to prevent duplication or legacy marker format bleeding
+            // This regex strips anything resembling [OVERLAY:...], [ARABIC]..., [REF]..., [TEXT]..., and [ENDTEXT]
+            string cleanText = entry.Text;
+            cleanText = System.Text.RegularExpressions.Regex.Replace(cleanText, @"\[?OVERLAY:\w+\]?\s*", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            cleanText = System.Text.RegularExpressions.Regex.Replace(cleanText, @"\[?ARABIC\]?:?.*?(?=\[REF\]|\[TEXT\]|$)", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            cleanText = System.Text.RegularExpressions.Regex.Replace(cleanText, @"\[?REF\]?:?.*?(?=\[TEXT\]|$)", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            cleanText = System.Text.RegularExpressions.Regex.Replace(cleanText, @"\[?TEXT\]?:?.*?(\[ENDTEXT\]|$)", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            cleanText = cleanText.Trim();
+            
+            var marker = $"[OVERLAY:{dto.Type}]";
+            if (!string.IsNullOrWhiteSpace(dto.Arabic))
+                marker += $" [ARABIC]{dto.Arabic}";
+            if (!string.IsNullOrWhiteSpace(dto.Reference))
+                marker += $" [REF]{dto.Reference}";
+            if (!string.IsNullOrWhiteSpace(dto.Text))
+                marker += $" [TEXT]{dto.Text}[ENDTEXT]"; // Use [ENDTEXT] to unambiguously delineate
+                
+            entry.Text = $"{marker} {cleanText}";
         }
 
         // 4. Convert merged segments to BrollPromptItems
