@@ -1,0 +1,144 @@
+{
+  "PrimaryLocations": [
+    "Modern automated workspaces",
+    "Andalusian Taifa palaces",
+    "Metaphorical ocean ship",
+    "Abstract digital void"
+  ],
+  "IdentifiedCharacters": [
+    {
+      "Name": "Ibn Khaldun",
+      "Description": "Classical Islamic sociologist and historian",
+      "FirstAppearanceSegment": null
+    },
+    {
+      "Name": "Taifa Rulers",
+      "Description": "Wealthy, complacent kings living in extreme luxury",
+      "FirstAppearanceSegment": null
+    },
+    {
+      "Name": "Modern Humans",
+      "Description": "Passive, isolated individuals staring at screens",
+      "FirstAppearanceSegment": null
+    },
+    {
+      "Name": "Al-Jazari",
+      "Description": "13th-century Muslim engineer and inventor",
+      "FirstAppearanceSegment": null
+    }
+  ],
+  "EraTimeline": [
+    {
+      "StartSegment": 0,
+      "EndSegment": 15,
+      "Era": "21st century modern urban era",
+      "Description": "Rise of AI and automation replacing human purpose"
+    },
+    {
+      "StartSegment": 16,
+      "EndSegment": 25,
+      "Era": "Late Ancient Roman Empire era",
+      "Description": "Historical parallel of civilization decline through luxury (Andalusia)"
+    },
+    {
+      "StartSegment": 26,
+      "EndSegment": 51,
+      "Era": "21st century modern urban era",
+      "Description": "Modern cognitive delegation and the singularity ship metaphor"
+    },
+    {
+      "StartSegment": 52,
+      "EndSegment": 67,
+      "Era": "Metaphysical void era",
+      "Description": "Spiritual reflection on Amal, Istidraj, and human accountability"
+    }
+  ],
+  "MoodBeats": [
+    {
+      "StartSegment": 0,
+      "EndSegment": 15,
+      "Mood": "contemplative",
+      "Description": "Observing the silent takeover of AI and the creeping loss of human purpose",
+      "VisualKeywords": [
+        "glowing screens",
+        "robotic arms",
+        "empty chairs"
+      ],
+      "SuggestedLighting": "SoftAmbient",
+      "SuggestedPalette": "CoolBlue",
+      "SuggestedAngle": null,
+      "VisualRationale": "Cool, sterile lighting and wide shots emphasize the vast, impersonal nature of modern automation"
+    },
+    {
+      "StartSegment": 16,
+      "EndSegment": 25,
+      "Mood": "mysterious",
+      "Description": "Historical reflection on the fall of Andalusia due to extreme luxury and loss of Asabiyyah",
+      "VisualKeywords": [
+        "luxurious palaces",
+        "mercenaries",
+        "crumbling walls"
+      ],
+      "SuggestedLighting": "EtherealGlow",
+      "SuggestedPalette": "WarmEarthy",
+      "SuggestedAngle": null,
+      "VisualRationale": "Warm earthy tones and ethereal glow evoke a sense of lost historical grandeur and nostalgia"
+    },
+    {
+      "StartSegment": 26,
+      "EndSegment": 42,
+      "Mood": "tense",
+      "Description": "Urgent warning about modern cognitive delegation, psychological isolation, and loss of meaning",
+      "VisualKeywords": [
+        "isolated individuals",
+        "digital networks",
+        "shadowy algorithms"
+      ],
+      "SuggestedLighting": "MoodyDark",
+      "SuggestedPalette": "Monochrome",
+      "SuggestedAngle": null,
+      "VisualRationale": "Dark, moody lighting and close-ups highlight the personal psychological toll and existential dread"
+    },
+    {
+      "StartSegment": 43,
+      "EndSegment": 51,
+      "Mood": "epic",
+      "Description": "Metaphorical journey of a ship steered by machines while humans forget how to sail",
+      "VisualKeywords": [
+        "stormy ocean",
+        "automated ship wheel",
+        "passive passengers"
+      ],
+      "SuggestedLighting": "DramaticHighContrast",
+      "SuggestedPalette": "CoolBlue",
+      "SuggestedAngle": null,
+      "VisualRationale": "Dramatic high contrast and wide shots capture the epic scale of the singularity and the ship metaphor"
+    },
+    {
+      "StartSegment": 52,
+      "EndSegment": 67,
+      "Mood": "inspiring",
+      "Description": "Spiritual revelation about Amal, Istidraj, and the ultimate accountability of free will",
+      "VisualKeywords": [
+        "ancient astrolabe",
+        "divine light",
+        "blank dark screen"
+      ],
+      "SuggestedLighting": "GoldenHour",
+      "SuggestedPalette": "GoldenDesert",
+      "SuggestedAngle": null,
+      "VisualRationale": "Golden hour lighting and close-ups create an intimate, hopeful, and spiritually profound conclusion"
+    }
+  ],
+  "RecurringVisuals": [
+    "digital algorithms",
+    "opulent palaces",
+    "swords of mercenaries",
+    "ship steering wheel",
+    "ancient manuscripts",
+    "blank reflective screens"
+  ],
+  "ColorProgression": "Starts with sterile tech blues (automation), shifts to warm earthy golds (history), darkens into moody monochrome (existential crisis), and ends with a stark, reflective golden glow (spiritual awakening)",
+  "Topic": "AI dan Akhir Peradaban: Membaca Ulang Siklus Ibnu Khaldun di Era Otomatisasi",
+  "ExtractedAt": "2026-02-27T00:55:42.352933Z"
+}
