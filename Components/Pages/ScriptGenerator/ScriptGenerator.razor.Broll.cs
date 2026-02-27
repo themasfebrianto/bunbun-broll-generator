@@ -47,13 +47,10 @@ public partial class ScriptGenerator
         _classifyTotalSegments = 0;
         _classifyCompletedSegments = 0;
 
-        // 2. Merge micro-segments (~500) into logical scenes (~50-80)
-        var mergedSegments = SrtService.MergeToSegments(_expandedEntries, maxDurationSeconds: 20.0);
-
-        // 3. Build overlay lookup from expansion result
+        // 2. Build overlay lookup from expansion result
         var overlayLookup = _expansionResult?.DetectedOverlays ?? new Dictionary<int, TextOverlayDto>();
 
-        // 3a. Inject overlay markers back into expanded entries so MergeToSegments preserves them
+        // 2a. Inject overlay markers back into expanded entries BEFORE merging so MergeToSegments preserves them
         foreach (var (entryIndex, dto) in overlayLookup)
         {
             if (entryIndex < 0 || entryIndex >= _expandedEntries.Count) continue;
@@ -78,6 +75,10 @@ public partial class ScriptGenerator
                 
             entry.Text = $"{marker} {cleanText}";
         }
+
+        // 3. Merge micro-segments (~500) into logical scenes (~50-80) NOW WITH OVERLAYS INTACT
+        var mergedSegments = SrtService.MergeToSegments(_expandedEntries, maxDurationSeconds: 20.0);
+
 
         // 4. Convert merged segments to BrollPromptItems
         int idx = 0;

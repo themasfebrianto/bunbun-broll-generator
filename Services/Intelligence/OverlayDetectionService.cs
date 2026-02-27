@@ -59,8 +59,8 @@ public class OverlayDetectionService : IOverlayDetectionService
 
             // Extract the actual spoken text that follows the [TEXT] marker
             // We want to link the overlay to the beginning of this spoken text block.
-            var textMatch = Regex.Match(contentBlock, @"\[TEXT\]\s*:?\s*(?<text>.*)", RegexOptions.Singleline | RegexOptions.IgnoreCase);
-            var fullText = textMatch.Success ? textMatch.Groups["text"].Value.Trim() : contentBlock.Trim();
+            var textMatch = Regex.Match(contentBlock, @"\[TEXT\]\s*:?\s*(?<text>[^\r\n]*)", RegexOptions.IgnoreCase);
+            var fullText = textMatch.Success ? textMatch.Groups["text"].Value.Trim() : contentBlock.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.Trim() ?? string.Empty;
 
             // Find the best matching SrtEntry based on the first few words of the fullText
             // Clean punctuation first, replace with space
