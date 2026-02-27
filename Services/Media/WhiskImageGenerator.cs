@@ -205,13 +205,16 @@ public class WhiskImageGenerator
             prompt = $"{_config.StylePrefix.Trim()}: {prompt}";
 
         // Step 3: PREPEND anti-black-bar rule (image generators prioritize early text)
-        var fullBleedPrefix = "FULL BLEED, no black bars. ";
+        var fullBleedPrefix = "BORDERLESS, edge-to-edge framing, no black bars. ";
 
         // Step 4: Append constraints at the end (more compact format)
         var constraints = new List<string>();
 
         // Anti weird/distorted images (condensed)
         constraints.Add("NO distorted faces, NO surreal anatomy.");
+        
+        // Anti text/watermarks
+        constraints.Add("NO generated text, NO fonts, NO watermarks, NO typography, NO UI elements.");
 
         // Prophet face light enforcement (only when needed)
         if (prompt.Contains("Prophet", StringComparison.OrdinalIgnoreCase) ||

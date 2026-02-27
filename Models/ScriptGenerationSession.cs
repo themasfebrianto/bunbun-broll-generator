@@ -49,7 +49,12 @@ public class ScriptGenerationSession
 
     public List<ScriptGenerationPhase> Phases { get; set; } = new();
 
-    public string OutputDirectory { get; set; } = string.Empty;
+    private string _outputDirectory = string.Empty;
+    public string OutputDirectory
+    {
+        get => _outputDirectory?.Replace('\\', '/') ?? string.Empty;
+        set => _outputDirectory = value?.Replace('\\', '/') ?? string.Empty;
+    }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

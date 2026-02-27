@@ -101,16 +101,26 @@ public class BrollPromptItem
     /// <summary>Download error message if any</summary>
     public string? DownloadError { get; set; }
 
+    private string? _localVideoPath;
     /// <summary>Path to the downloaded video file</summary>
-    public string? LocalVideoPath { get; set; }
+    public string? LocalVideoPath 
+    { 
+        get => _localVideoPath?.Replace('\\', '/'); 
+        set => _localVideoPath = value?.Replace('\\', '/'); 
+    }
 
     // === Phase 2: Whisk Image Generation ===
     
     /// <summary>Status of Whisk image generation for IMAGE_GEN segments</summary>
     public WhiskGenerationStatus WhiskStatus { get; set; } = WhiskGenerationStatus.Pending;
     
+    private string? _whiskImagePath;
     /// <summary>Path to generated Whisk image file</summary>
-    public string? WhiskImagePath { get; set; }
+    public string? WhiskImagePath 
+    { 
+        get => _whiskImagePath?.Replace('\\', '/'); 
+        set => _whiskImagePath = value?.Replace('\\', '/'); 
+    }
     
     /// <summary>Whisk generation error message</summary>
     public string? WhiskError { get; set; }
@@ -129,8 +139,13 @@ public class BrollPromptItem
     /// <summary>Status of video conversion from image</summary>
     public WhiskGenerationStatus WhiskVideoStatus { get; set; } = WhiskGenerationStatus.Pending;
     
+    private string? _whiskVideoPath;
     /// <summary>Path to generated Ken Burns video file</summary>
-    public string? WhiskVideoPath { get; set; }
+    public string? WhiskVideoPath 
+    { 
+        get => _whiskVideoPath?.Replace('\\', '/'); 
+        set => _whiskVideoPath = value?.Replace('\\', '/'); 
+    }
     
     /// <summary>Video conversion error message</summary>
     public string? WhiskVideoError { get; set; }
@@ -140,8 +155,13 @@ public class BrollPromptItem
 
     // === Phase 4: Artistic Video Filter ===
 
+    private string? _filteredVideoPath;
     /// <summary>Path to video file with artistic filter applied (if any)</summary>
-    public string? FilteredVideoPath { get; set; }
+    public string? FilteredVideoPath 
+    { 
+        get => _filteredVideoPath?.Replace('\\', '/'); 
+        set => _filteredVideoPath = value?.Replace('\\', '/'); 
+    }
 
     /// <summary>Whether this segment is currently applying a video filter</summary>
     public bool IsFilteringVideo { get; set; }

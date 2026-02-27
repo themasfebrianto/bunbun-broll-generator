@@ -909,12 +909,15 @@ public partial class ScriptGenerator
 
     private async Task HandleGenerateKenBurnsVideo(BrollPromptItem item)
     {
+        item.FilteredVideoPath = null;
+        StateHasChanged();
+
         await BrollImage.GenerateKenBurnsVideo(item, KenBurnsService, () => StateHasChanged());
         await SaveBrollPromptsToDisk();
 
         if (item.WhiskVideoStatus == WhiskGenerationStatus.Done && item.HasVisualEffect)
         {
-            await Task.Delay(50);
+            await Task.Delay(500);
             await HandleApplyFilterToVideo(item);
         }
     }

@@ -6,7 +6,12 @@ namespace BunbunBroll.Models;
 public class VoSegment
 {
     public int Index { get; set; }
-    public string AudioPath { get; set; } = string.Empty;  // Path to sliced audio file
+    private string _audioPath = string.Empty;
+    public string AudioPath 
+    { 
+        get => _audioPath.Replace('\\', '/'); 
+        set => _audioPath = value?.Replace('\\', '/') ?? string.Empty; 
+    }  // Path to sliced audio file
     public TimeSpan StartTime { get; set; }
     public TimeSpan EndTime { get; set; }
     public double DurationSeconds { get; set; }
@@ -24,8 +29,19 @@ public class VoSliceResult
 {
     public bool IsSuccess { get; set; }
     public List<VoSegment> Segments { get; set; } = new();
-    public string SourceVoPath { get; set; } = string.Empty;
-    public string OutputDirectory { get; set; } = string.Empty;
+    private string _sourceVoPath = string.Empty;
+    public string SourceVoPath 
+    { 
+        get => _sourceVoPath.Replace('\\', '/'); 
+        set => _sourceVoPath = value?.Replace('\\', '/') ?? string.Empty; 
+    }
+
+    private string _outputDirectory = string.Empty;
+    public string OutputDirectory 
+    { 
+        get => _outputDirectory.Replace('\\', '/'); 
+        set => _outputDirectory = value?.Replace('\\', '/') ?? string.Empty; 
+    }
     public int TotalSegments { get; set; }
     public double TotalDurationSeconds { get; set; }
     public double SourceDurationSeconds { get; set; }

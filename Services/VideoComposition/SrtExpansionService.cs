@@ -25,6 +25,7 @@ public class SrtExpansionService : ISrtExpansionService
 
     public async Task<SrtExpansionResult> ExpandCapCutSrtAsync(string capCutSrtPath, string sessionId, string outputDirectory, bool usePadCap = true, double padCapMs = 300.0)
     {
+        outputDirectory = outputDirectory?.Replace('\\', '/');
         var result = new SrtExpansionResult { IsSuccess = false };
 
         try

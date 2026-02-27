@@ -67,6 +67,7 @@ public class VoSlicingService : IVoSlicingService
 
     public async Task<VoSliceResult> SliceVoAsync(string voPath, List<SrtEntry> expandedEntries, string outputDirectory)
     {
+        outputDirectory = outputDirectory?.Replace('\\', '/');
         var result = new VoSliceResult
         {
             SourceVoPath = voPath,
@@ -211,6 +212,7 @@ public class VoSlicingService : IVoSlicingService
 
     public async Task<string> StitchVoAsync(List<VoSegment> segments, Dictionary<int, double> pauseDurations, string outputDirectory)
     {
+        outputDirectory = outputDirectory?.Replace('\\', '/');
         try
         {
             var segmentsDir = Path.Combine(outputDirectory, "vo_segments");

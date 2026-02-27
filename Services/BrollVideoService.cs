@@ -58,6 +58,7 @@ public class BrollVideoService : IBrollVideoService
 
     public async Task<string?> DownloadVideoAsync(BrollPromptItem item, VideoAsset video, IDownloaderService downloader, string? outputDirectory, string? sessionId)
     {
+        outputDirectory = outputDirectory?.Replace('\\', '/');
         if (item.IsDownloading) return null;
 
         try
@@ -89,6 +90,7 @@ public class BrollVideoService : IBrollVideoService
 
     public async Task DownloadAllVideosAsync(List<BrollPromptItem> items, IDownloaderService downloader, string? outputDirectory, string? sessionId, Action? onStateChanged = null)
     {
+        outputDirectory = outputDirectory?.Replace('\\', '/');
         var brollItems = items.Where(i => i.MediaType == BrollMediaType.BrollVideo).ToList();
 
         var videosDir = !string.IsNullOrEmpty(outputDirectory)
@@ -131,6 +133,7 @@ public class BrollVideoService : IBrollVideoService
 
     public async Task ApplyFilterToVideoAsync(BrollPromptItem item, IVideoComposer composer, IDownloaderService downloader, string? outputDirectory, string? sessionId, Action? onStateChanged = null)
     {
+        outputDirectory = outputDirectory?.Replace('\\', '/');
         if (item.IsFilteringVideo) return;
 
         try
@@ -228,6 +231,7 @@ public class BrollVideoService : IBrollVideoService
 
     public async Task ApplyFilterAllVideosAsync(List<BrollPromptItem> items, IVideoComposer composer, IDownloaderService downloader, string? outputDirectory, string? sessionId, Action? onStateChanged = null)
     {
+        outputDirectory = outputDirectory?.Replace('\\', '/');
         var itemsToFilter = items.Where(i => i.HasVisualEffect &&
             (string.IsNullOrEmpty(i.FilteredVideoPath) || !File.Exists(i.FilteredVideoPath)) &&
             !i.IsFilteringVideo).ToList();

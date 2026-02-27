@@ -447,8 +447,8 @@ COMPOSITION RULES (CRITICAL - MUST FOLLOW):
 - Do NOT use words like 'split', 'divided', 'left side / right side', 'juxtapose', 'contrast between two scenes', 'half and half'.
 - If comparing eras, pick ONE era per image, not both.
 - NO ERA BLENDING: Each image must exist in ONE single time period. NEVER combine ancient and modern elements in the same scene.
-- FULL BLEED: The image must fill the entire frame edge-to-edge. NO black bars, NO letterboxing.
-- NO TEXT: Pure visual scene only.
+- BORDERLESS: The image must fill the entire frame edge-to-edge. NO black bars, NO letterboxing.
+- NO TEXT: Pure visual scene only. NO generated text, NO fonts, NO watermarks, NO typography.
 - VISUAL VARIETY (CRITICAL): NEVER repeat the same primary subject as adjacent segments. Cycle through different visual categories: wide landscape/environment, architectural detail, object close-up, atmospheric/sky, interior space, natural element. If the previous segment showed an object (e.g. clay jar), this segment MUST show something different (e.g. wide cave interior, desert landscape, dramatic sky).
 - CAMERA ANGLE PROVIDED: The composition/angle for this shot will be locked via a style suffix. Just describe the scene that fits the scene.
 
